@@ -1,4 +1,4 @@
-# DMSP-ELFIN Conjunction Finder
+# DMSP-ELFIN Conjunction Finder [WIP]
 
 This tool identifies conjunction events between DMSP and ELFIN satellites based on their MLT (Magnetic Local Time) and MLAT (Magnetic Latitude) values.
 
@@ -39,13 +39,11 @@ julia conjunction_finder.jl --dmsp path/to/dmsp_data.gz \
 ## Input Data Format
 
 ### DMSP Data
-The DMSP data is expected in the binary SSJ format as described in the `read_ssj_file.pro` IDL code. The script can read both compressed (.gz) and uncompressed files.
+
+See [DMSP notebook](./notebooks/dmsp.qmd)
 
 ### ELFIN Data
-The ELFIN data should be in CSV format with the following columns:
-- `timestamp`: Time in ISO format (e.g., "2023-01-01T00:00:00") or Unix timestamp
-- `mlt`: Magnetic Local Time in hours (0-24)
-- `mlat`: Magnetic Latitude in degrees (-90 to 90)
+See [ELFIN notebook](./notebooks/elfin.qmd)
 
 ## Output
 
