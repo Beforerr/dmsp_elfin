@@ -1,0 +1,11 @@
+/Manifest.toml
+.vscode
+data
+elfin_data
+
+# pixi environments
+.pixi
+*.egg-info
+.CondaPkg
+
+ssjread

@@ -1,0 +1,84 @@
+Table: File format description for the SSJ data files
+
+| Word | Variable Description, Range, Units | Conversion | Bytes |
+| :--- | :--- | :--- | :--- |
+| 1 | Day of year, 1 to 366, days |  | 2 |
+| 2 | Hour of day, 0 to 23, hours |  | 2 |
+| 3 | Minute of hour, 0 to 59, minutes |  | 2 |
+| 4 | Second of minute, 0 to 59, seconds |  | 2 |
+| 5 | Integer year, 1987 to 2049, years | i-50 | 2 |
+| 6 | Geodetic latitude, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i-4995)/10.0 | 2 |
+| 7 | Geographic longitude, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 8 | Altitude, nautical miles |  | 2 |
+| 9 | Geographic latitude at 110 km altitude and on the same magnetic field line as the DMSP spacecraft, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i - 4995)/10.0 | 2 |
+| 10 | Geographic longitude at 110 km altitude and on the same magnetic field line as the DMSP spacecraft, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 11 | Corrected geomagnetic latitude at 110 km altitude, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i-4995)/10.0 | 2 |
+| 12 | Corrected geomagnetic longitude at 110 km altitude, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 13 | Hour of magnetic local time, 0 to 23, hours |  | 2 |
+| 14 | Minute of hour of magnetic local time, 0 to 59, minutes |  | 2 |
+| 15 | Second of minute of magnetic local time, 0 to 59, seconds |  | 2 |
+| 16 | Hour of day for $1^{\text {st }}$ second of data, 0 to 23, hours |  | 2 |
+| 17 | Minute of hour for $1^{\text {st }}$ second of data, 0 to 59, minutes |  | 2 |
+| 18 | Second of minute for $1^{\text {st }}$ second of data, 0 to 60, seconds | If word 2596 equals 1 then float(i)/1000.0 | 2 |
+| 19 | channel 4, 9450 eV electrons, raw data | See below | 2 |
+| 20 | channel 3, 13900 eV electrons, raw data | See below | 2 |
+| 21 | channel 2, 20400 eV electrons, raw data | See below | 2 |
+| 22 | Channel 1, 30000 eV electrons, raw data | See below | 2 |
+| 23 | channel 8, 2040 eV electrons, raw data | See below | 2 |
+| 24 | channel 7, 3000 eV electrons, raw data | See below | 2 |
+| 25 | channel 6, 4400 eV electrons, raw data | See below | 2 |
+| 26 | channel 5, 6460 eV electrons, raw data | See below | 2 |
+| 27 | channel 12, 646 eV electrons, raw data | See below | 2 |
+| 28 | channel 11, 949 eV electrons, raw data; or status word 1 if SSJ5 data | See below | 2 |
+| 29 | channel 10, 949 eV electrons, raw data | See below | 2 |
+| 30 | channel 9, 1392 eV electrons, raw data | See below | 2 |
+| 31 | channel 16, 139 eV electrons, raw data | See below | 2 |
+| 32 | channel 15, 204 eV electrons, raw data | See below | 2 |
+| 33 | channel 14, 300 eV electrons, raw data | See below | 2 |
+| 34 | channel 13, 440 eV electrons, raw data | See below | 2 |
+| 35 | channel 20, 30 eV electrons, raw data | See below | 2 |
+| 36 | channel 19, 44 eV electrons, raw data | See below | 2 |
+| 37 | channel 18, 65 eV electrons, raw data | See below | 2 |
+| 38 | channel 17, 95 eV electrons, raw data | See below | 2 |
+| 39 | channel 4, 9450 eV ions, raw data | See below | 2 |
+| 40 | channel 3, 13900 eV ions, raw data | See below | 2 |
+| 41 | channel 2,20400 eV ions, raw data | See below | 2 |
+| 42 | channel 1,30000 eV ions, raw data | See below | 2 |
+| 43 | channel 8, 2040 eV ions, raw data | See below | 2 |
+| 44 | channel 7, 3000 eV ions, raw data | See below | 2 |
+| 45 | channel 6, 4400 eV ions, raw data | See below | 2 |
+| 46 | channel 5, 6460 eV ions, raw data | See below | 2 |
+| 47 | channel 12, 646 eV ions, raw data | See below | 2 |
+| 48 | channel 11, 949 eV ions, raw data; or status word 2 if SSJ5 data | See below | 2 |
+| 49 | channel 10, 949 eV ions, raw data | See below | 2 |
+| 50 | channel 9, 1392 eV ions, raw data | See below | 2 |
+| 51 | channel 16, 139 eV ions, raw data | See below | 2 |
+| 52 | channel 15, 204 eV ions, raw data | See below | 2 |
+| 53 | channel 14, 300 eV ions, raw data | See below | 2 |
+| 54 | channel 13, 440 eV ions, raw data | See below | 2 |
+| 55 | channel 20, 30 eV ions, raw data | See below | 2 |
+| 56 | channel 19, 44 eV ions, raw data | See below | 2 |
+| 57 | channel 18, 65 eV ions, raw data | See below | 2 |
+| 58 | channel 17, 95 eV ions, raw data | See below | 2 |
+| 59-101 | Repeat of words 16-58 for 2nd second of data |  | 86 |
+| 102-144 | Repeat of words 16-58 for 3rd second of data |  | 86 |
+| .. .. | .. <br> .. |  |  |
+| 2553-2595 | Repeat of words 16-58 for 60th second of data |  | 86 |
+| 2596 | Set to 1 to indicate that word 18 is in milliseconds, 0 or 1, unitless |  | 2 |
+| 2597-2640 | Zero fill |  | 88 |
+| 2641-5280 | Repeat of words 1-2640 for 2nd minute of data |  | 5280 |
+| 5281-7920 | Repeat of words 1-2640 for 3rd minute of data |  | 5280 |
+| .. .. | .. <br> .. |  |  |
+
+
+```{julia}
+using DmspElfinConjunction
+using DmspElfinConjunction.DMSPReader
+
+
+file = download_dmsp_data("https://www.ncei.noaa.gov/data/dmsp-space-weather-sensors/access/f17/ssj/2020/10/j5f1720288.gz", "data/j5f1720288.gz")
+```
+
+```{julia}
+records = read_dmsp_ssj_records("data/j5f1720288.gz")
+```

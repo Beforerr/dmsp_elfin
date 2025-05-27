@@ -1,0 +1,254 @@
+- [DMSP Space Weather Data Survey](https://dmsp.bc.edu/index.html)
+    - [GENERAL CHARACTERISTICS OF DMSP](https://dmsp.bc.edu/html2/ssiesdmspgeneral.html)
+
+https://cedar.openmadrigal.org/static/experiments3/2020/dms/01jan20/plots/lowlatf18001.html
+https://cedar.openmadrigal.org/static/experiments3/2020/dms/01jan20/plots/f18_20jan01.htm
+
+
+These Instrument Acronyms stand for: (organization responsible for instrument is in parentheses)
+
+SSJ4 - Precipitating Ion and Electron (30ev - 30 KeV) Monitor ( Boston College, ISR)
+SSIE, SSIES, SSIES2, SSIES3 - Thermal Plasma Monitor (Boston College, ISR & Univ of Texas at Dallas)
+SSJSTAR - Penetrating Particle ( > 1 MeV ) Monitor (USAF Research Lab, Space Vehicle Dir.) - a predecessor to the Compact Environmental Anomaly (CEASE) instrument
+SSM - Vector Fluxgate Magnetometer (Boston College, ISR & NASA Goddard Spaceflight Center)
+SSULI - Limb Scanning Ultraviolet Imager/Spectrometer ( Naval Research Lab., Thermospheric and Ionospheric Physics )
+SSUSI - Nadir Scanning Ultraviolet Imager/Spectrometer & Photometer (Johns Hopkins Univ, Applied Physics Lab.)
+
+```
+globalDownload.py --verbose --url=https://cedar.openmadrigal.org/ --outputDir=./data --user_fullname="Zijin+ZHang" --user_email=zijin@ucla.edu --user_affiliation="UCLA" --format="hdf5" --startDate="01/01/2020" --endDate="01/02/2020" --inst=8100 --kindat=10216,10217,10218
+```
+
+- [List of Madrigal instruments](https://cedar.openmadrigal.org/instMetadata)
+- [List of Madrigal kind of data file types](https://cedar.openmadrigal.org/kindatMetadata)
+
+
+```{julia}
+using MadrigalWeb
+```
+
+```{julia}
+using DmspElfinConjunction
+
+dms_ds = read2dimstack("./data/dms_20200101_16e.001.hdf5", ("mlt", "mlat", "el_d_flux", "ion_d_flux"))
+```
+
+
+```{julia}
+using SPEDAS
+using GLMakie
+SPEDAS.DEFAULTS.resample = Int(1e5)
+using SPEDAS.TPlot: set_if_valid!
+dd = (ds.el_d_flux.metadata, ds.ion_d_flux.metadata)
+set_if_valid!.(dd, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
+replace!.((ds.el_d_flux, ds.ion_d_flux), 0 => NaN)
+
+tplot(ds[Ti=DateTime(2020, 1, 1, 0, 38) .. DateTime(2020, 1, 1, 1, 8)])
+```
+
+
+[Defense Meteorological Satellite Program > United States Space Force > Fact Sheets](https://www.spaceforce.mil/About-Us/Fact-Sheets/Article/2197779/defense-meteorological-satellite-program/)
+
+
+- [MITHaystack/madrigalWeb](https://github.com/MITHaystack/madrigalWeb): a pure python module to access data from any Madrigal database
+- [lkilcommons/ssj_auroral_boundary](https://github.com/lkilcommons/ssj_auroral_boundary): Identify boundaries of the aurora with Defense Meteorology Satellite Program (DMSP) electron precipitation
+
+
+[Defense Meteorological Satellite Program (DMSP) | National Centers for Environmental Information (NCEI)](https://www.ncei.noaa.gov/products/satellite/defense-meteorological-satellite-program)
+
+> Each DMSP satellite has a 101 minute, sun-synchronous near-polar orbit at an altitude of 830km above the surface of the earth. The visible and infrared Operational Linescan System (OLS) sensors collect images across a 3000km swath, providing global coverage twice per day. The combination of day/night and dawn/dusk satellites monitors global information such as clouds every six hours. The microwave imager (MI) and sounders (T1, T2) cover one half the width of the visible and infrared swath. These instruments cover polar regions at least twice and the equatorial region once per day. The space environment sensors (J4, M, IES) record along-track plasma densities, velocities, composition and drifts.
+
+
+<a href="https://www.ngdc.noaa.gov/stp/satellite/dmsp/">DMSP Space Environment Data Access | NCEI</a>
+
+- Precipitating Particles (SSJ), Bulk Plasma Parameters (SSIES) and Magnetic Fields (SSM)
+
+
+In this project, we are trying to find conjunction event when DMSP and ELFIN satellites are close to each other. 
+
+By conjunction, we define the difference in MLT $MLT_{DMSP}-MLT_{ELFIN} < d_1$ and and MLAT $MLAT_{DMSP}-MLAT_{ELFIN} < d_2$ is smaller for a period of time $T > T_{min}$. 
+
+
+Instruments
+
+- [DMSP Special Sensor J/4 (SSJ/4) Precipitating Electron and Ion Spectrometer | National Centers for Environmental Information (NCEI)](https://www.ncei.noaa.gov/products/dmsp-j4-precipitating-electron-ion-spectrometer)
+
+[DMSP SSJ/4 Software for APL formatted data files](https://www.ngdc.noaa.gov/stp/satellite/dmsp/)
+
+
+<a href="https://space.oscar.wmo.int/instruments/view/sess_ssusi">WMO OSCAR | Details for Instrument SESS/SSUSI</a>
+
+
+
+```julia
+ (mnemonic = "YEAR", description = "Year (universal time)", isError = 0, units = "y", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "MONTH", description = "Month (universal time)", isError = 0, units = "m", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "DAY", description = "Day (universal time)", isError = 0, units = "d", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "HOUR", description = "Hour (universal time)", isError = 0, units = "h", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "MIN", description = "Minute (universal time)", isError = 0, units = "m", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "SEC", description = "Second (universal time)", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "RECNO", description = "Logical Record Number", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "KINDAT", description = "Kind of data", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "KINST", description = "Instrument Code", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "UT1_UNIX", description = "Unix seconds (1/1/1970) at start", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "UT2_UNIX", description = "Unix seconds (1/1/1970) at end", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "GDLAT", description = "Geodetic latitude of measurement", isError = 0, units = "deg", category = "Geographic Coordinate")
+ (mnemonic = "GLON", description = "Geographic longitude of measurement", isError = 0, units = "deg", category = "Geographic Coordinate")
+ (mnemonic = "GDALT", description = "Geodetic altitude (height)", isError = 0, units = "km", category = "Geographic Coordinate")
+ (mnemonic = "SAT_ID", description = "Satellite id", isError = 0, units = "N/A", category = "Radar Instrument Operation Parameter")
+ (mnemonic = "MLT", description = "Magnetic local time", isError = 0, units = "hour", category = "Time Related Parameter")
+ (mnemonic = "MLAT", description = "Magnetic latitude", isError = 0, units = "deg", category = "Magnetic Coordinate")
+ (mnemonic = "MLONG", description = "Magnetic Longitude", isError = 0, units = "deg", category = "Magnetic Coordinate")
+ (mnemonic = "EL_I_FLUX", description = "Integrated elect num flux (1/cm2s*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "ION_I_FLUX", description = "Integrated ion num flux (1/cm2s*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "EL_I_ENER", description = "Integr elect energy flux (eV/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "ION_I_ENER", description = "Integr ion energy flux (eV/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "EL_M_ENER", description = "Mean electron energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "ION_M_ENER", description = "Mean ion energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "CH_ENERGY", description = "Channel central energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "CH_CTRL_ENER", description = "Channel spacing energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "EL_D_FLUX", description = "Diff electron num flux (1/cm2eVs*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "ION_D_FLUX", description = "Diff ion num flux (1/cm2eVs*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "EL_D_ENER", description = "Diff electron energy flux (1/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "ION_D_ENER", description = "Diff ion energy flux (1/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+```
+
+
+
+```
+							Experiment Notes:
+Catalog information from record 0:                                              
+                                                                                
+KRECC       2001 Catalogue Record, Version 1                                    
+KINSTE     8100 Defense Meteorological Satellite Program                        
+MODEXP    10217                                                                 
+IBYRE       2020 Beginning year                                                 
+IBDTE        101 Beginning month and day                                        
+IBHME          0 Beginning UT hour and minute                                   
+IBCSE          0 Beginning centisecond                                          
+IEYRE       2020 Ending year                                                    
+IEDTE        102 Ending month and day                                           
+IEHME          0 Ending UT hour and minute                                      
+IECSE          0 Ending centisecond                                             
+CPI      Patricia Doherty                                                       
+IBYRT               2020 Beginning year                                         
+IBDTT               0101 Beginning month and day                                
+IBHMT               0000 Beginning UT hour and minute                           
+IBCST               0000 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT               0102 Ending month and day                                   
+IEHMT               0000 Ending UT hour and minute                              
+IECST               0000 Ending centisecond                                     
+                                                                                
+Header information from record 1:                                               
+                                                                                
+KRECH               3002 Header Record, Version 3                               
+KINST     8100 Defense Meteorological Satellite Program                         
+KINDAT    10217 F17 flux/energy values                                          
+CKINDAT This file contains all flux/energy parameters measured on the DMSP      
+CKINDAT spacecraft.                                                             
+CKINDAT This file is all NASA level 1 data - data quality is not included.      
+CKINDAT Background counts have been                                             
+CKINDAT subtracted from these values according to the following algorithm:      
+CKINDAT Looks for a nearly constant                                             
+CKINDAT count rate in the higher energy channels of the electron or ion         
+CKINDAT spectrum. If such a nearly constant                                     
+CKINDAT count rate is found, then that rate plus one sigma of the rate is       
+CKINDAT subtracted from all counts in the                                       
+CKINDAT given spectrum. That background is then cached and used for future      
+CKINDAT measurements that do not fit that                                       
+CKINDAT criteria. If a cached background level is used and too many values      
+CKINDAT would be negative, the background                                       
+CKINDAT is reduced by the average negative value. In any case, counts are       
+CKINDAT never set below zero.                                                   
+IBYRT               2020 Beginning year                                         
+IBDTT                101 Beginning month and day                                
+IBHMT                  0 Beginning UT hour and minute                           
+IBCST                  0 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT                102 Ending month and day                                   
+IEHMT                  0 Ending UT hour and minute                              
+IECST                  0 Ending centisecond                                     
+C 1D Parameters:                                                                
+KODS(0)           54 Magnetic local time                              hour      
+KODS(1)          110 Geodetic altitude (height)                       km        
+KODS(2)          160 Geodetic latitude of measurement                 deg       
+KODS(3)          170 Geographic longitude of measurement              deg       
+KODS(4)          228 Magnetic latitude                                deg       
+KODS(5)          248 Magnetic Longitude                               deg       
+KODS(6)         2172 Integrated elect num flux (1/cm2s*ster)          numFlux   
+KODS(7)         2174 Integrated ion num flux (1/cm2s*ster)            numFlux   
+KODS(8)         2176 Integr elect energy flux (eV/cm2s*ster)          enFlux    
+KODS(9)         2178 Integr ion energy flux (eV/cm2s*ster)            enFlux    
+KODS(10)        2182 Mean electron energy                             eV        
+KODS(11)        2184 Mean ion energy                                  eV        
+KODS(12)        4200 Satellite id                                     N/A       
+C 2D Parameters:                                                                
+KODM(0)         2160 Diff electron num flux (1/cm2eVs*ster)           numFlux   
+KODM(1)         2162 Diff electron energy flux (1/cm2s*ster)          enFlux    
+KODM(2)         2164 Diff ion num flux (1/cm2eVs*ster)                numFlux   
+KODM(3)         2166 Diff ion energy flux (1/cm2s*ster)               enFlux    
+KODM(4)         2168 Channel central energy                           eV        
+KODM(5)         2171 Channel spacing energy                           eV        
+CANALYST Kevin Martin                                                           
+CANDATE  Thu Jan 09 23:26:14 2020 UT                                            
+IBYRT               2020 Beginning year                                         
+IBDTT               0101 Beginning month and day                                
+IBHMT               0000 Beginning UT hour and minute                           
+IBCST               0000 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT               0102 Ending month and day                                   
+IEHMT               0000 Ending UT hour and minute                              
+IECST               0000 Ending centisecond                                     
+                                                                                
+
+Experiment Parameters:
+instrument: Defense Meteorological Satellite Program
+instrument code(s): 8100
+kind of data file: F17 flux/energy values
+kindat code(s): 10217
+start time: 2020-01-01 00:00:00 UT
+end time: 2020-01-02 00:00:00 UT
+Cedar file name: dms_20200101_17e.001.hdf5
+status description: Unknown
+instrument latitude: 0.0
+instrument longitude: 0.0
+instrument altitude: 0.0
+instrument category: Satellite Instruments
+instrument PI: Patricia Doherty
+instrument PI email: Patricia.Doherty@bc.edu
+
+Data Parameters:
+YEAR: Year (universal time), units: y
+MONTH: Month (universal time), units: m
+DAY: Day (universal time), units: d
+HOUR: Hour (universal time), units: h
+MIN: Minute (universal time), units: m
+SEC: Second (universal time), units: s
+RECNO: Logical Record Number, units: N/A
+KINDAT: Kind of data, units: N/A
+KINST: Instrument Code, units: N/A
+UT1_UNIX: Unix seconds (1/1/1970) at start, units: s
+UT2_UNIX: Unix seconds (1/1/1970) at end, units: s
+GDLAT: Geodetic latitude of measurement, units: deg
+GLON: Geographic longitude of measurement, units: deg
+GDALT: Geodetic altitude (height), units: km
+SAT_ID: Satellite id, units: N/A
+MLT: Magnetic local time, units: hour
+MLAT: Magnetic latitude, units: deg
+MLONG: Magnetic Longitude, units: deg
+EL_I_FLUX: Integrated elect num flux (1/cm2s*ster), units: numFlux
+ION_I_FLUX: Integrated ion num flux (1/cm2s*ster), units: numFlux
+EL_I_ENER: Integr elect energy flux (eV/cm2s*ster), units: enFlux
+ION_I_ENER: Integr ion energy flux (eV/cm2s*ster), units: enFlux
+EL_M_ENER: Mean electron energy, units: eV
+ION_M_ENER: Mean ion energy, units: eV
+CH_ENERGY: Channel central energy, units: eV
+CH_CTRL_ENER: Channel spacing energy, units: eV
+EL_D_FLUX: Diff electron num flux (1/cm2eVs*ster), units: numFlux
+ION_D_FLUX: Diff ion num flux (1/cm2eVs*ster), units: numFlux
+EL_D_ENER: Diff electron energy flux (1/cm2s*ster), units: enFlux
+ION_D_ENER: Diff ion energy flux (1/cm2s*ster), units: enFlux
+
+Independent Spatial Parameters:
+mnemonic: ch_energy: description: Channel central energy
+```
