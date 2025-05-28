@@ -25,11 +25,11 @@ YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 [compat]
 CondaPkg = "0.2.29"
 DimensionalData = "0.29.16"
-GLMakie = "0.11.8"
+GLMakie = "0.11"
 HDF5 = "0.17.2"
 NetCDF = "0.12.2"
 Speasy = "0.3.1"
-WGLMakie = "0.11.7"
+WGLMakie = "0.11"
 YAXArrays = "0.6.1"
 
 [sources]

@@ -1,3 +1,11 @@
+
+"""
+
+Reference: 
+
+- [Madrigal Database Documentation](https://cedar.openmadrigal.org/docs/name/madContents.html)
+- [madrigalWeb](https://github.com/MITHaystack/madrigalWeb): a python API to access the Madrigal database
+"""
 module MadrigalWeb
 
 # Write your package code here.
@@ -24,7 +32,10 @@ function __init__()
     PythonCall.pycopy!(MadrigalData, pyimport("madrigalWeb.madrigalWeb").MadrigalData)
 end
 
-function set_default_server(url="https://cedar.openmadrigal.org")
+get_url(server=Default_server[]) = pyconvert(String, server.cgiurl)
+
+function set_default_server(url="https://cedar.openmadrigal.org/")
+    get_url(Default_server[]) == url && return Default_server[]
     Default_server[] = MadrigalData(url)
 end
 
@@ -68,6 +79,7 @@ function download_files(inst, kindat, t0, t1; dir="./data", server=Default_serve
         get_exp_files(server, exp)
     end
     files = filter_by_kindat(files, kindat)
+    mkpath(dir)
     map(files) do file
         path = joinpath(dir, basename(file))
         isfile(path) ? path : downloadFile(server, file, path, user_fullname, user_email, user_affiliation)
