@@ -45,16 +45,33 @@ Download data from Madrigal for each continuous time range
 
 ```{julia}
 using MadrigalWeb
-MadrigalWeb.Default_server[] = MadrigalWeb.MadrigalData("https://cedar.openmadrigal.org")
+using Dates
 MadrigalWeb.set_default_server()
 MadrigalWeb.set_default_user("Zijin+Zhang", "zijin@ucla.edu")
 
 # timeranges_day = sort(collect(Set((floor(t0, Day), ceil(t1, Day)) for (t0, t1) in continuous_ranges)))
+server = MadrigalWeb.Default_server[]
 
 function dmsp_download(timerange, inst=8100, kindat=10216)
     MadrigalWeb.download_files(inst, kindat, timerange...)
 end
-dmsp_download.(continuous_ranges)
+
+id = 16
+dt = DateTime(2021, 1, 2)
+
+function dmsp_download(t::DateTime, id=16, format="hdf5")
+    # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
+    prefix = "/opt/openmadrigal/madroot/experiments3/"
+    _dayofmonth = lpad(dayofmonth(t), 2, '0')
+    _monthabbr = Dates.monthabbr(t) |> lowercase
+    _year = string(Dates.year(t))
+    _yearabbr = _year[3:4]
+    _date = Dates.format(t, "yyyymmdd")
+    filename = prefix * "$(_year)/dms/$(_dayofmonth)$(_monthabbr)$(_yearabbr)/dms_$(_date)_$(id)e.001.$format"
+    MadrigalWeb.downloadFile(filename)
+end
+
+dmsp_download(dt)
 ```
 
 
@@ -62,14 +79,6 @@ dmsp_download.(continuous_ranges)
 
 
 ```{julia}
-const ssc = speasy.inventories.flat_inventories.ssc
-dmspf16_ssc = speasy.inventories.data_tree.ssc.Trajectories.dmspf16
-elfina_ssc = speasy.inventories.data_tree.ssc.Trajectories.elfina
-speasy.inventories.flat_inventories.ssc.parameters.keys()
-
-# mms1_traj = speasy.ssc.get_data(speasy.inventories.data_tree.ssc.Trajectories.mms1, "2018-01-01", "2018-02-01", "gsm")
-# mms1_traj.columns
-
 probe = "b"
 test_timerange = ("2020-01-08", "2020-01-09")
 
@@ -88,49 +97,6 @@ replace!(elx_flux, 0 => NaN)
 
 Interpolate ELFIN position data to 1 second resolution
 
-
-## Convert coordinates to (MLT, MLat, Radius)
-
-```{julia}
-using Aacgm
-using DimensionalData.Dimensions: TimeDim
-using HybridArrays
-using IRBEM
-
-function Aacgm.geo2aacgm(x)
-    ts = times(x)
-    aacgm = Aacgm.geo2aacgm.(eachslice(x, dims=2)..., ts)
-    tdim = Ti(ts)
-    mlat = DimArray(getindex.(aacgm, 1), tdim)
-    mlon = DimArray(getindex.(aacgm, 2), tdim)
-    return DimStack((; mlat, mlon))
-end
-
-function IRBEM.get_mlt(x)
-    ts = times(x)
-    mlt = IRBEM.get_mlt.(eachslice(x, dims=1), ts)
-    tdim = Ti(ts)
-    return DimArray(mlt, tdim)
-end
-
-dmspf16_mlt = get_mlt(dmspf16_geo)
-dmspf16_aacgm = geo2aacgm(dmspf16_geo)
-elx_mlt = get_mlt(elfinx_geo)
-elx_aacgm = geo2aacgm(elfinx_geo)
-```
-
-Compare the MLAT of DMSP from our calculation and the one in the file
-
-```{julia}
-using SPEDAS: tplot
-
-f = Figure()
-dmsp_tvars = (dms_ds.el_d_flux, dms_ds.ion_d_flux, (dmspf16_aacgm.mlat, dms_ds.mlat), (dmspf16_mlt, dms_ds.mlt))
-elx_tvars = (elx_aacgm.mlat, elx_mlt)
-tplot(f[1, 1], dmsp_tvars)
-tplot(f[1, 2], elx_tvars)
-f
-```
 
 
 Overplot the fluxes

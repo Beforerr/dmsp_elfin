@@ -1,7 +1,7 @@
 
 """
 
-Reference: 
+Reference:
 
 - [Madrigal Database Documentation](https://cedar.openmadrigal.org/docs/name/madContents.html)
 - [madrigalWeb](https://github.com/MITHaystack/madrigalWeb): a python API to access the Madrigal database
@@ -35,8 +35,9 @@ end
 get_url(server=Default_server[]) = pyconvert(String, server.cgiurl)
 
 function set_default_server(url="https://cedar.openmadrigal.org/")
+    isdefined(Default_server, :x) || return setindex!(Default_server, MadrigalData(url))
     get_url(Default_server[]) == url && return Default_server[]
-    Default_server[] = MadrigalData(url)
+    return setindex!(Default_server, MadrigalData(url))
 end
 
 function set_default_user(name, email, affiliation=nothing)
@@ -72,7 +73,10 @@ get_kindat(exp) = pyconvert(Int, exp.kindat)
 get_kindatdesc(exp) = pyconvert(String, exp.kindatdesc)
 Base.basename(exp::ExperimentFile) = basename(pyconvert(String, exp.name))
 
-function download_files(inst, kindat, t0, t1; dir="./data", server=Default_server[], user_fullname=User_name[], user_email=User_email[], user_affiliation=User_affiliation[])
+function download_files(inst, kindat, t0, t1; dir="./data",
+    server=Default_server[], user_fullname=User_name[], user_email=User_email[],
+    user_affiliation=User_affiliation[], verbose=false
+)
     t0, t1 = _compat(t0), _compat(t1)
     exps = getExperiments(server, inst, t0, t1)
     files = mapreduce(vcat, exps) do exp
@@ -81,17 +85,22 @@ function download_files(inst, kindat, t0, t1; dir="./data", server=Default_serve
     files = filter_by_kindat(files, kindat)
     mkpath(dir)
     map(files) do file
-        path = joinpath(dir, basename(file))
-        isfile(path) ? path : downloadFile(server, file, path, user_fullname, user_email, user_affiliation)
+        downloadFile(file, server; dir, user_fullname, user_email, user_affiliation)
     end
 end
 
 # MadrigalData Class
-function downloadFile(server, filename, destination, name=User_name[], email=User_email[], affiliation=User_affiliation[], format="hdf5")
-    server.downloadFile(filename, destination, name, email, affiliation, format)
+function downloadFile(filename, destination=nothing;
+    dir="./data", format="hdf5", server=Default_server[],
+    name=User_name[], email=User_email[], affiliation=User_affiliation[]
+)
+    path = @something destination joinpath(dir, basename(filename))
+    isfile(path) ? path : server.downloadFile(filename, path, name, email, affiliation, format)
 end
 
-function downloadFile(server, expFile::ExperimentFile, destination, name=User_name[], email=User_email[], affiliation=User_affiliation[], format="hdf5")
+function downloadFile(expFile::ExperimentFile, server=Default_server[], destination,
+    name=User_name[], email=User_email[], affiliation=User_affiliation[], format="hdf5"
+)
     server.downloadFile(expFile.name, destination, name, email, affiliation, format)
 end
 
