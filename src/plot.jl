@@ -1,3 +1,19 @@
+using SPEDAS.TPlot: set_if_valid!
+
+
+function set_flux_opts!(flux, range=(1e1, 1e6))
+    set_if_valid!(flux.metadata, :yscale => log10, :scale => log10, :colorrange => range)
+    replace!(flux, 0 => NaN)
+    return flux
+end
+
+function set_dmsp_flux_opts!(ds)
+    for f in (ds.el_d_flux, ds.ion_d_flux)
+        flux_opts!(f)
+    end
+    return ds
+end
+
 
 """
     plot_conjunction(event, dmsp_interp, elfin_interp, output_dir="plots")

@@ -29,14 +29,14 @@ using MadrigalWeb
 ```{julia}
 using DmspElfinConjunction
 
-dms_ds = read2dimstack("./data/dms_20200101_16e.001.hdf5", ("mlt", "mlat", "el_d_flux", "ion_d_flux"))
+dms_ds = read2dimstack("./data/dms_20200108_16e.001.hdf5", ("mlt", "mlat", "el_d_flux", "ion_d_flux")) |> set_dmsp_flux_opts!
 ```
 
 
 ```{julia}
 using SPEDAS
 using GLMakie
-SPEDAS.DEFAULTS.resample = Int(1e5)
+SPEDAS.DEFAULTS.resample = Int(1e4)
 using SPEDAS.TPlot: set_if_valid!
 dd = (ds.el_d_flux.metadata, ds.ion_d_flux.metadata)
 set_if_valid!.(dd, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
