@@ -98,11 +98,7 @@ function downloadFile(filename, destination=nothing;
     isfile(path) ? path : server.downloadFile(filename, path, name, email, affiliation, format)
 end
 
-function downloadFile(expFile::ExperimentFile, server=Default_server[], destination,
-    name=User_name[], email=User_email[], affiliation=User_affiliation[], format="hdf5"
-)
-    server.downloadFile(expFile.name, destination, name, email, affiliation, format)
-end
+downloadFile(expFile::ExperimentFile, args...; kw...) = downloadFile(expFile.name, args...; kw...)
 
 function getExperiments(server, code, startyear, startmonth, startday, starthour, startmin, startsec, endyear, endmonth, endday, endhour, endmin, endsec)
     server.getExperiments(code, startyear, startmonth, startday, starthour, startmin, startsec, endyear, endmonth, endday, endhour, endmin, endsec)

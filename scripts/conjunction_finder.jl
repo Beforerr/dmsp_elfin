@@ -217,35 +217,6 @@ function save_results(events_df, stats, output_file="conjunction_events.csv", st
 end
 
 """
-    generate_sample_elfin_data(dmsp_df::DataFrame, output_file::String)
-
-Generate sample ELFIN data based on DMSP data with some offset to create conjunctions.
-"""
-function generate_sample_elfin_data(dmsp_df::DataFrame, output_file::String)
-    println("Generating sample ELFIN data based on DMSP data")
-
-    # Create a copy of DMSP data with some offset to create conjunctions
-    elfin_df = copy(dmsp_df)
-
-    # Add random offsets to create some conjunctions
-    n = nrow(elfin_df)
-
-    # Add slight offset to MLT (with some periods of close conjunction)
-    mlt_offset = 0.5 * sin.(range(0, 4π, length=n))
-    elfin_df.mlt = mod.(elfin_df.mlt .+ mlt_offset, 24)
-
-    # Add slight offset to MLAT (with some periods of close conjunction)
-    mlat_offset = 2.0 * sin.(range(0, 6π, length=n))
-    elfin_df.mlat = elfin_df.mlat .+ mlat_offset
-
-    # Save to CSV
-    CSV.write(output_file, elfin_df)
-    println("Saved sample ELFIN data to $output_file")
-
-    return elfin_df
-end
-
-"""
     parse_commandline()
 
 Parse command line arguments.

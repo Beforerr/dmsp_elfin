@@ -9,22 +9,26 @@ using Speasy
 
 id = 16
 probe = "b"
-test_timerange = ("2020-01-08", "2020-01-09")
+test_timerange = ("2021-01-01", "2021-01-03")
 
-dmsp_x_geo = Speasy.ssc_get_data("dmspf$id", test_timerange..., "geo")
-elfin_x_geo = Speasy.ssc_get_data("elfin$probe", test_timerange..., "geo")
+
+elfin_x_geo = get_data("ssc/elfin$probe/geo", test_timerange...)
+dmsp_xs_geo = map(16:18) do id
+    get_data("ssc/dmspf$id/geo", test_timerange...)
+end
 ```
 
 ### Convert coordinates to (MLT, MLat, Radius)
 
 ```{julia}
-using Aacgm
+using GeoAACGM
 using DimensionalData.Dimensions: TimeDim
 using IRBEM
+using DimensionalData
 
-function Aacgm.geo2aacgm(x)
+function GeoAACGM.geo2aacgm(x)
     ts = times(x)
-    aacgm = Aacgm.geo2aacgm.(eachslice(x, dims=2)..., ts)
+    aacgm = GeoAACGM.geo2aacgm.(eachslice(x, dims=2)..., ts)
     tdim = Ti(ts)
     mlat = DimArray(getindex.(aacgm, 1), tdim)
     mlon = DimArray(getindex.(aacgm, 2), tdim)
@@ -38,14 +42,87 @@ function IRBEM.get_mlt(x)
     return DimArray(mlt, tdim)
 end
 
-dmsp_x_mlt = get_mlt(dmsp_x_geo)
-dmsp_x_aacgm = geo2aacgm(dmsp_x_geo)
+dmsp_xs_mlt = get_mlt.(dmsp_xs_geo)
+dmsp_xs_aacgm = geo2aacgm.(dmsp_xs_geo)
 elx_mlt = get_mlt(elfin_x_geo)
 elx_aacgm = geo2aacgm(elfin_x_geo)
 ```
 
 
+```{julia}
+dist(mlt0::Number, mlt1::Number) = min(mod(mlt0 - mlt1, 24), mod(mlt1 - mlt0, 24))
+dist((mlt0, mlat0), (mlt1, mlat1); dmlt=1, dmlat=8) =
+    ifelse(dist(mlt0, mlt1) < dmlt, 0, 1) *
+    ifelse(abs(mlat0 - mlat1) < dmlat, 0, 1)
+
+dist_exp((mlt0, mlat0), (mlt1, mlat1); dmlt=1, dmlat=8) =
+    (1 - exp(-dist(mlt0, mlt1) / dmlt) *
+         exp(-abs(mlat0 - mlat1) / dmlat))
+
+distances = map(1:3) do id_idx
+    map(1:length(elx_mlt)) do i
+        dist_exp((elx_mlt[i], elx_aacgm.mlat[i]), (dmsp_xs_mlt[id_idx][i], dmsp_xs_aacgm[id_idx].mlat[i]))
+    end
+end
+```
+
+
+```{julia}
+using GLMakie
+
+f = Figure()
+# First axis for normalized MLAT and MLT
+ax1 = Axis(f[1, 1], xlabel="Time", ylabel="Normalized Value", title="ELFIN MLAT and MLT")
+ts = times(elfin_x_geo)
+scatterlines!(ax1, (90 .- elx_aacgm.mlat) ./ 180, label="MLAT (normalized) = (90 - MLAT) / 180")
+scatterlines!(ax1, elx_mlt ./ 24, label="MLT (normalized) = MLT / 24")
+axislegend(ax1, position=:rt)
+
+# Second axis for MLT differences
+ax2 = Axis(f[2, 1], xlabel="Time", ylabel="MLT Difference (normalized)", title="MLT Difference ELFIN vs DMSP")
+foreach(1:3) do id_idx
+    lines!(ax2, dist.(elx_mlt, dmsp_xs_mlt[id_idx]) ./ 24)
+end
+
+# Third axis for MLAT differences
+ax3 = Axis(f[3, 1], xlabel="Time", ylabel="MLAT Difference (normalized)", title="MLAT Difference ELFIN vs DMSP")
+foreach(1:3) do id_idx
+    lines!(ax3, abs.(elx_aacgm.mlat .- dmsp_xs_aacgm[id_idx].mlat) ./ 180)
+end
+
+# Fourth axis for distances
+ax4 = Axis(f[4, 1], xlabel="Time", ylabel="Distance", title="Combined Distance Metric")
+foreach(1:3) do i
+    lines!(ax4, ts, distances[i], label="DMSP F$(i+15)")
+end
+axislegend(ax4, position=:rt)
+
+# Link x-axes so they zoom/pan together
+linkxaxes!(ax1, ax2, ax3, ax4)
+
+f
+```
+
+
 Compare the MLAT of DMSP from our calculation and the one in the file
+
+
+```{julia}
+using GLMakie
+
+norm_times(ts) = (ts .- ts[1]) ./ (ts[end] - ts[1])
+
+f = Figure()
+ax1 = Axis3(f[1, 1], aspect=(2, 1, 1), xlabel="Time", ylabel="MLat", zlabel="MLT")
+
+lines!(ax1, norm_times(times(elfin_x_geo)), parent(elx_aacgm.mlat), parent(elx_mlt), linewidth=4)
+
+for i in 1:length(dmsp_xs_geo)
+    lines!(ax1, norm_times(times(dmsp_xs_geo[i])), parent(dmsp_xs_aacgm[i].mlat), parent(dmsp_xs_mlt[i]))
+end
+
+f
+```
 
 ```{julia}
 using SPEDAS: tplot
