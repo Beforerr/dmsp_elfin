@@ -12,11 +12,14 @@ module MadrigalWeb
 using PythonCall
 using PythonCall: pynew
 using Dates
+using TOML
+using HTTP
+using URIs
 import Base: basename
 
 const madrigalWeb = pynew()
 const MadrigalData = pynew()
-const Default_url = "https://cedar.openmadrigal.org"
+const Default_url = Ref("")
 const Default_server = Ref{Py}()
 const User_name = Ref("MadrigalWeb.jl")
 const User_email = Ref("")
@@ -30,11 +33,26 @@ export filter_by_kindat
 function __init__()
     PythonCall.pycopy!(madrigalWeb, pyimport("madrigalWeb.madrigalWeb"))
     PythonCall.pycopy!(MadrigalData, pyimport("madrigalWeb.madrigalWeb").MadrigalData)
+
+    # Check for .Madrigal.cfg in the user's home directory
+    cfg_path = joinpath(homedir(), ".Madrigal.cfg")
+    if isfile(cfg_path)
+        try
+            config = TOML.parsefile(cfg_path)
+            # Set user information from config
+            haskey(config, "user_name") && (User_name[] = config["user_name"])
+            haskey(config, "user_email") && (User_email[] = config["user_email"])
+            haskey(config, "user_affiliation") && (User_affiliation[] = config["user_affiliation"])
+            haskey(config, "url") && (Default_url[] = config["url"])
+        catch e
+            @warn "Error reading .Madrigal.cfg: $e"
+        end
+    end
 end
 
 get_url(server=Default_server[]) = pyconvert(String, server.cgiurl)
 
-function set_default_server(url="https://cedar.openmadrigal.org/")
+function set_default_server(url=Default_url[])
     isdefined(Default_server, :x) || return setindex!(Default_server, MadrigalData(url))
     get_url(Default_server[]) == url && return Default_server[]
     return setindex!(Default_server, MadrigalData(url))
@@ -92,10 +110,36 @@ end
 # MadrigalData Class
 function downloadFile(filename, destination=nothing;
     dir="./data", format="hdf5", server=Default_server[],
-    name=User_name[], email=User_email[], affiliation=User_affiliation[]
+    name=User_name[], email=User_email[], affiliation=User_affiliation[],
+    verbose=false
 )
+    mkpath(dir)
     path = @something destination joinpath(dir, basename(filename))
-    isfile(path) ? path : server.downloadFile(filename, path, name, email, affiliation, format)
+    # isfile(path) ? path : server.downloadFile(filename, path, name, email, affiliation, format)
+
+    if isfile(path)
+        return path
+    end
+
+    # Get the server URL
+    cgiurl = pyconvert(String, server.cgiurl)
+
+    # Construct the URL similar to the Python implementation
+    fileTypes = Dict("hdf5" => -2, "simple" => -1, "netCDF4" => -3)
+    fileType = get(fileTypes, format, 4)
+
+    # Prepare URL parameters
+    query = Dict(
+        "fileName" => filename,
+        "fileType" => string(fileType),
+        "user_fullname" => replace(name, " " => "+"),
+        "user_email" => email,
+        "user_affiliation" => replace(affiliation, " " => "+")
+    )
+    # Download the file
+    verbose && @info "Downloading $filename to $path"
+    r = HTTP.get(cgiurl * "getMadfile.cgi", query)
+    r.status == 200 ? path : nothing
 end
 
 downloadFile(expFile::ExperimentFile, args...; kw...) = downloadFile(expFile.name, args...; kw...)

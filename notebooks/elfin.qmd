@@ -47,10 +47,8 @@ Download data from Madrigal for each continuous time range
 using MadrigalWeb
 using Dates
 MadrigalWeb.set_default_server()
-MadrigalWeb.set_default_user("Zijin+Zhang", "zijin@ucla.edu")
 
 # timeranges_day = sort(collect(Set((floor(t0, Day), ceil(t1, Day)) for (t0, t1) in continuous_ranges)))
-server = MadrigalWeb.Default_server[]
 
 function dmsp_download(timerange, inst=8100, kindat=10216)
     MadrigalWeb.download_files(inst, kindat, timerange...)
