@@ -46,7 +46,6 @@ Download data from Madrigal for each continuous time range
 ```{julia}
 using MadrigalWeb
 using Dates
-MadrigalWeb.set_default_server()
 
 # timeranges_day = sort(collect(Set((floor(t0, Day), ceil(t1, Day)) for (t0, t1) in continuous_ranges)))
 
@@ -69,7 +68,7 @@ function dmsp_download(t::DateTime, id=16, format="hdf5")
     MadrigalWeb.downloadFile(filename)
 end
 
-dmsp_download(dt)
+dmsp_download(dt, id)
 ```
 
 
@@ -77,7 +76,7 @@ dmsp_download(dt)
 
 
 ```{julia}
-probe = "b"
+robe = "b"
 test_timerange = ("2020-01-08", "2020-01-09")
 
 dmspf16_geo = Speasy.ssc_get_data("dmspf16", test_timerange..., "geo")

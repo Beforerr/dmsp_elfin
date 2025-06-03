@@ -6,7 +6,7 @@ install-julia-deps:
     using Pkg
     Pkg.develop([
         PackageSpec("Speasy"),
-        PackageSpec(path="./MadrigalWeb.jl"),
+        PackageSpec(url="https://github.com/Beforerr/MadrigalWeb.jl"),
         PackageSpec(url="https://github.com/Beforerr/GeoAACGM.jl"),
         PackageSpec(url="https://github.com/Beforerr/PySPEDAS.jl"),
     ])
