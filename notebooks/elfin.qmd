@@ -41,37 +41,6 @@ for (i, (start_time, end_time)) in enumerate(continuous_ranges)
 end
 ```
 
-Download data from Madrigal for each continuous time range
-
-```{julia}
-using MadrigalWeb
-using Dates
-
-# timeranges_day = sort(collect(Set((floor(t0, Day), ceil(t1, Day)) for (t0, t1) in continuous_ranges)))
-
-function dmsp_download(timerange, inst=8100, kindat=10216)
-    MadrigalWeb.download_files(inst, kindat, timerange...)
-end
-
-id = 16
-dt = DateTime(2021, 1, 2)
-
-function dmsp_download(t::DateTime, id=16, format="hdf5")
-    # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
-    prefix = "/opt/openmadrigal/madroot/experiments3/"
-    _dayofmonth = lpad(dayofmonth(t), 2, '0')
-    _monthabbr = Dates.monthabbr(t) |> lowercase
-    _year = string(Dates.year(t))
-    _yearabbr = _year[3:4]
-    _date = Dates.format(t, "yyyymmdd")
-    filename = prefix * "$(_year)/dms/$(_dayofmonth)$(_monthabbr)$(_yearabbr)/dms_$(_date)_$(id)e.001.$format"
-    MadrigalWeb.downloadFile(filename)
-end
-
-dmsp_download(dt, id)
-```
-
-
 ## Loading ELFIN Position Data
 
 

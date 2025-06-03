@@ -12,9 +12,9 @@ probe = "b"
 test_timerange = ("2021-01-01", "2021-01-03")
 
 
-elfin_x_geo = get_data("ssc/elfin$probe/geo", test_timerange...)
+elfin_x_geo = Speasy.get_data("ssc/elfin$probe/geo", tr...)
 dmsp_xs_geo = map(16:18) do id
-    get_data("ssc/dmspf$id/geo", test_timerange...)
+    Speasy.get_data("ssc/dmspf$id/geo", tr...)
 end
 ```
 
@@ -46,6 +46,13 @@ dmsp_xs_mlt = get_mlt.(dmsp_xs_geo)
 dmsp_xs_aacgm = geo2aacgm.(dmsp_xs_geo)
 elx_mlt = get_mlt(elfin_x_geo)
 elx_aacgm = geo2aacgm(elfin_x_geo)
+
+Δmlts = map(1:3) do id_idx
+    elx_mlt .- dmsp_xs_mlt[id_idx]
+end
+Δmlats = map(1:3) do id_idx
+    elx_aacgm.mlat .- dmsp_xs_aacgm[id_idx].mlat
+end
 ```
 
 
@@ -102,6 +109,21 @@ linkxaxes!(ax1, ax2, ax3, ax4)
 
 f
 ```
+
+
+
+```{julia}
+using SPEDAS: tplot
+f1(t0, t1) = tview(elx_aacgm.mlat, t0, t1)
+f2s = map(Δmlts) do Δmlt
+    (t0, t1) -> tview(Δmlt, t0, t1)
+end
+# f3s = map(Δmlats) do Δmlat
+#     (t0, t1) -> tview(Δmlat, t0, t1)
+# end
+tplot((f1, f2s, Δmlats), "2021-01-01", "2021-01-02")
+```
+
 
 
 Compare the MLAT of DMSP from our calculation and the one in the file

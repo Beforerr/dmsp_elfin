@@ -26,9 +26,6 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
-[sources]
-MadrigalWeb = { url = "https://github.com/Beforerr/MadrigalWeb.jl" }
-
 [compat]
 CondaPkg = "0.2.29"
 DimensionalData = "0.29.16"
