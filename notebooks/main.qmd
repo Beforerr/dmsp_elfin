@@ -11,10 +11,11 @@ id = 16
 probe = "b"
 test_timerange = ("2021-01-01", "2021-01-03")
 
-
 elfin_x_geo = Speasy.get_data("ssc/elfin$probe/geo", tr...)
-dmsp_xs_geo = map(16:18) do id
-    Speasy.get_data("ssc/dmspf$id/geo", tr...)
+
+dmsp_dicts = Dict{Symbol,Any}.(:id .=> 16:18)
+foreach(dmsp_dicts) do d
+    d[:geo] = Speasy.get_data("ssc/dmspf$(d[:id])/geo", tr...)
 end
 ```
 
@@ -42,18 +43,39 @@ function IRBEM.get_mlt(x)
     return DimArray(mlt, tdim)
 end
 
-dmsp_xs_mlt = get_mlt.(dmsp_xs_geo)
-dmsp_xs_aacgm = geo2aacgm.(dmsp_xs_geo)
 elx_mlt = get_mlt(elfin_x_geo)
 elx_aacgm = geo2aacgm(elfin_x_geo)
 
-Δmlts = map(1:3) do id_idx
-    elx_mlt .- dmsp_xs_mlt[id_idx]
-end
-Δmlats = map(1:3) do id_idx
-    elx_aacgm.mlat .- dmsp_xs_aacgm[id_idx].mlat
+foreach(dmsp_dicts) do d
+    mlt = get_mlt(d[:geo])
+    aacgm = geo2aacgm(d[:geo])
+    mlat = aacgm.mlat
+    Δmlt = elx_mlt .- mlt
+    Δmlat = elx_aacgm.mlat .- mlat
+    d[:mlt] = rebuild(mlt; metadata=Dict(:label => "MLT DMSP$(d[:id])"))
+    d[:aacgm] = rebuild(aacgm; metadata=Dict(:label => "AACGM DMSP$(d[:id])"))
+    d[:mlat] = rebuild(mlat; metadata=Dict(:label => "MLAT DMSP$(d[:id])"))
+    d[:Δmlt] = rebuild(Δmlt; metadata=Dict(:label => "ΔMLT DMSP$(d[:id])"))
+    d[:Δmlat] = rebuild(Δmlat; metadata=Dict(:label => "ΔMLAT DMSP$(d[:id])"))
+    d
 end
 ```
+
+
+### MLAT and MLT differences
+
+```{julia}
+tvars = (
+    elx_flux,
+    elx_aacgm.mlat,
+    getindex.(dmsp_dicts, :Δmlt),
+    getindex.(dmsp_dicts, :Δmlat),
+)
+
+tplot(tvars, continuous_ranges[1]...)
+```
+
+### Plot distance metrics
 
 
 ```{julia}
@@ -72,7 +94,6 @@ distances = map(1:3) do id_idx
     end
 end
 ```
-
 
 ```{julia}
 using GLMakie
@@ -109,22 +130,6 @@ linkxaxes!(ax1, ax2, ax3, ax4)
 
 f
 ```
-
-
-
-```{julia}
-using SPEDAS: tplot
-f1(t0, t1) = tview(elx_aacgm.mlat, t0, t1)
-f2s = map(Δmlts) do Δmlt
-    (t0, t1) -> tview(Δmlt, t0, t1)
-end
-# f3s = map(Δmlats) do Δmlat
-#     (t0, t1) -> tview(Δmlat, t0, t1)
-# end
-tplot((f1, f2s, Δmlats), "2021-01-01", "2021-01-02")
-```
-
-
 
 Compare the MLAT of DMSP from our calculation and the one in the file
 

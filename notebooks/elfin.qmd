@@ -16,13 +16,24 @@ using PySPEDAS.PythonCall
 using Speasy
 using Dates
 using DimensionalData
+using SPEDAS.TPlot: set_if_valid!
 
 probe = "b"
 tr = ["2021-01-01", "2021-02-01"]
 
 # Load ELFIN EPD data
 epd_ds = elfin.epd(tr; probe, level="l2")
-elx_flux = DimArray(epd_ds.elb_pef_hs_nflux_para)
+elx_flux = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_para)))
+elx_energies = pyconvert(Vector{Float64}, PySPEDAS.get_data("el$(probe)_pef_energies_mean"; xarray=false))
+elx_flux = rebuild(elx_flux, dims=(Ti(parent(elx_flux.dims[1])), Y(elx_energies)))
+
+function set_pytplot_metadata!(da::DimArray)
+    plot_options = da.metadata["plot_options"]
+
+end
+
+set_if_valid!(elx_flux.metadata, :yscale => identity, :scale => log10, :colorrange => (1e3, 1e8))
+replace!(elx_flux, 0 => NaN)
 ```
 
 ## Finding Continuous Time Ranges
@@ -50,15 +61,6 @@ test_timerange = ("2020-01-08", "2020-01-09")
 
 dmspf16_geo = Speasy.ssc_get_data("dmspf16", test_timerange..., "geo")
 elfinx_geo = Speasy.ssc_get_data("elfin$probe", test_timerange..., "geo")
-
-epd_ds = elfin.epd(test_timerange; probe, level="l2")
-elx_flux = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_para)))
-elx_energies = pyconvert(Vector{Float64}, PySPEDAS.get_data("el$(probe)_pef_energies_mean"; xarray=false))
-elx_flux = rebuild(elx_flux, dims=(Ti(parent(elx_flux.dims[1])), Y(elx_energies)))
-
-
-set_if_valid!(elx_flux.metadata, :yscale => identity, :scale => log10, :colorrange => (1e3, 1e8))
-replace!(elx_flux, 0 => NaN)
 ```
 
 Interpolate ELFIN position data to 1 second resolution
