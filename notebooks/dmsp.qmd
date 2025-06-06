@@ -30,17 +30,7 @@ using MadrigalWeb
 Download data from Madrigal for each continuous time range
 
 ```{julia}
-using MadrigalWeb
 using Dates
-
-# timeranges_day = sort(collect(Set((floor(t0, Day), ceil(t1, Day)) for (t0, t1) in continuous_ranges)))
-
-function dmsp_download(timerange, inst=8100, kindat=10216)
-    MadrigalWeb.download_files(inst, kindat, timerange...)
-end
-
-id = 16
-dt = DateTime(2021, 1, 2)
 
 function dmsp_download(t::DateTime, id=16, format="hdf5")
     # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
@@ -51,15 +41,41 @@ function dmsp_download(t::DateTime, id=16, format="hdf5")
     _yearabbr = _year[3:4]
     _date = Dates.format(t, "yyyymmdd")
     filename = prefix * "$(_year)/dms/$(_dayofmonth)$(_monthabbr)$(_yearabbr)/dms_$(_date)_$(id)e.001.$format"
-    MadrigalWeb.downloadFile(filename)
+    MadrigalWeb.download_file(filename)
 end
 
-dmsp_download(dt, id)
+function dmsp_download(timerange, id)
+    files = map(timerange) do t
+        dmsp_download(t, id)
+    end
+    unique(files)
+end
+
+function dmsp_load(timerange, id, params::Vector{String})
+    files = dmsp_download(timerange, id)
+    mapreduce(vcat, files) do file
+        read2dimstack(file, params)
+    end
+end
+
+function dmsp_load(timerange, id, param::String)
+    files = dmsp_download(timerange, id)
+    if length(files) == 1
+        read2dimarray(only(files), param, timerange)
+    else
+        vcat(read2dimarray.(files, param, Ref(timerange))...)
+    end
+end
+
+files = map(valid_ranges_with_ids) do (timerange, ids)
+    dmsp_download.(Ref(timerange), ids)
+end
+# dmsp_download(dt, id)
 ```
 
 ```{julia}
 using DmspElfinConjunction
-
+using HDF5
 
 dms_ds = read2dimstack("./data/dms_20200108_16e.001.hdf5", ("mlt", "mlat", "el_d_flux", "ion_d_flux")) |> set_dmsp_flux_opts!
 ```

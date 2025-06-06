@@ -13,10 +13,12 @@ This document analyzes ELFIN satellite data to find continuous time ranges and p
 using PySPEDAS.Projects
 using PySPEDAS
 using PySPEDAS.PythonCall
+using PySPEDAS: merge_cdf_attributes!
 using Speasy
 using Dates
 using DimensionalData
 using SPEDAS.TPlot: set_if_valid!
+using NaNStatistics
 
 probe = "b"
 tr = ["2021-01-01", "2021-02-01"]
@@ -32,7 +34,9 @@ function set_pytplot_metadata!(da::DimArray)
 
 end
 
-set_if_valid!(elx_flux.metadata, :yscale => identity, :scale => log10, :colorrange => (1e3, 1e8))
+@info nanmaximum(elx_flux)
+
+set_if_valid!(elx_flux.metadata, :yscale => log10, :scale => log10, :colorrange => (1e3, 1e7))
 replace!(elx_flux, 0 => NaN)
 ```
 

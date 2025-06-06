@@ -13,9 +13,10 @@ test_timerange = ("2021-01-01", "2021-01-03")
 
 elfin_x_geo = Speasy.get_data("ssc/elfin$probe/geo", tr...)
 
-dmsp_dicts = Dict{Symbol,Any}.(:id .=> 16:18)
-foreach(dmsp_dicts) do d
-    d[:geo] = Speasy.get_data("ssc/dmspf$(d[:id])/geo", tr...)
+ids = 16:18
+dmsp_dicts = map(ids) do id
+    geo = Speasy.get_data("ssc/dmspf$id/geo", tr...)
+    Dict(:id => id, :geo => geo)
 end
 ```
 
@@ -59,20 +60,56 @@ foreach(dmsp_dicts) do d
     d[:Δmlat] = rebuild(Δmlat; metadata=Dict(:label => "ΔMLAT DMSP$(d[:id])"))
     d
 end
+
+Δmlts = getindex.(dmsp_dicts, :Δmlt)
+Δmlats = getindex.(dmsp_dicts, :Δmlat)
 ```
 
 
 ### MLAT and MLT differences
 
-```{julia}
-tvars = (
-    elx_flux,
-    elx_aacgm.mlat,
-    getindex.(dmsp_dicts, :Δmlt),
-    getindex.(dmsp_dicts, :Δmlat),
-)
+Filter time ranges so that Δmlt < 1 and Δmlat < 8 for at least one DMSP
 
-tplot(tvars, continuous_ranges[1]...)
+```{julia}
+valid_ranges_with_ids = map(continuous_ranges) do ranges
+    # Check which DMSP satellites satisfy the conditions
+    valid_ids = Int[]
+    for (i, (Δmlt, Δmlat)) in enumerate(zip(Δmlts, Δmlats))
+        mlt_condition = any(abs.(tview(Δmlt, ranges...)) .< 1)
+        mlat_condition = any(abs.(tview(Δmlat, ranges...)) .< 8)
+
+        if mlt_condition && mlat_condition
+            push!(valid_ids, ids[i])
+        end
+    end
+    !isempty(valid_ids) ? (range=ranges, ids=valid_ids) : nothing
+end
+
+valid_ranges_with_ids = filter(!isnothing, valid_ranges_with_ids)
+```
+
+```{julia}
+using GLMakie
+
+timerange, ids = valid_ranges_with_ids[4]
+
+
+function plot_elfin_dmsp(timerange, ids)
+    dmsp_fluxs = map(ids) do id
+        dmsp_load(timerange, id, "el_d_flux")
+    end
+    foreach(dmsp_fluxs) do flux
+        set_if_valid!(flux.metadata,
+            :yscale => log10,
+            :scale => log10, :colorrange => (1e1, 1e6)
+        )
+        replace!(flux, 0 => NaN)
+    end
+    tvars = (elx_flux, dmsp_fluxs..., elx_aacgm.mlat, Δmlts, Δmlats)
+    faxs = SPEDAS.tplot(tvars, timerange...)
+    ylims!(faxs.axes[1], 70, 1.1e3)
+    faxs
+end
 ```
 
 ### Plot distance metrics
