@@ -26,18 +26,24 @@ tr = ["2021-01-01", "2021-02-01"]
 # Load ELFIN EPD data
 epd_ds = elfin.epd(tr; probe, level="l2")
 elx_flux = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_para)))
+elx_flux_perp = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_perp)))
 elx_energies = pyconvert(Vector{Float64}, PySPEDAS.get_data("el$(probe)_pef_energies_mean"; xarray=false))
-elx_flux = rebuild(elx_flux, dims=(Ti(parent(elx_flux.dims[1])), Y(elx_energies)))
 
-function set_pytplot_metadata!(da::DimArray)
-    plot_options = da.metadata["plot_options"]
+elx_flux = rebuild(elx_flux, dims=(Ti(parent(elx_flux.dims[1])), Y(elx_energies .* 1e3)))
+elx_flux_perp = rebuild(elx_flux_perp, dims=(Ti(parent(elx_flux_perp.dims[1])), Y(elx_energies .* 1e3)))
 
-end
+merge_cdf_attributes!.((elx_flux, elx_flux_perp))
+set_if_valid!(elx_flux.metadata, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
+set_if_valid!(elx_flux_perp.metadata, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
+replace!.((elx_flux, elx_flux_perp), 0 => NaN)
+```
 
-@info nanmaximum(elx_flux)
+Loading ELFIN State Data
 
-set_if_valid!(elx_flux.metadata, :yscale => log10, :scale => log10, :colorrange => (1e3, 1e7))
-replace!(elx_flux, 0 => NaN)
+```{julia}
+elx_state = elfin.state(tr; probe)
+elx_gei = DimArray(getproperty(elx_state, Symbol(:el, probe, :_pos_gei)))
+elx_gei = set(elx_gei, Dim{:time} => Ti)
 ```
 
 ## Finding Continuous Time Ranges
@@ -58,18 +64,7 @@ end
 
 ## Loading ELFIN Position Data
 
-
-```{julia}
-robe = "b"
-test_timerange = ("2020-01-08", "2020-01-09")
-
-dmspf16_geo = Speasy.ssc_get_data("dmspf16", test_timerange..., "geo")
-elfinx_geo = Speasy.ssc_get_data("elfin$probe", test_timerange..., "geo")
-```
-
 Interpolate ELFIN position data to 1 second resolution
-
-
 
 Overplot the fluxes
 

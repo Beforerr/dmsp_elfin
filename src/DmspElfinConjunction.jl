@@ -3,95 +3,70 @@ module DmspElfinConjunction
 using Dates
 using HDF5
 using JLD2
+using DataFrames, DataFramesMeta
 using DimensionalData
 
 export read2dimarray, read2dimstack
+export get_flux_by_mlat, get_dmsp_flux_by_mlat, get_elfin_flux_by_mlat
+
+using SPEDAS
+using DataInterpolations: ExtrapolationType
+using GeoCotrans
 
 include("DMSP.jl")
+include("hdf5.jl")
+include("AACGM.jl")
+include("fit.jl")
 
-function read_and_select(dset, idxs)
-    if HDF5.ismmappable(dset)
-        # https://github.com/JuliaIO/JLD2.jl/issues/648
-        fdata = HDF5.readmmap(dset)
-        data = Array(selectdim(fdata, 1, idxs))
-    else
-        fdata = read(dset)
-        data = selectdim(fdata, 1, idxs)
+ntime(x) = size(x, 1)
+
+function get_flux_by_mlat(flux, mlat, timerange)
+    # Improve the MLAT resolution by interpolating to 1 second first
+    flux_subset = tview(flux, timerange...)
+    mlat_subset = tview(mlat, timerange...)
+
+    # Define MLAT bins (0.5° resolution)
+    mlat_min = floor(minimum(mlat_subset) * 2) / 2  # Round down to nearest 0.5
+    mlat_max = ceil(maximum(mlat_subset) * 2) / 2   # Round up to nearest 0.5
+    mlat_bins = mlat_min:0.5:mlat_max-0.5
+
+    times = mlat_subset.dims[1]
+
+    res = map(mlat_bins) do bin
+        idxs = findall(x -> bin <= x < bin + 0.5, mlat_subset)
+        min_idx = first(idxs)
+        max_idx = min(last(idxs) + 1, length(times))
+        mlat_t0 = times[min_idx]
+        mlat_t1 = times[max_idx]
+        flux_by_mlat = tview(flux_subset, mlat_t0, mlat_t1)
+        mean_flux = tmean(flux_by_mlat)
+        mlat_t0, mlat_t1, mean_flux, ntime(flux_by_mlat), count(!isnan, mean_flux)
     end
-    return data
+
+    return DataFrame(;
+        mlat=mlat_bins,
+        mlat_t0=getindex.(res, 1),
+        mlat_t1=getindex.(res, 2),
+        flux=getindex.(res, 3),
+        n_time=getindex.(res, 4),
+        nnan_count=getindex.(res, 5)
+    )
 end
 
-function prepare_time_selection(timestamps, timerange)
-    if isnothing(timerange) || !issorted(timestamps)
-        time = unix2datetime.(timestamps)
-        idxs = nothing
-    else
-        idx1 = searchsortedfirst(timestamps, datetime2unix(timerange[1]))
-        idx2 = searchsortedfirst(timestamps, datetime2unix(timerange[2]))
-        idxs = idx1:idx2
-        time = @views unix2datetime.(timestamps[idxs])
-    end
-    return time, idxs
+# higher resolution of MLAT
+function get_elfin_flux_by_mlat(flux, pos_gei, timerange)
+    pos_aacgm = gei2aacgm(tview(pos_gei, timerange...))
+    mlat = pos_aacgm.mlat
+    get_flux_by_mlat(flux, mlat, timerange)
 end
 
-# JLD2 is faster and more memory efficient than HDF5 for reading data but not feature complete
-function read2dimarray(path, param, timerange = nothing)
-    jld_f = jldopen(path)
-    fid = h5open(path)
 
-    params_1d = fid["Data/Array Layout/1D Parameters"]
-    params_2d = fid["Data/Array Layout/2D Parameters"]
-    meta_data_params = read(fid["Metadata/Data Parameters"])
-    meta_idx = findfirst(p -> p.mnemonic == uppercase(param), meta_data_params)
-    metadata = Dict(pairs(meta_data_params[meta_idx]))
-
-    timestamps = jld_f["Data/Array Layout/timestamps"]
-    time, idxs = prepare_time_selection(timestamps, timerange)
-
-    if haskey(params_1d, param)
-        dset = params_1d[param]
-        dims = (Ti(time),)
-    elseif haskey(params_2d, param)
-        ch_energy = jld_f["Data/Array Layout/ch_energy"]
-        dset = params_2d[param]
-        dims = (Ti(time), Y(ch_energy))
-    end
-    data = isnothing(idxs) ? read(dset) : read_and_select(dset, idxs)
-    da = DimArray(data, dims; metadata, name = param)
-    close(fid)
-    close(jld_f)
-    return da
+function get_dmsp_flux_by_mlat(timerange, id)
+    dmsp_flux = dmsp_load(timerange, id, "el_d_flux")
+    dmsp_aacgm = dmsp_get_aacgm(timerange, id)
+    dmsp_mlat_highres = getindex.(dmsp_aacgm, 1)
+    get_flux_by_mlat(dmsp_flux, dmsp_mlat_highres, timerange)
 end
 
-function read2dimstack(path, params = nothing, timerange = nothing)
-    return h5open(path) do fid
-        timestamps = read(fid["Data/Array Layout/timestamps"])
-        ch_energy = read(fid["Data/Array Layout/ch_energy"])
-        y = Y(ch_energy)
-        params_1d = fid["Data/Array Layout/1D Parameters"]
-        params_2d = fid["Data/Array Layout/2D Parameters"]
-        meta_data_params = read(fid["Metadata/Data Parameters"])
-        params = something(params, setdiff(keys(params_1d), ("Data Parameters",)))
-
-        time, idxs = prepare_time_selection(timestamps, timerange)
-        time = Ti(time)
-
-        das = map(String.(params)) do param
-            meta_idx = findfirst(p -> p.mnemonic == uppercase(param), meta_data_params)
-            metadata = Dict(pairs(meta_data_params[meta_idx]))
-            if haskey(params_1d, param)
-                dset = params_1d[param]
-                dims = (time,)
-            elseif haskey(params_2d, param)
-                dset = params_2d[param]
-                dims = (time, y)
-            end
-            data = isnothing(idxs) ? read(dset) : read_and_select(dset, idxs)
-            DimArray(data, dims; metadata, name = param)
-        end
-        metadata = Dict(read(fid["Metadata/Experiment Parameters"]))
-        DimStack(das; metadata)
-    end
-end
 
 end

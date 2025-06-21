@@ -1,4 +1,7 @@
-function dmsp_download(t::DateTime, id = 16, format = "hdf5")
+using MadrigalWeb
+export dmsp_get_aacgm, dmsp_load
+
+function dmsp_download(t::DateTime, id=16, format="hdf5")
     # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
     prefix = "/opt/openmadrigal/madroot/experiments3/"
     _dayofmonth = lpad(dayofmonth(t), 2, '0')
@@ -17,10 +20,10 @@ function dmsp_download(timerange, id)
     return unique(files)
 end
 
-function dmsp_load(timerange, id, params::Vector{String})
+function dmsp_load(timerange, id, params)
     files = dmsp_download(timerange, id)
     return mapreduce(vcat, files) do file
-        read2dimstack(file, params)
+        read2dimstack(file, params, timerange)
     end
 end
 
@@ -31,4 +34,10 @@ function dmsp_load(timerange, id, param::String)
     else
         vcat(read2dimarray.(files, param, Ref(timerange))...)
     end
+end
+
+function dmsp_get_aacgm(timerange, id)
+    dmsp_stack = dmsp_load(timerange, id, ("gdlat", "glon", "gdalt"))
+    times = parent(dims(dmsp_stack, Ti))
+    return geod2aacgm.(dmsp_stack.gdlat, dmsp_stack.glon, dmsp_stack.gdalt, times)
 end
