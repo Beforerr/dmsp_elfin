@@ -43,7 +43,7 @@ YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
 CondaPkg = "0.2.29"
-CurveFit = "1.0.0"
+CurveFit = "1.0.0, 0.6"
 DataFramesMeta = "0.15.4"
 DataInterpolations = "8.0.1"
 DimensionalData = "0.29.16"
