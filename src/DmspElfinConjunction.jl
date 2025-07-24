@@ -8,37 +8,53 @@ using DimensionalData
 
 export read2dimarray, read2dimstack
 export get_flux_by_mlat, get_dmsp_flux_by_mlat, get_elfin_flux_by_mlat
+export integrate_diff_flux
 
 using SPEDAS
+using SPEDAS.TPlot: set_if_valid!
+using PySPEDAS: promote_cdf_attributes!
+using PySPEDAS.Projects
 using DataInterpolations: ExtrapolationType
 using GeoCotrans
 
 include("DMSP.jl")
+include("ELFIN.jl")
 include("hdf5.jl")
 include("AACGM.jl")
 include("fit.jl")
+include("plot.jl")
 
 ntime(x) = size(x, 1)
 
-function get_flux_by_mlat(flux, mlat, timerange)
-    # Improve the MLAT resolution by interpolating to 1 second first
-    flux_subset = tview(flux, timerange...)
-    mlat_subset = tview(mlat, timerange...)
+function integrate_diff_flux(flux)
+    Es = flux.dims[2].val
+    map(eachslice(flux, dims=1)) do slc
+        slc[1] * (Es[2] - Es[1]) +
+        sum(slc[2:end-1] .* (Es[3:end] .- Es[1:end-2]) ./ 2) +
+        slc[end] * (Es[end] - Es[end-1])
+    end
+end
 
+function get_flux_by_mlat(flux, mlat)
+    # TODO: Improve the MLAT resolution by interpolating to 1 second first
     # Define MLAT bins (0.5° resolution)
-    mlat_min = floor(minimum(mlat_subset) * 2) / 2  # Round down to nearest 0.5
-    mlat_max = ceil(maximum(mlat_subset) * 2) / 2   # Round up to nearest 0.5
+    mlat_min = floor(minimum(mlat) * 2) / 2  # Round down to nearest 0.5
+    mlat_max = ceil(maximum(mlat) * 2) / 2   # Round up to nearest 0.5
     mlat_bins = mlat_min:0.5:mlat_max-0.5
 
-    times = mlat_subset.dims[1]
+    times = mlat.dims[1]
 
     res = map(mlat_bins) do bin
-        idxs = findall(x -> bin <= x < bin + 0.5, mlat_subset)
+        idxs = findall(x -> bin <= x < bin + 0.5, mlat)
+        if isempty(idxs)
+            # Return missing or default values if no indices found
+            return (missing, missing, missing, 0, 0)
+        end
         min_idx = first(idxs)
         max_idx = min(last(idxs) + 1, length(times))
         mlat_t0 = times[min_idx]
         mlat_t1 = times[max_idx]
-        flux_by_mlat = tview(flux_subset, mlat_t0, mlat_t1)
+        flux_by_mlat = tview(flux, mlat_t0, mlat_t1)
         mean_flux = tmean(flux_by_mlat)
         mlat_t0, mlat_t1, mean_flux, ntime(flux_by_mlat), count(!isnan, mean_flux)
     end
@@ -51,6 +67,13 @@ function get_flux_by_mlat(flux, mlat, timerange)
         n_time=getindex.(res, 4),
         nnan_count=getindex.(res, 5)
     )
+end
+
+
+function get_flux_by_mlat(flux, mlat, timerange)
+    flux_subset = tview(flux, timerange)
+    mlat_subset = tview(mlat, timerange)
+    get_flux_by_mlat(flux_subset, mlat_subset)
 end
 
 # higher resolution of MLAT

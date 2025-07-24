@@ -70,6 +70,8 @@ This will:
 ## Project Structure
 
 - `conjunction_finder.jl`: Main script for finding conjunctions
-- `DMSPReader.jl`: Module for reading DMSP SSJ data files
-- `ELFINReader.jl`: Module for reading and generating ELFIN data
 - `run.sh`: Convenience script to run the conjunction finder
+
+Archive files:
+
+- `DMSPReader.jl`: Module for reading DMSP SSJ data files

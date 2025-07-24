@@ -7,61 +7,6 @@ engine: julia
 
 This document analyzes ELFIN satellite data to find continuous time ranges and prepare for conjunction analysis with DMSP.
 
-## Loading ELFIN Flux Data
-
-```{julia}
-using PySPEDAS.Projects
-using PySPEDAS
-using PySPEDAS.PythonCall
-using PySPEDAS: merge_cdf_attributes!
-using Speasy
-using Dates
-using DimensionalData
-using SPEDAS.TPlot: set_if_valid!
-using NaNStatistics
-
-probe = "b"
-tr = ["2021-01-01", "2021-02-01"]
-
-# Load ELFIN EPD data
-epd_ds = elfin.epd(tr; probe, level="l2")
-elx_flux = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_para)))
-elx_flux_perp = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_perp)))
-elx_energies = pyconvert(Vector{Float64}, PySPEDAS.get_data("el$(probe)_pef_energies_mean"; xarray=false))
-
-elx_flux = rebuild(elx_flux, dims=(Ti(parent(elx_flux.dims[1])), Y(elx_energies .* 1e3)))
-elx_flux_perp = rebuild(elx_flux_perp, dims=(Ti(parent(elx_flux_perp.dims[1])), Y(elx_energies .* 1e3)))
-
-merge_cdf_attributes!.((elx_flux, elx_flux_perp))
-set_if_valid!(elx_flux.metadata, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
-set_if_valid!(elx_flux_perp.metadata, :yscale => log10, :scale => log10, :colorrange => (1e1, 1e6))
-replace!.((elx_flux, elx_flux_perp), 0 => NaN)
-```
-
-Loading ELFIN State Data
-
-```{julia}
-elx_state = elfin.state(tr; probe)
-elx_gei = DimArray(getproperty(elx_state, Symbol(:el, probe, :_pos_gei)))
-elx_gei = set(elx_gei, Dim{:time} => Ti)
-```
-
-## Finding Continuous Time Ranges
-
-```{julia}
-using SPEDAS
-using SPEDAS: find_continuous_timeranges
-
-continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
-
-# Print the continuous time ranges
-println("Found $(length(continuous_ranges)) continuous time ranges:")
-for (i, (start_time, end_time)) in enumerate(continuous_ranges)
-    duration = end_time - start_time
-    println("Range $i: $start_time to $end_time ($(round(duration, Minute)))")
-end
-```
-
 ## Loading ELFIN Position Data
 
 Interpolate ELFIN position data to 1 second resolution

@@ -3,8 +3,8 @@ function prepare_time_selection(timestamps, timerange)
         time = unix2datetime.(timestamps)
         idxs = nothing
     else
-        idx1 = searchsortedfirst(timestamps, datetime2unix(timerange[1]))
-        idx2 = searchsortedfirst(timestamps, datetime2unix(timerange[2]))
+        idx1 = searchsortedfirst(timestamps, datetime2unix(DateTime(timerange[1])))
+        idx2 = searchsortedlast(timestamps, datetime2unix(DateTime(timerange[2])))
         idxs = idx1:idx2
         time = @views unix2datetime.(timestamps[idxs])
     end
@@ -12,18 +12,31 @@ function prepare_time_selection(timestamps, timerange)
 end
 
 
-function read_and_select(dset, idxs)
-    if HDF5.ismmappable(dset)
-        # https://github.com/JuliaIO/JLD2.jl/issues/648
+function read_and_select(dset::HDF5.Dataset, idxs)
+    if HDF5.iscontiguous(dset)
         fdata = HDF5.readmmap(dset)
-        data = Array(selectdim(fdata, 1, idxs))
+        return Array(selectdim(fdata, 1, idxs))
     else
-        fdata = read(dset)
-        data = selectdim(fdata, 1, idxs)
+        fdata = HDF5.read(dset)
+        return selectdim(fdata, 1, idxs)
     end
-    return data
 end
 
+# https://github.com/JuliaIO/JLD2.jl/issues/648
+function read_and_select(dset::JLD2.Dataset, idxs)
+    fdata = JLD2.readmmap(dset)
+    Array(selectdim(fdata, 1, idxs))
+end
+
+
+function check_hdf_file(path)
+    !isfile(path) && error("File not found: $path")
+    jldopen(path) do fid
+        # Check if the file has the expected structure
+        @info "1D Parameters" fid["Data/Array Layout/1D Parameters"]
+        @info "2D Parameters" fid["Data/Array Layout/2D Parameters"]
+    end
+end
 
 # JLD2 is faster and more memory efficient than HDF5 for reading data but not feature complete
 function read2dimarray(path, param, timerange=nothing)
@@ -45,6 +58,7 @@ function read2dimarray(path, param, timerange=nothing)
     elseif haskey(params_2d, param)
         ch_energy = jld_f["Data/Array Layout/ch_energy"]
         dset = params_2d[param]
+        # dset = JLD2.get_dataset(jld_f, "Data/Array Layout/2D Parameters/$param")
         dims = (Ti(time), Y(ch_energy))
     end
     data = isnothing(idxs) ? read(dset) : read_and_select(dset, idxs)
