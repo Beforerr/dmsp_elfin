@@ -44,7 +44,7 @@ WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
 
 [compat]
-CairoMakie = "0.13.10"
+CairoMakie = "0.13.10, 0.15"
 CondaPkg = "0.2.29"
 CurveFit = "1.0.0"
 DataFramesMeta = "0.15.4"
