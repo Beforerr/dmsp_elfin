@@ -2,7 +2,8 @@ using Makie: heatmap!
 export plot_elfin_dmsp, plot_x_mlat_flux!
 export set_flux_opts!
 
-using SPEDAS.TPlot: set_if_valid!
+import SpacePhysicsMakie
+using SpacePhysicsMakie: set_if_valid!
 
 function set_flux_opts!(flux, range)
     set_if_valid!(flux.metadata, :yscale => log10, :scale => log10, :colorrange => range)
@@ -20,7 +21,7 @@ end
 function plot_x_mlat_flux!(ax, mlat, flux)
     y = flux.dims[2].val
     z = flux.data
-    attrs = SPEDAS.TPlot.heatmap_attributes(flux)
+    attrs = SpacePhysicsMakie.heatmap_attributes(flux)
     heatmap!(ax, mlat, y, z; attrs...)
 end
 
@@ -36,7 +37,7 @@ function plot_elfin_dmsp(timerange, ids)
         replace!(flux, 0 => NaN)
     end
     tvars = (elx_flux, elx_flux_perp, dmsp_fluxs..., elx_mlt, elx_aacgm.mlat, Δmlts, Δmlats)
-    faxs = SPEDAS.tplot(tvars, timerange...)
+    faxs = SpacePhysicsMakie.tplot(tvars, timerange...)
     ylims!.(faxs.axes[1:2], 70, 2e3)
     faxs
 end

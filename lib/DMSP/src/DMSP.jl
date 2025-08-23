@@ -1,7 +1,17 @@
-using Madrigal
-export dmsp_get_aacgm, dmsp_load, dmsp_download
+module DMSP
 
-function dmsp_download(t::DateTime, id=16; format="hdf5")
+using Dates
+using Madrigal
+using DimensionalData
+using GeoCotrans
+using HDF5
+using JLD2
+
+export aacgm, load
+
+include("hdf5.jl")
+
+function download(t::DateTime, id = 16; format = "hdf5")
     # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
     prefix = "/opt/openmadrigal/madroot/experiments3/"
     _dayofmonth = lpad(dayofmonth(t), 2, '0')
@@ -13,25 +23,25 @@ function dmsp_download(t::DateTime, id=16; format="hdf5")
     return Madrigal.download_file(filename)
 end
 
-dmsp_download(t::AbstractString, args...) = dmsp_download(DateTime(t), args...)
+download(t::AbstractString, args...) = download(DateTime(t), args...)
 
-function dmsp_download(timerange, id, args...)
+function download(timerange, id, args...)
     files = map(timerange) do t
-        dmsp_download(t, id, args...)
+        download(t, id, args...)
     end
     return unique(files)
 end
 
-function dmsp_load(timerange, id, params)
-    files = dmsp_download(timerange, id)
+function load(timerange, id, params)
+    files = download(timerange, id)
     sts = map(files) do file
         read2dimstack(file, params, timerange)
     end
-    return cat(sts...; dims=Ti)
+    return cat(sts...; dims = Ti)
 end
 
-function dmsp_load(timerange, id, param::String)
-    files = dmsp_download(timerange, id)
+function load(timerange, id, param::String)
+    files = download(timerange, id)
     return if length(files) == 1
         read2dimarray(only(files), param, timerange)
     else
@@ -39,8 +49,6 @@ function dmsp_load(timerange, id, param::String)
     end
 end
 
-function dmsp_get_aacgm(timerange, id)
-    dmsp_stack = dmsp_load(timerange, id, ("gdlat", "glon", "gdalt"))
-    times = parent(dims(dmsp_stack, Ti))
-    return geod2aacgm.(dmsp_stack.gdlat, dmsp_stack.glon, dmsp_stack.gdalt, times)
+geod(timerange, id) = load(timerange, id, ("gdlat", "glon", "gdalt"))
+
 end

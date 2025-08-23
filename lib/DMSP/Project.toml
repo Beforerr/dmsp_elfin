@@ -1,0 +1,17 @@
+name = "DMSP"
+uuid = "18f86b58-c793-4198-b447-5463fba1ecf3"
+authors = ["Beforerr <zzj956959688@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Madrigal = "30ac0af5-7056-44d2-a45c-266d747295e6"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+
+[compat]
+julia = "1.10"
+HDF5 = "0.17.2"
+JLD2 = "0.5.13"

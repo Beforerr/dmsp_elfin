@@ -1,24 +1,22 @@
 ```{julia}
 using DmspElfinConjunction
-using DmspElfinConjunction: dmsp_load
+using DmspElfinConjunction.ELFIN
+using DMSP
 using Speasy
 using SPEDAS
-using SPEDAS: tplot
+using SpacePhysicsMakie
+using TimeseriesUtilities
+using DataFrames, DataFramesMeta
 using GLMakie
 using CairoMakie
 ```
 
 ```{julia}
-using PySPEDAS.Projects
-using PySPEDAS
-using PySPEDAS.PythonCall
-using PySPEDAS: promote_cdf_attributes!
 using Speasy
 using Dates
 using DimensionalData
-using DataFrames, DataFramesMeta
-using SPEDAS.TPlot: set_if_valid!
-using Statistics, NaNStatistics
+using SpacePhysicsMakie: set_if_valid!
+using NaNStatistics
 ```
 
 ## Example demo
@@ -30,26 +28,34 @@ probe = "a"
 trange = ["2022-07-02", "2022-07-03"]
 
 # Load ELFIN EPD data
-elx_flux = get_elfin_precipitating_flux(trange, probe)
-elx_gei = get_elfin_gei(trange, probe)
+elx_flux = ELFIN.precipitating_flux(trange, probe)
+elx_gei = ELFIN.gei(trange, probe)
 elx_gei = tinterp(elx_gei, elx_flux.anti)
 elx_aacgm = gei2aacgm(elx_gei)
 elx_mlat = elx_aacgm.mlat
 
-dmsp_flux = dmsp_load(trange, 16, "el_d_flux")
-dmsp_aacgm = dmsp_get_aacgm(trange, 16)
-dmsp_mlat = getindex.(dmsp_aacgm, 1)
-dmsp_flux = set(dmsp_flux, Y => dims(dmsp_flux, Y).val .* 1e-3)
-dmsp_flux *= 1e6
-set_if_valid!(dmsp_flux.metadata,
-    :yscale => log10, :ylabel => "Energy", :yunit => "keV",
-    :scale => log10,
-    :colorrange => (1e3, 1e8)
-)
-replace!(dmsp_flux, 0 => NaN)
+dmsp_flux = DMSP.load(trange, 16, "el_d_flux")
+@info dmsp_flux.dims[2].val.metadata
+dmsp_geod = DMSP.geod(trange, 16)
+dmsp_aacgm = geod2aacgm(dmsp_geod)
+dmsp_mlat = dmsp_aacgm.mlat
 
-elx_mlat = SPEDAS.set_meta(elx_mlat, :label => "ELFIN")
-set_if_valid!(dmsp_mlat.metadata, :label => "DMSP")
+# use keV as the basic unit for energy dimension
+dmsp_flux = set(dmsp_flux, Y => dims(dmsp_flux, Y).val .* 1e-3)
+# set the flux unit to 1/cm²/s/sr/MeV
+dmsp_flux *= 1e6
+set_if_valid!(dmsp_flux.metadata, :yunit => "keV", :description => "Diff electron num flux (1/cm^2/s/sr/MeV)")
+replace!(dmsp_flux, 0 => NaN)
+```
+
+```{julia}
+for x in (elx_flux.para, elx_flux.anti, elx_flux.prec, dmsp_flux)
+    set_if_valid!(x.metadata,
+        :yscale => log10, :ylabel => "Energy (keV)", :colorscale => log10, :colorrange => (1e3, 1e11)
+    )
+end
+elx_mlat = SPEDAS.setmeta(elx_mlat, :label => "ELFIN")
+set_if_valid!(dmsp_mlat.metadata, :labels => "DMSP")
 
 trial_tr = ["2022-07-02T04:50", "2022-07-02T05:20"]
 zoom_tr = timerange(tview(elx_flux.para, trial_tr))
@@ -67,10 +73,6 @@ f = Figure()
 
 ax1 = Axis(f[1, 1]; yscale=log10, ylabel="Energy (keV)")
 ax2 = Axis(f[2, 1]; yscale=log10, ylabel="Energy (keV)")
-
-for da in (dmsp_flux, elx_flux.prec)
-    set_if_valid!(da.metadata, :colorrange => (1e3, 1e11))
-end
 
 p1 = plot_x_mlat_flux!(ax1, tview(elx_mlat, zoom_tr), tview(elx_flux.prec, zoom_tr))
 p2 = plot_x_mlat_flux!(ax2, tview(dmsp_mlat, trial_tr), tview(dmsp_flux, trial_tr))
@@ -360,6 +362,40 @@ function fit_flux_sciml(row, model)
     # alg = NonlinearSolve.LevenbergMarquardt()
     sol = solve(prob, alg)
 end
+
+
+function two_step_fit_flux(row, model)
+    elx_flux = row.flux ./ 1e6
+    elx_energies = elx_flux.dims[1].val
+    dmsp_flux = row.flux_1
+    dmsp_energies = dmsp_flux.dims[1].val
+
+    # Combine and filter out NaN values
+    # ignore the last channel of dmsp_flux
+    flux_all = vcat(parent(dmsp_flux)[1:end-1], parent(elx_flux))
+    energies = vcat(dmsp_energies[1:end-1], elx_energies)
+    valid_idx = .!isnan.(flux_all) .& .!isnan.(energies)
+    flux_all = flux_all[valid_idx]
+    energies = energies[valid_idx]
+
+    # first fit energy below 10^3 eV with log_plec_model
+    Emin = 1e3
+    flux_all_1 = flux_all[energies.<Emin]
+    energies_1 = energies[energies.<Emin]
+    p0 = init_guess(log_plec_model, energies_1, flux_all_1)
+    prob = NonlinearCurveFitProblem(log_plec_model, p0, energies_1, log10.(flux_all_1))
+    alg = NonlinearSolve.TrustRegion()
+    sol = solve(prob, alg)
+
+    # second fit the remaining flux of energy above 10^3 eV with log_sbpl_model
+    δflux = flux_all[energies.>=Emin]
+    δenergies = energies[energies.>=Emin]
+    p0 = init_guess(log_sbpl_model, δenergies, δflux)
+    prob = NonlinearCurveFitProblem(log_sbpl_model, p0, δenergies, log10.(δflux))
+    alg = NonlinearSolve.TrustRegion()
+    sol = solve(prob, alg)
+end
+
 ```
 
 
