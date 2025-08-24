@@ -1,7 +1,6 @@
 using Makie: heatmap!, Axis
 export plot_elfin_dmsp, plot_spectra
 export plot_flux_by_mlat, plot_flux_by_mlat
-export set_flux_opts!
 using Makie
 
 import SpacePhysicsMakie
@@ -20,11 +19,6 @@ end
 
 const 𝒀 = YLabel
 
-function set_flux_opts!(flux, range)
-    set_if_valid!(flux.metadata, :yscale => log10, :scale => log10, :colorrange => range)
-    replace!(flux, 0 => NaN)
-    return flux
-end
 
 function set_dmsp_flux_opts!(ds)
     for f in (ds.el_d_flux, ds.ion_d_flux)
@@ -133,24 +127,31 @@ function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir = "plots"
     return filepath
 end
 
+function plot_spectra!(ax, flux, flux_1, model)
+    Emin = model.Emin
+    scatterlines!(ax, flux)
+    scatterlines!(ax, flux_1)
 
-function plot_spectra!(ax, fluxs...)
-    return scatterlines!.(fluxs)
+    energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
+    lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 3, color = :red)
+    vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
+
+    # Plot individual components
+    lines!(ax, energies, model.model1.(energies); label = "PowerLawExp", linestyle = :dot, color = :blue)
+    E_high = energies[energies .>= Emin]
+    lines!(ax, E_high, model.model2.(E_high); label = "SmoothBrokenPowerlaw", linestyle = :dot, color = :green)
+    return ax
 end
 
-function plot_spectra(f, fluxs...)
-    ax = Axis(
-        f;
-        xlabel = "Energy (keV)", xscale = log10,
-        ylabel = "Flux (1/cm²/s/sr/MeV)", yscale = log10,
-    )
-    plots = plot_spectra!(ax, fluxs...)
+function plot_spectra(f, args...; kw...)
+    ax = Axis(f; xlabel = 𝒀.E, ylabel = 𝒀.nflux, xscale = log10, yscale = log10)
+    plot_spectra!(ax, args...; kw...)
     return ax
 end
 
 function plot_spectra(f, df::DataFrame)
     axs = map(enumerate(eachrow(df))) do (i, row)
-        ax = plot_spectra(f[1, i], row.flux, row.flux_1)
+        ax = plot_spectra(f[1, i], row.flux, row.flux_1, row.model)
         i == 1 || hideydecorations!(ax; grid = false)
         ax
     end

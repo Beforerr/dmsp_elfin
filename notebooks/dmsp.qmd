@@ -50,6 +50,14 @@ dms_ds = read2dimstack("./data/dms_20200108_16e.001.hdf5", ("mlt", "mlat", "el_d
 ```{julia}
 using SPEDAS
 using GLMakie
+using CairoMakie
+
+# Use CairoMakie in CI, GLMakie otherwise
+if haskey(ENV, "CI") && ENV["CI"] == "true"
+    CairoMakie.activate!()
+else
+    GLMakie.activate!()
+end
 SPEDAS.DEFAULTS.resample = Int(1e4)
 using SPEDAS.TPlot: set_if_valid!
 dd = (ds.el_d_flux.metadata, ds.ion_d_flux.metadata)

@@ -6,9 +6,7 @@ install-julia-deps:
     using Pkg
     # Pkg.update()
     Pkg.develop([
-        PackageSpec("Speasy"),
         PackageSpec("Madrigal"),
-        PackageSpec("GeoAACGM"),
         PackageSpec("PySPEDAS"),
         PackageSpec("TimeseriesUtilities"),
         PackageSpec(url="https://github.com/jishnub/SphericalHarmonics.jl"),

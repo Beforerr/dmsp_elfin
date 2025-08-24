@@ -6,7 +6,11 @@ export init_guess, TwoStepModel
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
 
 """
+Power-law model with exponential cutoff.
+
+```math
 f(E) = A * E^(-γ) * exp(-E/E_c)
+```
 """
 struct PowerLawExp{T}
     A::T
@@ -107,6 +111,15 @@ function fit(::Type{<:PowerLawExp}, E, y)
 end
 
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_smooth_broken_powerlaw.html
+"""
+    SmoothBrokenPowerlaw{T}
+
+Smooth broken power-law model. 
+
+```math
+f(E) = A * E^(-γ1) * (1 + (E/Eb)^m)^((γ2 - γ1)/m)
+```
+"""
 struct SmoothBrokenPowerlaw{T}
     A::T
     γ1::T
