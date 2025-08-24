@@ -67,16 +67,11 @@ tplot(tvars, zoom_tr...)
 ```{julia}
 # Make MLAT as the x axis
 f = Figure()
-
-ax1 = Axis(f[1, 1]; yscale=log10, ylabel="Energy (keV)")
-ax2 = Axis(f[2, 1]; yscale=log10, ylabel="Energy (keV)")
-
-p1 = plot_x_mlat_flux!(ax1, tview(elx_mlat, zoom_tr), tview(elx_flux.prec, zoom_tr))
-p2 = plot_x_mlat_flux!(ax2, tview(dmsp_mlat, trial_tr), tview(dmsp_flux, trial_tr))
-xlims!(ax1, -54, -75)
-xlims!(ax2, -54, -75)
-
-Colorbar(f[1:2, 2], p1; label="Flux (1/cm²/s/sr/MeV)")
+p1 = plot_x_mlat_flux(f[1, 1], tview(elx_mlat, zoom_tr), tview(elx_flux.prec, zoom_tr))
+p2 = plot_x_mlat_flux(f[2, 1], tview(dmsp_mlat, trial_tr), tview(dmsp_flux, trial_tr))
+xlims!(p1.axis, -54, -75)
+xlims!(p2.axis, -54, -75)
+Colorbar(f[1:2, 2], p1.plot; label=𝒀.nflux)
 
 elx_df = get_flux_by_mlat(elx_flux.prec, elx_mlat, zoom_tr)
 dmsp_df = get_flux_by_mlat(dmsp_flux, dmsp_mlat, trial_tr)
@@ -84,29 +79,6 @@ dmsp_df = get_flux_by_mlat(dmsp_flux, dmsp_mlat, trial_tr)
 join_df = leftjoin(dmsp_df, elx_df, on=:mlat, makeunique=true)
 sort!(join_df, :mlat)
 dropmissing!(join_df)
-
-function plot_spectra!(ax, fluxs...)
-    scatterlines!.(fluxs)
-end
-
-function plot_spectra(f, fluxs...)
-    ax = Axis(f;
-        xlabel="Energy (keV)", xscale=log10,
-        ylabel="Flux (1/cm²/s/sr/MeV)", yscale=log10,
-    )
-    plots = plot_spectra!(ax, fluxs...)
-    return ax
-end
-
-function plot_spectra(f, df::DataFrame)
-    axs = map(enumerate(eachrow(df))) do (i, row)
-        ax = plot_spectra(f[1, i], row.flux, row.flux_1)
-        i == 1 || hideydecorations!(ax; grid=false)
-        ax
-    end
-    xlims!.(axs, 0.011, 20000)
-    ylims!.(axs, 1e1, 1e12)
-end
 
 mlats = [-63, -64, -67]
 
@@ -126,15 +98,25 @@ ff = vcat(sdf[1, :].flux.data, sdf[1, :].flux_1.data)
 ee = vcat(sdf[1, :].flux.dims[1].val, sdf[1, :].flux_1.dims[1].val)
 ff, ee = remove_nan(ff, ee)
 
-best_fit, Emin, score = fit_flux_two_step(ff, ee)
-(Es1, f1), (δEs, f2), flux_modeled = best_fit
+model, flux_modeled, Emin, score = fit_flux_two_step(ff, ee)
 
 f = Figure()
-ax = Axis(f[1, 1]; xscale=log10, yscale=log10)
-vlines!(ax, Emin)
-scatterlines!(ax, ee, ff)
-scatterlines!(ax, ee, f1.(ee); label="PowerLawExp", linestyle=:dot)
-scatterlines!(ax, δEs, f2.(δEs); label="SmoothBrokenPowerlaw", linestyle=:dot)
+ax = Axis(f[1, 1]; xscale=log10, yscale=log10, xlabel=𝒀.E, ylabel=𝒀.nflux)
+vlines!(ax, Emin; label="Transition Energy", color=:black, linestyle=:dash)
+
+scatterlines!(ax, ee, ff; label="Data", markersize=6)
+
+# Plot the combined model
+Eplot = 10 .^ range(log10(minimum(ee)), log10(maximum(ee)), 100)
+lines!(ax, Eplot, model.(Eplot); label="Combined Model", linewidth=3, color=:red)
+
+# Plot individual components
+lines!(ax, Eplot, model.model1.(Eplot); label="PowerLawExp", linestyle=:dot, color=:blue)
+E_high = Eplot[Eplot.>=Emin]
+lines!(ax, E_high, model.model2.(E_high); label="SmoothBrokenPowerlaw", linestyle=:dot, color=:green)
+
+axislegend(ax; position=:lb)
+ax.title = "Two-Step Model Fit (MLAT = $(round(sdf[1, :].mlat, digits=1))°)"
 f
 ```
 
@@ -145,7 +127,7 @@ f
 # Fit all rows in the dataframe
 @info "Fitting $(nrow(join_df)) MLT values..."
 
-@rtransform! join_df $AsTable = fit_row_parameters(:flux, :flux_1; mlat=:mlat)
+@rtransform! join_df $AsTable = fit_row_parameters(:flux, :flux_1)
 ```
 
 ## Comprehensive Parameter Analysis
@@ -163,7 +145,7 @@ successful_fits = filter(r -> r.success, join_df; view=true)
 # Create comprehensive parameter plots using refactored function
 f_detailed = Figure(size=(1600, 1200))
 @with successful_fits begin
-    plot_parameters_variation(f_detailed, :mlat, :params, :n_points, :Emin)
+    plot_parameters_variation(f_detailed, :mlat, :model, :n_points)
 end
 f_detailed
 ```

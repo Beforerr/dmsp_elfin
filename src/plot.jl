@@ -1,5 +1,5 @@
 using Makie: heatmap!, Axis
-export plot_elfin_dmsp, plot_x_mlat_flux!
+export plot_elfin_dmsp, plot_x_mlat_flux!, plot_x_mlat_flux, plot_spectra
 export set_flux_opts!
 using Makie
 
@@ -37,6 +37,11 @@ function plot_x_mlat_flux!(ax, mlat, flux)
     z = flux.data
     attrs = SpacePhysicsMakie.heatmap_attributes(flux)
     return heatmap!(ax, mlat, y, z; attrs...)
+end
+
+function plot_x_mlat_flux(f, mlat, flux)
+    ax = Axis(f; yscale=log10, ylabel=𝒀.E)
+    return Makie.AxisPlot(ax, plot_x_mlat_flux!(ax, mlat, flux))
 end
 
 function plot_elfin_dmsp(timerange, ids)
@@ -126,6 +131,31 @@ function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir = "plots"
     return filepath
 end
 
+
+function plot_spectra!(ax, fluxs...)
+    scatterlines!.(fluxs)
+end
+
+function plot_spectra(f, fluxs...)
+    ax = Axis(f;
+        xlabel="Energy (keV)", xscale=log10,
+        ylabel="Flux (1/cm²/s/sr/MeV)", yscale=log10,
+    )
+    plots = plot_spectra!(ax, fluxs...)
+    return ax
+end
+
+function plot_spectra(f, df::DataFrame)
+    axs = map(enumerate(eachrow(df))) do (i, row)
+        ax = plot_spectra(f[1, i], row.flux, row.flux_1)
+        i == 1 || hideydecorations!(ax; grid=false)
+        ax
+    end
+    xlims!.(axs, 0.011, 20000)
+    ylims!.(axs, 1e1, 1e12)
+end
+
+
 export plot_example_fits, plot_parameters_variation
 export plot_PowerLawExp_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
 
@@ -171,14 +201,15 @@ function plot_example_fits(f, args...)
 end
 
 
-function plot_parameters_variation(f, mlats, params, n_points, Emins)
+function plot_parameters_variation(f, mlats, models, n_points)
     # Row 1: PowerLawExp parameters
 
-    PowerLawExp_params = getindex.(params, 1)
-    SmoothBrokenPowerlaw_params = getindex.(params, 2)
+    PowerLawExp_models = getindex.(models, 1)
+    SmoothBrokenPowerlaw_models = getindex.(models, 2)
+    Emins = getindex.(models, 3)
 
-    plot_PowerLawExp_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExp_params)
-    plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_params)
+    plot_PowerLawExp_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExp_models)
+    plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_models)
 
     xlabel = "MLAT"
     ax8 = Axis(f[1, 1][4, 1]; xlabel, ylabel = "Number of Data Points")
