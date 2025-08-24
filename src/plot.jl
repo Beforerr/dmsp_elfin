@@ -1,5 +1,6 @@
 using Makie: heatmap!, Axis
-export plot_elfin_dmsp, plot_x_mlat_flux!, plot_x_mlat_flux, plot_spectra
+export plot_elfin_dmsp, plot_spectra
+export plot_flux_by_mlat, plot_flux_by_mlat
 export set_flux_opts!
 using Makie
 
@@ -32,16 +33,17 @@ function set_dmsp_flux_opts!(ds)
     return ds
 end
 
-function plot_x_mlat_flux!(ax, mlat, flux)
-    y = flux.dims[2].val
-    z = flux.data
-    attrs = SpacePhysicsMakie.heatmap_attributes(flux)
-    return heatmap!(ax, mlat, y, z; attrs...)
+set_mlat_dim(flux, mlat) = set(flux, Ti => X(mlat))
+set_mlat_dim(flux, mlat, tspan) = set(tview(flux, tspan), Ti => X(tview(mlat, tspan)))
+
+function plot_flux_by_mlat(f, flux; kw...)
+    ax = Axis(f; yscale = log10, ylabel = 𝒀.E)
+    plot = heatmap!(ax, flux; colorscale = log10, kw...)
+    return Makie.AxisPlot(ax, plot)
 end
 
-function plot_x_mlat_flux(f, mlat, flux)
-    ax = Axis(f; yscale=log10, ylabel=𝒀.E)
-    return Makie.AxisPlot(ax, plot_x_mlat_flux!(ax, mlat, flux))
+function plot_flux_by_mlat(f, flux, mlat, args...; kw...)
+    return plot_flux_by_mlat(f, set_mlat_dim(flux, mlat, args...); kw...)
 end
 
 function plot_elfin_dmsp(timerange, ids)
@@ -133,13 +135,14 @@ end
 
 
 function plot_spectra!(ax, fluxs...)
-    scatterlines!.(fluxs)
+    return scatterlines!.(fluxs)
 end
 
 function plot_spectra(f, fluxs...)
-    ax = Axis(f;
-        xlabel="Energy (keV)", xscale=log10,
-        ylabel="Flux (1/cm²/s/sr/MeV)", yscale=log10,
+    ax = Axis(
+        f;
+        xlabel = "Energy (keV)", xscale = log10,
+        ylabel = "Flux (1/cm²/s/sr/MeV)", yscale = log10,
     )
     plots = plot_spectra!(ax, fluxs...)
     return ax
@@ -148,11 +151,11 @@ end
 function plot_spectra(f, df::DataFrame)
     axs = map(enumerate(eachrow(df))) do (i, row)
         ax = plot_spectra(f[1, i], row.flux, row.flux_1)
-        i == 1 || hideydecorations!(ax; grid=false)
+        i == 1 || hideydecorations!(ax; grid = false)
         ax
     end
     xlims!.(axs, 0.011, 20000)
-    ylims!.(axs, 1e1, 1e12)
+    return ylims!.(axs, 1.0e1, 1.0e12)
 end
 
 
@@ -200,8 +203,7 @@ function plot_example_fits(f, args...)
     return ax
 end
 
-
-function plot_parameters_variation(f, mlats, models, n_points)
+function plot_parameters_variation(f, mlats, models, n_points; scores = nothing)
     # Row 1: PowerLawExp parameters
 
     PowerLawExp_models = getindex.(models, 1)
@@ -210,54 +212,61 @@ function plot_parameters_variation(f, mlats, models, n_points)
 
     plot_PowerLawExp_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExp_models)
     plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_models)
-
-    xlabel = "MLAT"
-    ax8 = Axis(f[1, 1][4, 1]; xlabel, ylabel = "Number of Data Points")
-    scatterlines!(ax8, mlats, n_points, color = :black)
-    ax9 = Axis(f[1, 1][5, 1]; xlabel, ylabel = "Energy Transition (keV)")
-    scatterlines!(ax9, mlats, Emins, color = :gray)
-
+    plot_fit_parameters_variation(f[1, 1][4:5, 1], mlats, Emins, n_points; scores)
     return f
 end
 
-function plot_PowerLawExp_parameter_variation(f, mlats, params)
+function plot_fit_parameters_variation(f, mlats, Emins, n_points; scores = nothing)
     xlabel = "MLAT"
+    ax1 = Axis(f[1, 1]; xlabel, ylabel = "Energy Transition (keV)")
+    scatterlines!(mlats, Emins, color = :gray)
+    ax2 = Axis(f[2, 1]; xlabel, ylabel = "Number of Data Points")
+    scatterlines!(mlats, n_points, color = :black)
+
+    axs = [ax1, ax2]
+
+    if !isnothing(scores)
+        ax3 = Axis(f[3, 1]; xlabel, ylabel = "Fit Score")
+        scatterlines!(mlats, scores, color = :green)
+        push!(axs, ax3)
+    end
+    hidexdecorations!.(axs[1:(end - 1)]; grid = false)
+    return f
+end
+
+
+function plot_PowerLawExp_parameter_variation(f, mlats, params)
     As = [p.A for p in params]
     γs = [p.γ for p in params]
     E_cs = [p.E_c for p in params]
-    ax1 = Axis(f[1, 1]; xlabel, ylabel = "Amplitude A", yscale = log10)
+    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
     scatterlines!(ax1, mlats, As, color = :blue)
-    ax2 = Axis(f[2, 1]; xlabel, ylabel = "Power Index γ")
+    ax2 = Axis(f[2, 1]; ylabel = "Power Index γ")
     scatterlines!(ax2, mlats, γs, color = :red)
-    ax3 = Axis(f[3, 1]; xlabel, ylabel = "Cutoff Energy E_c (keV)", yscale = log10)
+    ax3 = Axis(f[3, 1]; xlabel = "MLAT", ylabel = "Cutoff Energy E_c (keV)", yscale = log10)
     scatterlines!(ax3, mlats, E_cs, color = :green)
+    hidexdecorations!.((ax1, ax2); grid = false)
+
     return f
 end
 
 function plot_SmoothBrokenPowerlaw_parameter_variation(f, mlats, params)
-    xlabel = "MLAT"
-
-
     As = [p.A for p in params]
     γ1s = [p.γ1 for p in params]
     γ2s = [p.γ2 for p in params]
     Eb = [p.Eb for p in params]
     ms = [p.m for p in params]
 
-    ax1 = Axis(f[1, 1]; xlabel, ylabel = "Amplitude A", yscale = log10)
+    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
     scatterlines!(ax1, mlats, As, color = :purple)
-
-    ax2 = Axis(f[2, 1]; xlabel, ylabel = "Power Index γ₁")
+    ax2 = Axis(f[2, 1]; ylabel = "Power Index γ₁")
     scatterlines!(ax2, mlats, γ1s, color = :orange)
-
-    ax3 = Axis(f[3, 1]; xlabel, ylabel = "Power Index γ₂")
+    ax3 = Axis(f[3, 1]; ylabel = "Power Index γ₂")
     scatterlines!(ax3, mlats, γ2s, color = :cyan)
-
-    ax4 = Axis(f[4, 1]; xlabel, ylabel = "Break Energy Eb (keV)", yscale = log10)
+    ax4 = Axis(f[4, 1]; ylabel = "Break Energy Eb (keV)", yscale = log10)
     scatterlines!(ax4, mlats, Eb, color = :brown)
-
-    ax5 = Axis(f[5, 1]; xlabel, ylabel = "Smoothness m")
+    ax5 = Axis(f[5, 1]; xlabel = "MLAT", ylabel = "Smoothness m")
     scatterlines!(ax5, mlats, ms, color = :teal)
-
+    hidexdecorations!.((ax1, ax2, ax3, ax4); grid = false)
     return f
 end

@@ -47,9 +47,7 @@ replace!(dmsp_flux, 0 => NaN)
 
 ```{julia}
 for x in (elx_flux.para, elx_flux.anti, elx_flux.prec, dmsp_flux)
-    set_if_valid!(x.metadata,
-        :yscale => log10, :ylabel => "Energy (keV)", :colorscale => log10, :colorrange => (1e3, 1e11)
-    )
+    set_if_valid!(x.metadata, :yscale => log10, :ylabel => "Energy (keV)")
 end
 elx_mlat = SPEDAS.setmeta(elx_mlat, :label => "ELFIN")
 set_if_valid!(dmsp_mlat.metadata, :labels => "DMSP")
@@ -65,37 +63,41 @@ tplot(tvars, zoom_tr...)
 ```
 
 ```{julia}
-# Make MLAT as the x axis
-f = Figure()
-p1 = plot_x_mlat_flux(f[1, 1], tview(elx_mlat, zoom_tr), tview(elx_flux.prec, zoom_tr))
-p2 = plot_x_mlat_flux(f[2, 1], tview(dmsp_mlat, trial_tr), tview(dmsp_flux, trial_tr))
-xlims!(p1.axis, -54, -75)
-xlims!(p2.axis, -54, -75)
-Colorbar(f[1:2, 2], p1.plot; label=𝒀.nflux)
-
 elx_df = get_flux_by_mlat(elx_flux.prec, elx_mlat, zoom_tr)
 dmsp_df = get_flux_by_mlat(dmsp_flux, dmsp_mlat, trial_tr)
 
 join_df = leftjoin(dmsp_df, elx_df, on=:mlat, makeunique=true)
 sort!(join_df, :mlat)
 dropmissing!(join_df)
+```
+
+```{julia}
+# Make MLAT as the x axis
+f = Figure()
+colorrange = (1e3, 1e11)
+p1 = plot_flux_by_mlat(f[1, 1], elx_flux.prec, elx_mlat, zoom_tr; colorrange)
+p2 = plot_flux_by_mlat(f[2, 1], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
+xlims!(p1.axis, -54, -75)
+xlims!(p2.axis, -54, -75)
+Colorbar(f[1:2, 2], p1.plot; label=𝒀.nflux)
 
 mlats = [-63, -64, -67]
 
-for ax in (ax1, ax2)
+for ax in (p1.axis, p2.axis)
     vlines!(ax, mlats)
 end
 
 sdf = @rsubset(join_df, :mlat ∈ mlats)
 plot_spectra(f[3, 1:end], sdf)
 
-hidexdecorations!(ax1; grid=false)
+hidexdecorations!(p1.axis; grid=false)
 f
 ```
 
 ```{julia}
 ff = vcat(sdf[1, :].flux.data, sdf[1, :].flux_1.data)
 ee = vcat(sdf[1, :].flux.dims[1].val, sdf[1, :].flux_1.dims[1].val)
+energies = ee
 ff, ee = remove_nan(ff, ee)
 
 model, flux_modeled, Emin, score = fit_flux_two_step(ff, ee)
@@ -143,11 +145,42 @@ Analyze how the PowerLawExp parameters change over MLT.
 successful_fits = filter(r -> r.success, join_df; view=true)
 
 # Create comprehensive parameter plots using refactored function
-f_detailed = Figure(size=(1600, 1200))
 @with successful_fits begin
-    plot_parameters_variation(f_detailed, :mlat, :model, :n_points)
+    f = Figure(; size=(1200, 1000))
+    plot_parameters_variation(f, :mlat, :model, :n_points; scores = :score)
 end
-f_detailed
+```
+
+Plotting model-calculated flux vs MLat:
+
+```{julia}
+modeled_fluxes = @with successful_fits begin
+    flux_modeled = stack(:model) do model
+        model.(energies)
+    end
+    DimArray(flux_modeled', (X(:mlat), Y(energies)))
+end
+```
+
+
+```{julia}
+# Make MLAT as the x axis
+f = Figure()
+p1 = plot_flux_by_mlat(f[1, 1], elx_flux.prec, elx_mlat, zoom_tr; colorrange)
+p2 = plot_flux_by_mlat(f[2, 1], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
+p3 = plot_flux_by_mlat(f[3:4, 1], modeled_fluxes; colorrange)
+Colorbar(f[1:4, 2], p3.plot; label=𝒀.nflux)
+
+for ax in (p1.axis, p2.axis, p3.axis)
+    xlims!(ax, -54, -75)
+end
+hidexdecorations!.((p1.axis, p2.axis); grid=false)
+
+@with successful_fits begin
+    plot_parameters_variation(f[1:4, 3:4], :mlat, :model, :n_points; scores = :score)
+end
+
+f
 ```
 
 ## Parameter Statistics and Correlations
