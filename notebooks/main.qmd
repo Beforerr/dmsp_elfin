@@ -16,7 +16,6 @@ GLMakie.activate!()
 using Dates
 using DimensionalData
 using SpacePhysicsMakie: set_if_valid!
-using NaNStatistics
 ```
 
 ## Example demo
@@ -126,10 +125,13 @@ f
 ff = vcat(sdf[1, :].flux.data, sdf[1, :].flux_1.data)
 ee = vcat(sdf[1, :].flux.dims[1].val, sdf[1, :].flux_1.dims[1].val)
 ff, ee = remove_nan(ff, ee)
-(Es1, f1), (δEs, f2), flux_modeled = fit_flux_two_step(ff, ee, 90)
+
+best_fit, Emin, score = fit_flux_two_step(ff, ee)
+(Es1, f1), (δEs, f2), flux_modeled = best_fit
 
 f = Figure()
 ax = Axis(f[1, 1]; xscale=log10, yscale=log10)
+vlines!(ax, Emin)
 scatterlines!(ax, ee, ff)
 scatterlines!(ax, ee, f1.(ee); label="PowerLawExp", linestyle=:dot)
 scatterlines!(ax, δEs, f2.(δEs); label="SmoothBrokenPowerlaw", linestyle=:dot)
@@ -144,28 +146,6 @@ f
 @info "Fitting $(nrow(join_df)) MLT values..."
 
 @rtransform! join_df $AsTable = fit_row_parameters(:flux, :flux_1; mlat=:mlat)
-# Filter successful fits
-# successful_fits = filter(r -> r.success, fit_results)
-# @info "Successfully fit $(length(successful_fits)) out of $(length(fit_results)) MLT values"
-```
-
-```{julia}
-# Create parameter variation plots
-f = Figure(size=(1200, 800))
-
-# Plot 1: Number of data points vs MLT
-ax1 = Axis(f[1, 1], xlabel="MLAT", ylabel="Number of Data Points",
-    title="Data Quality vs MLAT")
-scatterlines!(ax1, join_df.mlat, join_df.n_points, markersize=8)
-
-plot_example_fits(f[1, 2], join_df)
-
-# Plot 3: PowerLawExp Parameter variation plots
-successful_fits = filter(r -> r.success, join_df; view=true)
-
-plot_PowerLawExp_parameter_variation(f[1, 3], successful_fits.mlat, getindex.(successful_fits.params, 1))
-
-f
 ```
 
 ## Comprehensive Parameter Analysis
@@ -178,9 +158,13 @@ Analyze how the PowerLawExp parameters change over MLT.
 4. Parameter Correlations: Relationships between spectral parameters that reveal physical processes
 
 ```{julia}
+successful_fits = filter(r -> r.success, join_df; view=true)
+
 # Create comprehensive parameter plots using refactored function
 f_detailed = Figure(size=(1600, 1200))
-plot_parameters_variation(f_detailed, successful_fits.mlat, successful_fits.params, successful_fits.n_points)
+@with successful_fits begin
+    plot_parameters_variation(f_detailed, :mlat, :params, :n_points, :Emin)
+end
 f_detailed
 ```
 
@@ -449,68 +433,6 @@ function fit_flux(row, model)
     fit = curve_fit(model, energies, log10.(flux_all), p0)
 end
 ```
-
-
-```{julia}
-using LeastSquaresOptim, NonlinearSolve
-
-function fit_flux_sciml(row, model)
-    elx_flux = row.flux ./ 1e6
-    elx_energies = elx_flux.dims[1].val
-    dmsp_flux = row.flux_1
-    dmsp_energies = dmsp_flux.dims[1].val
-
-    # Combine and filter out NaN values
-    # ignore the last channel of dmsp_flux
-    flux_all = vcat(parent(dmsp_flux)[1:end-1], parent(elx_flux))
-    energies = vcat(dmsp_energies[1:end-1], elx_energies)
-    valid_idx = .!isnan.(flux_all) .& .!isnan.(energies)
-    flux_all = flux_all[valid_idx]
-    energies = energies[valid_idx]
-
-    p0 = init_guess(model, energies, flux_all)
-    prob = NonlinearCurveFitProblem(model, p0, energies, log10.(flux_all))
-    alg = NonlinearSolve.TrustRegion()
-    # alg = LeastSquaresOptimJL(:dogleg)
-    # alg = NonlinearSolve.LevenbergMarquardt()
-    sol = solve(prob, alg)
-end
-
-
-function two_step_fit_flux(row, model)
-    elx_flux = row.flux ./ 1e6
-    elx_energies = elx_flux.dims[1].val
-    dmsp_flux = row.flux_1
-    dmsp_energies = dmsp_flux.dims[1].val
-
-    # Combine and filter out NaN values
-    # ignore the last channel of dmsp_flux
-    flux_all = vcat(parent(dmsp_flux)[1:end-1], parent(elx_flux))
-    energies = vcat(dmsp_energies[1:end-1], elx_energies)
-    valid_idx = .!isnan.(flux_all) .& .!isnan.(energies)
-    flux_all = flux_all[valid_idx]
-    energies = energies[valid_idx]
-
-    # first fit energy below 10^3 eV with log_plec_model
-    Emin = 1e3
-    flux_all_1 = flux_all[energies.<Emin]
-    energies_1 = energies[energies.<Emin]
-    p0 = init_guess(log_plec_model, energies_1, flux_all_1)
-    prob = NonlinearCurveFitProblem(log_plec_model, p0, energies_1, log10.(flux_all_1))
-    alg = NonlinearSolve.TrustRegion()
-    sol = solve(prob, alg)
-
-    # second fit the remaining flux of energy above 10^3 eV with log_sbpl_model
-    δflux = flux_all[energies.>=Emin]
-    δenergies = energies[energies.>=Emin]
-    p0 = init_guess(log_sbpl_model, δenergies, δflux)
-    prob = NonlinearCurveFitProblem(log_sbpl_model, p0, δenergies, log10.(δflux))
-    alg = NonlinearSolve.TrustRegion()
-    sol = solve(prob, alg)
-end
-
-```
-
 
 ```{julia}
 using LsqFit

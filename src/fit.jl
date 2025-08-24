@@ -1,8 +1,7 @@
 using NaNMath
 import NaNMath as nm
+using Statistics: mean
 export init_guess
-
-include("model.jl")
 
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
 
@@ -78,6 +77,7 @@ function log_sbpl_model(E, p)
     return log_sbpl.(E, A, γ1, γ2, Eb, m)
 end
 
+include("model.jl")
 
 for model in (:log_plec_model, :log_sbpl_model, :log_two_pop_model, :log_plec_sbpl_model)
     sciml_model = Symbol(model, :_sciml)
@@ -105,7 +105,6 @@ end
 
 function fit_flux_two_step(flux, energies, Emin; kw...)
     # first fit energy below Emin with `PowerLawExp`
-
     flux_1 = flux[energies .< Emin]
     Es1 = energies[energies .< Emin]
     f1 = fit(PowerLawExp, Es1, flux_1)
@@ -121,6 +120,57 @@ function fit_flux_two_step(flux, energies, Emin; kw...)
     return (Es1, f1), (δEs, f2), vcat(flux_1_modeled, flux_2_modeled)
 end
 
+"""
+    msd_log(a, b)
+
+Return the mean squared deviation between the log-transformed two arrays: `mean(abs2, log(a) - log(b))`.
+"""
+function msd_log(a, b)
+    return mean(abs2, log.(a) .- log.(b))
+end
+
+
+"""
+    fit_flux_two_step(flux, energies; kw...)
+
+Fit two-step model with optimized transition energy Emin.
+Uses actual energy channel values as candidates for Emin.
+
+Returns:
+- Best fit results with optimal Emin
+"""
+function fit_flux_two_step(flux, energies; kw...)
+    # Use actual energy values as candidates (instrument channels)
+    # Filter to reasonable range and ensure enough points on both sides
+    sorted_energies = sort(unique(energies))
+    Emins = filter(sorted_energies) do Emin
+        n_low = sum(energies .< Emin)
+        n_high = sum(energies .>= Emin)
+        n_low >= 3 && n_high >= 3
+    end
+
+    isempty(Emins) && return nothing, nothing, nothing
+
+    best_fit = nothing
+    best_score = Inf
+    best_Emin = nothing
+
+    for Emin in Emins
+        try
+            (Es1, f1), (δEs, f2), flux_modeled = fit_flux_two_step(flux, energies, Emin; kw...)
+            score = msd_log(flux, flux_modeled)
+            if score < best_score
+                best_score = score
+                best_Emin = Emin
+                best_fit = ((Es1, f1), (δEs, f2), flux_modeled)
+            end
+        catch
+            continue
+        end
+    end
+    return best_fit, best_Emin, best_score
+end
+
 export fit_row_parameters
 
 energies(x) = parent(x.dims[1].val)
@@ -131,16 +181,16 @@ function fit_row_parameters(flux1, flux2; mlat = nothing)
     ff, ee = remove_nan(ff, ee)
     n_points = length(ff)
 
-    Emin = 90
-
-    if n_points < 5  # Need minimum points for fitting
-        return (; success = false, flux_modeled = nothing, params = nothing, n_points)
+    best_fit, Emin, score = fit_flux_two_step(ff, ee)
+    
+    if isnothing(best_fit)
+        success = false
+        params = nothing
+        flux_modeled = nothing
+    else
+        (Es1, f1), (δEs, f2), flux_modeled = best_fit
+        params = (f1, f2)
+        success = true
     end
-    try
-        (Es1, f1), (δEs, f2), flux_modeled = fit_flux_two_step(ff, ee, Emin)
-        return (; success = true, flux_modeled, params = (f1, f2, Emin), n_points)
-    catch e
-        @warn "Failed to fit MLAT $(mlat): $e"
-        return (; success = false, flux_modeled = nothing, params = nothing, n_points)
-    end
+    return (; success, flux_modeled, params, n_points, Emin, score)
 end

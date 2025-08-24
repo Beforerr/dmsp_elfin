@@ -171,12 +171,11 @@ function plot_example_fits(f, args...)
 end
 
 
-function plot_parameters_variation(f, mlats, params, n_points)
+function plot_parameters_variation(f, mlats, params, n_points, Emins)
     # Row 1: PowerLawExp parameters
 
     PowerLawExp_params = getindex.(params, 1)
     SmoothBrokenPowerlaw_params = getindex.(params, 2)
-    Emins = getindex.(params, 3)
 
     plot_PowerLawExp_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExp_params)
     plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_params)
