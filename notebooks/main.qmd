@@ -2,17 +2,17 @@
 using DmspElfinConjunction
 using DmspElfinConjunction.ELFIN
 using DMSP
-using Speasy
 using SPEDAS
 using SpacePhysicsMakie
 using TimeseriesUtilities
 using DataFrames, DataFramesMeta
 using GLMakie
 using CairoMakie
+import DmspElfinConjunction.YLabel as 𝒀
+GLMakie.activate!()
 ```
 
 ```{julia}
-using Speasy
 using Dates
 using DimensionalData
 using SpacePhysicsMakie: set_if_valid!
@@ -20,8 +20,6 @@ using NaNStatistics
 ```
 
 ## Example demo
-
-use keV as the basic unit for energy
 
 ```{julia}
 probe = "a"
@@ -133,9 +131,124 @@ ff, ee = remove_nan(ff, ee)
 f = Figure()
 ax = Axis(f[1, 1]; xscale=log10, yscale=log10)
 scatterlines!(ax, ee, ff)
-scatterlines!(ax, ee, f1.(ee); label="PLEC", linestyle=:dot)
-scatterlines!(ax, δEs, f2.(δEs); label="SBPL", linestyle=:dot)
+scatterlines!(ax, ee, f1.(ee); label="PowerLawExp", linestyle=:dot)
+scatterlines!(ax, δEs, f2.(δEs); label="SmoothBrokenPowerlaw", linestyle=:dot)
 f
+```
+
+## Fit all MLT values and analyze parameter variation
+
+```{julia}
+# Function to fit flux for a single row and extract parameters
+# Fit all rows in the dataframe
+@info "Fitting $(nrow(join_df)) MLT values..."
+
+@rtransform! join_df $AsTable = fit_row_parameters(:flux, :flux_1; mlat=:mlat)
+# Filter successful fits
+# successful_fits = filter(r -> r.success, fit_results)
+# @info "Successfully fit $(length(successful_fits)) out of $(length(fit_results)) MLT values"
+```
+
+```{julia}
+# Create parameter variation plots
+f = Figure(size=(1200, 800))
+
+# Plot 1: Number of data points vs MLT
+ax1 = Axis(f[1, 1], xlabel="MLAT", ylabel="Number of Data Points",
+    title="Data Quality vs MLAT")
+scatterlines!(ax1, join_df.mlat, join_df.n_points, markersize=8)
+
+plot_example_fits(f[1, 2], join_df)
+
+# Plot 3: PowerLawExp Parameter variation plots
+successful_fits = filter(r -> r.success, join_df; view=true)
+
+plot_PowerLawExp_parameter_variation(f[1, 3], successful_fits.mlat, getindex.(successful_fits.params, 1))
+
+f
+```
+
+## Comprehensive Parameter Analysis
+
+Analyze how the PowerLawExp parameters change over MLT.
+
+1. Spatial Variations: How particle precipitation characteristics change with magnetic latitude
+2. Spectral Hardness Trends: Whether spectra become harder/softer at different MLATs
+3. Cutoff Energy Patterns: How the high-energy cutoff varies spatially
+4. Parameter Correlations: Relationships between spectral parameters that reveal physical processes
+
+```{julia}
+# Create comprehensive parameter plots using refactored function
+f_detailed = Figure(size=(1600, 1200))
+plot_parameters_variation(f_detailed, successful_fits.mlat, successful_fits.params, successful_fits.n_points)
+f_detailed
+```
+
+## Parameter Statistics and Correlations
+
+```julia
+#TODO: update this part
+# Calculate parameter statistics and correlations
+using Statistics
+
+# Create summary statistics
+param_stats = (
+    plec_A_mean=mean([p.plec_A for p in param_analysis]),
+    plec_A_std=std([p.plec_A for p in param_analysis]),
+    plec_γ_mean=mean([p.plec_γ for p in param_analysis]),
+    plec_γ_std=std([p.plec_γ for p in param_analysis]),
+    plec_E_c_mean=mean([p.plec_E_c for p in param_analysis]),
+    plec_E_c_std=std([p.plec_E_c for p in param_analysis]),
+    sbpl_A_mean=mean([p.sbpl_A for p in param_analysis]),
+    sbpl_A_std=std([p.sbpl_A for p in param_analysis]),
+    sbpl_γ1_mean=mean([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ1_std=std([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ2_mean=mean([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_γ2_std=std([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_Eb_mean=mean([p.sbpl_Eb for p in param_analysis]),
+    sbpl_Eb_std=std([p.sbpl_Eb for p in param_analysis])
+)
+
+@info "Parameter Statistics:" param_stats
+
+# Create correlation plot between key parameters
+f_corr = Figure(size=(1200, 900))
+
+# PowerLawExp γ vs E_c
+ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExp)",
+    ylabel="Cutoff Energy E_c (keV)", yscale=log10,
+    title="PowerLawExp: γ vs E_c")
+scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
+    [p.plec_E_c for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# PowerLawExp A vs γ  
+ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExp)",
+    ylabel="Power Index γ", xscale=log10,
+    title="PowerLawExp: A vs γ")
+scatter!(ax_corr2, [p.plec_A for p in param_analysis],
+    [p.plec_γ for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# SmoothBrokenPowerlaw γ1 vs γ2
+ax_corr3 = Axis(f_corr[2, 1], xlabel="Power Index γ₁ (SBPL)",
+    ylabel="Power Index γ₂ (SBPL)",
+    title="SmoothBrokenPowerlaw: γ₁ vs γ₂")
+scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
+    [p.sbpl_γ2 for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# Break energy vs MLAT colored by PowerLawExp cutoff
+ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
+    yscale=log10, title="Break Energy vs MLAT")
+scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],
+    color=[p.plec_E_c for p in param_analysis], colormap=:plasma, markersize=8)
+
+# Add colorbars
+Colorbar(f_corr[1:2, 3], colormap=:viridis, colorrange=extrema(mlats_all),
+    label="MLAT")
+
+f_corr
 ```
 
 
