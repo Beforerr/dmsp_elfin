@@ -1,6 +1,7 @@
 ```{julia}
 using DmspElfinConjunction
 using DmspElfinConjunction: dmsp_load
+import DmspElfinConjunction.PlotAxis as 𝑨
 using Speasy
 using SPEDAS
 using SPEDAS: tplot
@@ -64,7 +65,6 @@ tplot(tvars, zoom_tr...)
 ```{julia}
 # Make MLAT as the x axis
 f = Figure()
-
 ax1 = Axis(f[1, 1]; yscale=log10, ylabel="Energy (keV)")
 ax2 = Axis(f[2, 1]; yscale=log10, ylabel="Energy (keV)")
 
@@ -123,16 +123,20 @@ f
 ```
 
 ```{julia}
-ff = vcat(sdf[1, :].flux.data, sdf[1, :].flux_1.data)
-ee = vcat(sdf[1, :].flux.dims[1].val, sdf[1, :].flux_1.dims[1].val)
-ff, ee = remove_nan(ff, ee)
-(Es1, f1), (δEs, f2), flux_modeled = fit_flux_two_step(ff, ee, 90)
+row = sdf[1, :]
+f1 = row.flux
+f2 = row.flux_1
+flux = vcat(f1, f2)
+best_result, best_Emin, best_ssr = fit_flux_two_step(flux)
+(Es1, m1), (δEs, m2), flux_modeled = best_result
 
 f = Figure()
 ax = Axis(f[1, 1]; xscale=log10, yscale=log10)
-scatterlines!(ax, ee, ff)
-scatterlines!(ax, ee, f1.(ee); label="PLEC", linestyle=:dot)
-scatterlines!(ax, δEs, f2.(δEs); label="SBPL", linestyle=:dot)
+scatterlines!(ax, f1)
+scatterlines!(ax, f2)
+vlines!(best_Emin)
+lines!(ax, Es1, m1.(Es1); label="PLEC", linestyle=:dot)
+lines!(ax, δEs, m2.(δEs); label="SBPL", linestyle=:dot)
 f
 ```
 

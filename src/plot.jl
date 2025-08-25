@@ -4,6 +4,13 @@ export set_flux_opts!
 
 using SPEDAS.TPlot: set_if_valid!
 
+module PlotAxis
+    spectra1D = (;
+        xscale = log10, xlabel = "Energy (keV)",
+        yscale = log10, ylabel = "Flux (1/cm²/s/sr/MeV)",
+    )
+end
+
 function set_flux_opts!(flux, range)
     set_if_valid!(flux.metadata, :yscale => log10, :scale => log10, :colorrange => range)
     replace!(flux, 0 => NaN)
@@ -21,7 +28,7 @@ function plot_x_mlat_flux!(ax, mlat, flux)
     y = flux.dims[2].val
     z = flux.data
     attrs = SPEDAS.TPlot.heatmap_attributes(flux)
-    heatmap!(ax, mlat, y, z; attrs...)
+    return heatmap!(ax, mlat, y, z; attrs...)
 end
 
 function plot_elfin_dmsp(timerange, ids)
@@ -29,16 +36,17 @@ function plot_elfin_dmsp(timerange, ids)
         dmsp_load(timerange, id, "el_d_flux")
     end
     foreach(dmsp_fluxs) do flux
-        set_if_valid!(flux.metadata,
+        set_if_valid!(
+            flux.metadata,
             :yscale => log10,
-            :scale => log10, :colorrange => (1e1, 1e6)
+            :scale => log10, :colorrange => (1.0e1, 1.0e6)
         )
         replace!(flux, 0 => NaN)
     end
     tvars = (elx_flux, elx_flux_perp, dmsp_fluxs..., elx_mlt, elx_aacgm.mlat, Δmlts, Δmlats)
     faxs = SPEDAS.tplot(tvars, timerange...)
-    ylims!.(faxs.axes[1:2], 70, 2e3)
-    faxs
+    ylims!.(faxs.axes[1:2], 70, 2.0e3)
+    return faxs
 end
 
 
@@ -47,7 +55,7 @@ end
 
 Plot a conjunction event.
 """
-function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir="plots")
+function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir = "plots")
     # Create output directory if it doesn't exist
     mkpath(output_dir)
 
@@ -65,26 +73,30 @@ function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir="plots")
     time = dmsp_interp.timestamp[time_slice]
 
     # Create plot
-    p = plot(layout=(2, 1), size=(800, 600), legend=:topright)
+    p = plot(layout = (2, 1), size = (800, 600), legend = :topright)
 
     # Plot MLT
-    plot!(p[1], time, dmsp_interp.mlt[time_slice], label="DMSP", color=:blue, lw=2)
-    plot!(p[1], time, elfin_interp.mlt[time_slice], label="ELFIN", color=:red, lw=2)
+    plot!(p[1], time, dmsp_interp.mlt[time_slice], label = "DMSP", color = :blue, lw = 2)
+    plot!(p[1], time, elfin_interp.mlt[time_slice], label = "ELFIN", color = :red, lw = 2)
 
     # Add shaded area for conjunction
-    vspan!(p[1], [Dates.value(event.start_time), Dates.value(event.end_time)],
-        alpha=0.2, color=:green, label="")
+    vspan!(
+        p[1], [Dates.value(event.start_time), Dates.value(event.end_time)],
+        alpha = 0.2, color = :green, label = ""
+    )
 
     ylabel!(p[1], "MLT (hours)")
     title!(p[1], "DMSP-ELFIN Conjunction Event")
 
     # Plot MLAT
-    plot!(p[2], time, dmsp_interp.mlat[time_slice], label="DMSP", color=:blue, lw=2)
-    plot!(p[2], time, elfin_interp.mlat[time_slice], label="ELFIN", color=:red, lw=2)
+    plot!(p[2], time, dmsp_interp.mlat[time_slice], label = "DMSP", color = :blue, lw = 2)
+    plot!(p[2], time, elfin_interp.mlat[time_slice], label = "ELFIN", color = :red, lw = 2)
 
     # Add shaded area for conjunction
-    vspan!(p[2], [Dates.value(event.start_time), Dates.value(event.end_time)],
-        alpha=0.2, color=:green, label="")
+    vspan!(
+        p[2], [Dates.value(event.start_time), Dates.value(event.end_time)],
+        alpha = 0.2, color = :green, label = ""
+    )
 
     ylabel!(p[2], "MLAT (degrees)")
     xlabel!(p[2], "Time (UTC)")
@@ -92,8 +104,10 @@ function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir="plots")
     # Add subtitle with event details
     start_str = Dates.format(event.start_time, "yyyy-mm-dd HH:MM:SS")
     duration_min = event.duration_seconds / 60
-    title!(p, "Start: $start_str, Duration: $(round(duration_min, digits=1)) minutes",
-        subplot=0)
+    title!(
+        p, "Start: $start_str, Duration: $(round(duration_min, digits = 1)) minutes",
+        subplot = 0
+    )
 
     # Save figure
     filename = "conjunction_$(Dates.format(event.start_time, "yyyymmdd_HHMMSS")).png"

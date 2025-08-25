@@ -1,25 +1,20 @@
 name = "DmspElfinConjunction"
 uuid = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
-authors = ["Zijin Zhang <zijin@ucla.edu>"]
 version = "0.1.0"
+authors = ["Zijin Zhang <zijin@ucla.edu>"]
 
 [deps]
-ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
-CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
 CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
-Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoAACGM = "7d0bd8ea-8a67-4204-9dfc-7af11c683dec"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-HybridArrays = "1baab800-613f-4b0a-84e4-9cd3431bfbb9"
 IRBEM = "d0b46c7b-8a8f-4d20-a1b4-6e9a4a1e4e5f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LeastSquaresOptim = "0fc2ff8b-aaa3-5acd-a817-1944a5e08891"
@@ -40,12 +35,19 @@ SphericalHarmonics = "c489a379-e885-57ff-9236-bd896d33c250"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
-WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
+
+[sources]
+CurveFit = {path = "/Users/zijin/.julia/dev/CurveFit"}
+GeoAACGM = {path = "/Users/zijin/.julia/dev/GeoAACGM"}
+Madrigal = {path = "/Users/zijin/.julia/dev/Madrigal"}
+PySPEDAS = {path = "/Users/zijin/.julia/dev/PySPEDAS"}
+Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}
+SphericalHarmonics = {path = "/Users/zijin/.julia/dev/SphericalHarmonics"}
+TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}
 
 [compat]
 CairoMakie = "0.13.10"
-CondaPkg = "0.2.29"
 CurveFit = "1.0.0"
 DataFramesMeta = "0.15.4"
 DataInterpolations = "8.0.1"
@@ -53,7 +55,6 @@ DimensionalData = "0.29.16"
 GLMakie = "0.11"
 GeoCotrans = "0.1.2"
 HDF5 = "0.17.2"
-HybridArrays = "0.4.16"
 JLD2 = "0.5.13"
 LeastSquaresOptim = "0.8.7"
 LsqFit = "0.15.1"
@@ -67,5 +68,4 @@ SciMLBase = "2.96.0"
 Speasy = "0.3.1"
 StaticArrays = "1.9.13"
 StructArrays = "0.7.1"
-WGLMakie = "0.11"
 YAXArrays = "0.6.1"

@@ -1,44 +1,6 @@
-using NaNMath
-import NaNMath as nm
 export init_guess
 
-
-# https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
-
-"""
-f(E) = A * E^(-γ) * exp(-E/E_c)
-"""
-struct PowerLawExp{T}
-    A::T
-    γ::T
-    E_c::T
-end
-
-(f::PowerLawExp)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
-
-# https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_smooth_broken_powerlaw.html
-struct SmoothBrokenPowerlaw{T}
-    A::T
-    γ1::T
-    γ2::T
-    Eb::T
-    m::T
-end
-
-function log_sbpl(E, A, γ1, γ2, Eb, m)
-    x = E / Eb
-    return nm.log(A) - γ1 * nm.log(x) + ((γ1 - γ2) / m) * nm.log(1 + x^m)
-end
-
-sbpl(args...) = exp(log_sbpl(args...))
-
-function log_sbpl_model(E, p)
-    A, γ1, γ2, Eb = p
-    m = 1
-    return log_sbpl.(E, A, γ1, γ2, Eb, m)
-end
-
-(f::SmoothBrokenPowerlaw)(E) = sbpl(E, f.A, f.γ1, f.γ2, f.Eb, f.m)
+include("model.jl")
 
 """
     fit_powerlaw_exp(E, y)
@@ -75,7 +37,7 @@ end
 
 function log_plec_sbpl_model(E, p)
     A1, γ1, Ec1,    # PLEC params
-    A2, γ2, γ3, Eb = p  # SBPL params
+        A2, γ2, γ3, Eb = p  # SBPL params
     m = 1
 
     # Component 1: PLEC
@@ -108,9 +70,9 @@ end
 function init_guess(::typeof(log_sbpl_model), energies, flux)
     i = argmax(flux)
     m = 1
-    γ1, γ2 = -5., 3.
+    γ1, γ2 = -5.0, 3.0
     E0 = energies[i]
-    Eb = 1e3
+    Eb = 1.0e3
     A = flux[i] / exp(log_sbpl_model(E0, [1, γ1, γ2, Eb]))
     return [A, γ1, γ2, Eb]
 end
@@ -119,7 +81,7 @@ function init_guess(::typeof(log_two_pop_model), energies, flux)
     i = argmax(flux)
     E0 = energies[i]
     Ec1 = E0
-    Ec2 = 100E0
+    Ec2 = 100.0e0
     γ1 = γ2 = 2.5
     A1 = flux[i] / E0^γ1 * exp(E0 / Ec1)
     A2 = A1 / 100
@@ -127,8 +89,8 @@ function init_guess(::typeof(log_two_pop_model), energies, flux)
 end
 
 function init_guess(::typeof(log_plec_sbpl_model), energies, flux)
-    p1 = [1e8, 3., 6e10]
-    p2 = [8e7, -5.415023026784938, 2.9444485957997975, 63.69365352510846]
+    p1 = [1.0e8, 3.0, 6.0e10]
+    p2 = [8.0e7, -5.415023026784938, 2.9444485957997975, 63.69365352510846]
     return [p1..., p2...]
 end
 
@@ -155,27 +117,77 @@ function remove_nan(Xs...)
     return map(x -> x[idx], Xs)
 end
 
-
-function fit_flux_two_step(flux, energies, Emin=1; kw...)
+function fit_flux_two_step(flux, energies, Emin; kw...)
     alg = NonlinearSolve.TrustRegion()
     # first fit energy below 10^3 eV with log_plec_model
     m2 = log_sbpl_model_sciml
 
-    flux_1 = flux[energies.<Emin]
-    Es1 = energies[energies.<Emin]
+    flux_1 = flux[energies .< Emin]
+    Es1 = energies[energies .< Emin]
     f1 = fit_powerlaw_exp(Es1, flux_1)
 
     # second fit the remaining flux of energy above 1 keV with log_sbpl_model
-    δEs = energies[energies.>=Emin]
-    δflux = flux[energies.>=Emin] - f1.(δEs)
+    δEs = energies[energies .>= Emin]
+    δflux = flux[energies .>= Emin] - f1.(δEs)
     p2 = init_guess(m2, δEs, δflux)
     prob2 = NonlinearCurveFitProblem(m2, p2, δEs, log.(δflux))
     sol2 = solve(prob2; alg, kw...)
 
-    f2 = SmoothBrokenPowerlaw(sol2.u..., 1.)
+    f2 = SmoothBrokenPowerlaw(sol2.u..., 1.0)
 
     flux_1_modeled = f1.(Es1)
     flux_2_modeled = f2.(δEs) .+ f1.(δEs)
 
-    (Es1, f1), (δEs, f2), vcat(flux_1_modeled, flux_2_modeled)
+    return (Es1, f1), (δEs, f2), vcat(flux_1_modeled, flux_2_modeled)
+end
+
+"""
+    _ssr(y, m)
+
+Calculate the sum of squared residuals between y and m.
+"""
+_ssr(y, m) = sum(abs2, y .- m)
+
+log_ssr(y, m) = sum(abs2, log.(y) .- log.(m))
+
+# Method that optimizes Emin to minimize sum of squared residuals
+function fit_flux_two_step(flux, energies; kw...)
+    # Define the range of possible Emin values (exclude boundary energies)
+    energy_range = energies[2:(end - 1)]  # Exclude first and last to ensure both regions have data
+
+    best_ssr = Inf
+    best_Emin = energy_range[1]
+    best_result = nothing
+
+    # Optimize Emin by trying different values and finding minimum SSR
+    for Emin in energy_range
+        # Ensure we have enough points in both regions
+        # Need minimum points for fitting
+        n_low = sum(energies .< Emin)
+        n_high = sum(energies .>= Emin)
+        if n_low < 3 || n_high < 4
+            continue
+        end
+
+        try
+            result = fit_flux_two_step(flux, energies, Emin; kw...)
+            ssr = log_ssr(flux, result[3])
+
+            # Update best if this is better
+            if ssr < best_ssr
+                best_ssr = ssr
+                best_Emin = Emin
+                best_result = result
+            end
+        catch
+            continue
+        end
+    end
+
+    return best_result, best_Emin, best_ssr
+end
+
+function fit_flux_two_step(flux::DimArray, args...; kw...)
+    flux_clean = filter(!isnan, flux)
+    fit_flux_two_step(parent(flux_clean), parent(flux_clean.dims[1].val), args...; kw...)
 end

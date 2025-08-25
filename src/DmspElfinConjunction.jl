@@ -1,8 +1,6 @@
 module DmspElfinConjunction
 
 using Dates
-using HDF5
-using JLD2
 using DataFrames, DataFramesMeta
 using DimensionalData
 
@@ -14,7 +12,6 @@ using SPEDAS
 using SPEDAS.TPlot: set_if_valid!
 using PySPEDAS: promote_cdf_attributes!
 using PySPEDAS.Projects
-using DataInterpolations: ExtrapolationType
 using GeoCotrans
 
 include("DMSP.jl")
@@ -28,10 +25,10 @@ ntime(x) = size(x, 1)
 
 function integrate_diff_flux(flux)
     Es = flux.dims[2].val
-    map(eachslice(flux, dims=1)) do slc
+    return map(eachslice(flux, dims = 1)) do slc
         slc[1] * (Es[2] - Es[1]) +
-        sum(slc[2:end-1] .* (Es[3:end] .- Es[1:end-2]) ./ 2) +
-        slc[end] * (Es[end] - Es[end-1])
+            sum(slc[2:(end - 1)] .* (Es[3:end] .- Es[1:(end - 2)]) ./ 2) +
+            slc[end] * (Es[end] - Es[end - 1])
     end
 end
 
@@ -40,7 +37,7 @@ function get_flux_by_mlat(flux, mlat)
     # Define MLAT bins (0.5° resolution)
     mlat_min = floor(minimum(mlat) * 2) / 2  # Round down to nearest 0.5
     mlat_max = ceil(maximum(mlat) * 2) / 2   # Round up to nearest 0.5
-    mlat_bins = mlat_min:0.5:mlat_max-0.5
+    mlat_bins = mlat_min:0.5:(mlat_max - 0.5)
 
     times = mlat.dims[1]
 
@@ -60,12 +57,12 @@ function get_flux_by_mlat(flux, mlat)
     end
 
     return DataFrame(;
-        mlat=mlat_bins,
-        mlat_t0=getindex.(res, 1),
-        mlat_t1=getindex.(res, 2),
-        flux=getindex.(res, 3),
-        n_time=getindex.(res, 4),
-        nnan_count=getindex.(res, 5)
+        mlat = mlat_bins,
+        mlat_t0 = getindex.(res, 1),
+        mlat_t1 = getindex.(res, 2),
+        flux = getindex.(res, 3),
+        n_time = getindex.(res, 4),
+        nnan_count = getindex.(res, 5)
     )
 end
 
@@ -73,14 +70,14 @@ end
 function get_flux_by_mlat(flux, mlat, timerange)
     flux_subset = tview(flux, timerange)
     mlat_subset = tview(mlat, timerange)
-    get_flux_by_mlat(flux_subset, mlat_subset)
+    return get_flux_by_mlat(flux_subset, mlat_subset)
 end
 
 # higher resolution of MLAT
 function get_elfin_flux_by_mlat(flux, pos_gei, timerange)
     pos_aacgm = gei2aacgm(tview(pos_gei, timerange...))
     mlat = pos_aacgm.mlat
-    get_flux_by_mlat(flux, mlat, timerange)
+    return get_flux_by_mlat(flux, mlat, timerange)
 end
 
 
@@ -88,7 +85,7 @@ function get_dmsp_flux_by_mlat(timerange, id)
     dmsp_flux = dmsp_load(timerange, id, "el_d_flux")
     dmsp_aacgm = dmsp_get_aacgm(timerange, id)
     dmsp_mlat_highres = getindex.(dmsp_aacgm, 1)
-    get_flux_by_mlat(dmsp_flux, dmsp_mlat_highres, timerange)
+    return get_flux_by_mlat(dmsp_flux, dmsp_mlat_highres, timerange)
 end
 
 
