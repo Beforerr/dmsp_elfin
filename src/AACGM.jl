@@ -1,9 +1,8 @@
-using Reexport
-@reexport using GeoAACGM
+import GeoAACGM
 import GeoAACGM: geo2aacgm, geod2aacgm
 using SPEDAS: times
 
-export gei2aacgm
+export gei2aacgm, geo2aacgm, geod2aacgm
 
 function GeoAACGM.geo2aacgm(x)
     ts = times(x)

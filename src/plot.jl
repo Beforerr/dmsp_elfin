@@ -43,7 +43,7 @@ end
 
 function plot_elfin_dmsp(timerange, ids)
     dmsp_fluxs = map(ids) do id
-        dmsp_load(timerange, id, "el_d_flux")
+        DMSP.load(timerange, id, "el_d_flux")
     end
     foreach(dmsp_fluxs) do flux
         set_if_valid!(
@@ -142,7 +142,7 @@ function plot_spectra!(ax, flux, flux_1, model)
     sbpl = model.model2
     plec_label = "PLEC: A=$(@sprintf "%.0e" plec.A), γ=$(@sprintf "%.1e" plec.γ), Ec=$(@sprintf "%.0e" plec.E_c)keV"
     sbpl_label = "SBPL: A=$(@sprintf "%.0e" sbpl.A), γ₁=$(@sprintf "%.1e" sbpl.γ1), γ₂=$(@sprintf "%.1e" sbpl.γ2), Eb=$(@sprintf "%.0e" sbpl.Eb)keV"
-    
+
     lines!(ax, energies, model.model1.(energies); label = plec_label, linestyle = :dot, color = :blue)
     E_high = energies[energies .>= Emin]
     lines!(ax, E_high, model.model2.(E_high); label = sbpl_label, linestyle = :dot, color = :green)

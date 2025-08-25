@@ -1,3 +1,5 @@
+abstract type SpectralModel end
+
 function log_plec_model(E, p)
     A, γ, Ec = p
     return nm.log(A) .- γ .* nm.log.(E) .- (E ./ Ec)

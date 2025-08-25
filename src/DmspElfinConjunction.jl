@@ -1,23 +1,16 @@
 module DmspElfinConjunction
 
 using Dates
-using DataFrames, DataFramesMeta
+using DataFrames
 using DimensionalData
 
 export get_elfin_flux_by_mlat, integrate_diff_flux
 export get_flux_by_mlat  # re-export from this module
-# Re-export DMSP functions
-export dmsp_get_aacgm, dmsp_load, download, get_dmsp_flux_by_mlat
 
 using SPEDAS
 using SpacePhysicsMakie: set_if_valid!
-using PySPEDAS: promote_cdf_attributes!
-using PySPEDAS.Projects
-using DataInterpolations: ExtrapolationType
 using GeoCotrans
 
-include("ELFIN/ELFIN.jl")
-using .ELFIN
 include("AACGM.jl")
 include("fit.jl")
 include("plot.jl")
@@ -83,8 +76,8 @@ end
 
 
 function get_dmsp_flux_by_mlat(timerange, id)
-    dmsp_flux = dmsp_load(timerange, id, "el_d_flux")
-    dmsp_aacgm = dmsp_get_aacgm(timerange, id)
+    dmsp_flux = DMSP.load(timerange, id, "el_d_flux")
+    dmsp_aacgm = DMSP.aacgm(timerange, id)
     dmsp_mlat_highres = getindex.(dmsp_aacgm, 1)
     return get_flux_by_mlat(dmsp_flux, dmsp_mlat_highres, timerange)
 end

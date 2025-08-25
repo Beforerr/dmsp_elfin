@@ -5,18 +5,21 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+DmspElfinConjunction = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
+ELFIN = "7c5b9e3d-4f2a-5b1c-a8d6-2e7f8a9b3c4d"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
+PySPEDAS = "668d2cef-03a7-4c36-a521-7d1c6ddc8846"
 SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
 SpacePhysicsMakie = "0c28ffd8-ae30-4a56-b2e4-f8332c621ad2"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
-DmspElfinConjunction = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
 
 [sources]
-DmspElfinConjunction = {path = ".."}
 DMSP = {path = "../lib/DMSP"}
+DmspElfinConjunction = {path = ".."}
+ELFIN = {path = "../lib/ELFIN"}
 
 [compat]
 DataFramesMeta = "0.15.4"

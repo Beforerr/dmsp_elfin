@@ -7,7 +7,7 @@ using GeoCotrans
 using HDF5
 using JLD2
 
-export aacgm, load
+export load
 
 include("hdf5.jl")
 

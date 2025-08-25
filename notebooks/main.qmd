@@ -404,7 +404,7 @@ using SpaceDataModel: set!
 dmsp_calc_aacgm = dmsp_get_aacgm(timerange, id)
 dmsp_calc_mlat = getindex.(dmsp_calc_aacgm, 1)
 set!(dmsp_calc_mlat.metadata, :label => "AACGM", :ylabel => "MLAT")
-dmsp_file_mlat = dmsp_load(timerange, id, "mlat")
+dmsp_file_mlat = DMSP.load(timerange, id, "mlat")
 set!(dmsp_file_mlat.metadata, :label => "File", :ylabel => "MLAT")
 
 tplot(([dmsp_calc_mlat, dmsp_file_mlat],))
@@ -447,7 +447,7 @@ J_{N, \text { Total }}(\Omega)=j_N\left(E_1, \Omega\right)\left(E_2-E_1\right)+\
 $$
 
 ```{julia}
-dmsp_flux = dmsp_load(["2010-01-10T00:05", "2010-01-10T00:35"], 16, "el_d_ener")
+dmsp_flux = DMSP.load(["2010-01-10T00:05", "2010-01-10T00:35"], 16, "el_d_ener")
 dmsp_J = integrate_diff_flux(dmsp_flux)
 
 dmsp_J = SPEDAS.set_meta(dmsp_J, :scale => log10)

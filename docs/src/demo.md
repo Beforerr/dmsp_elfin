@@ -2,8 +2,8 @@
 
 ```{julia}
 using DmspElfinConjunction
-using DmspElfinConjunction.ELFIN
-using DMSP
+using DmspElfinConjunction
+using DMSP, ELFIN
 using SPEDAS
 using SpacePhysicsMakie
 using Dates, TimeseriesUtilities
@@ -49,7 +49,7 @@ replace!(dmsp_flux, 0 => NaN)
 
 ```@example demo
 for x in (elx_flux.para, elx_flux.anti, elx_flux.prec, dmsp_flux)
-    set_if_valid!(x.metadata,:yscale => log10, :ylabel => "Energy (keV)", :colorscale => log10, :colorrange => (1e3, 1e11))
+    set_if_valid!(x.metadata, :yscale => log10, :ylabel => "Energy (keV)", :colorscale => log10, :colorrange => (1e3, 1e11))
 end
 
 elx_mlat = SPEDAS.setmeta(elx_mlat, :label => "ELFIN")
@@ -75,6 +75,8 @@ dropmissing!(join_df)
 ```
 
 ```@example demo
+mlats = [-61, -63, -66, -69]
+
 sdf = @rsubset(join_df, :mlat ∈ mlats)
 flux1 = sdf[1, :].flux
 flux2 = sdf[1, :].flux_1
@@ -110,8 +112,6 @@ p2 = plot_flux_by_mlat(f[2, 1], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
 xlims!(p1.axis, -54, -75)
 xlims!(p2.axis, -54, -75)
 Colorbar(f[1:2, 2], p1.plot; label=𝒀.nflux)
-
-mlats = [-61, -63, -66, -69]
 
 for ax in (p1.axis, p2.axis)
     vlines!(ax, mlats)
