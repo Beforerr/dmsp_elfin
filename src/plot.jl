@@ -168,7 +168,7 @@ end
 
 
 export plot_example_fits, plot_parameters_variation
-export plot_PowerLawExp_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
+export plot_PowerLawExp_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
 
 # Plot : Example fitted spectra for selected MLATs
 function plot_example_fits!(ax, df)
@@ -254,6 +254,18 @@ function plot_PowerLawExp_parameter_variation(f, mlats, params)
     ax3 = Axis(f[3, 1]; xlabel = "MLAT", ylabel = "Cutoff Energy E_c (keV)", yscale = log10)
     scatterlines!(ax3, mlats, E_cs, color = :green)
     hidexdecorations!.((ax1, ax2); grid = false)
+
+    return f
+end
+
+function plot_PowerLaw_parameter_variation(f, mlats, params)
+    As = [p.A for p in params]
+    γs = [p.γ for p in params]
+    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
+    scatterlines!(ax1, mlats, As, color = :blue)
+    ax2 = Axis(f[2, 1]; xlabel = "MLAT", ylabel = "Power Index γ")
+    scatterlines!(ax2, mlats, γs, color = :red)
+    hidexdecorations!(ax1; grid = false)
 
     return f
 end

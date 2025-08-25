@@ -1,86 +1,13 @@
 using NaNMath
 import NaNMath as nm
 using Statistics: mean
-export init_guess, TwoStepModel
+export init_guess, TwoStepModel, PowerLaw, SmoothBrokenPowerlaw
 
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/index.html
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
 # https://fjebaker.github.io/SpectralFitting.jl/dev/
 
-"""
-Power-law model with exponential cutoff.
-
-```math
-f(E) = A * E^(-γ) * exp(-E/E_c)
-```
-"""
-struct PowerLawExp{T}
-    A::T
-    γ::T
-    E_c::T
-end
-
-(f::PowerLawExp)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
-
-"""
-    TwoStepModel{T,M1,M2}
-
-General two-step combined model with a transition energy Emin.
-
-The combined model is defined as:
-- For E ≤ Emin: f(E) = model1(E)
-- For E > Emin: f(E) = model1(E) + model2(E)
-
-# Fields
-- `model1::M1`: First model (typically for low energy region)
-- `model2::M2`: Second model (typically for high energy region)
-- `Emin::T`: Transition energy between the two components
-
-# Usage
-```julia
-model = TwoStepModel(model1, model2, Emin)
-flux = model(energy)  # Evaluate at any energy
-```
-
-# Examples
-```julia
-# With PowerLawExp and SmoothBrokenPowerlaw
-plec = PowerLawExp(A, γ, E_c)
-sbpl = SmoothBrokenPowerlaw(A, γ1, γ2, Eb, m)
-model = TwoStepModel(plec, sbpl, 100.0)
-
-# With any callable models
-gaussian = x -> exp(-x^2)
-exponential = x -> exp(-x)
-model = TwoStepModel(gaussian, exponential, 2.0)
-```
-"""
-struct TwoStepModel{T, M1, M2}
-    model1::M1
-    model2::M2
-    Emin::T
-end
-
-# Indexing interface for backward compatibility
-Base.getindex(model::TwoStepModel, i::Integer) = if i == 1
-    model.model1
-elseif i == 2
-    model.model2
-elseif i == 3
-    model.Emin
-else
-    throw(ArgumentError("Index out of bounds"))
-end
-
-function (model::TwoStepModel)(E)
-    model1_flux = model.model1(E)
-    if E <= model.Emin
-        return model1_flux
-    else
-        model2_flux = model.model2(E)
-        return model1_flux + model2_flux
-    end
-end
+include("model.jl")
 
 """
     fit(PowerLawExp, E, y)
@@ -110,25 +37,30 @@ function fit(::Type{<:PowerLawExp}, E, y)
     return PowerLawExp(A, γ, E_c)
 end
 
-# https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_smooth_broken_powerlaw.html
 """
-    SmoothBrokenPowerlaw{T}
+    fit(PowerLaw, E, y)
 
-Smooth broken power-law model. 
+Fit the model f(E) = A * E^(-γ) to data (E, y)
+by minimizing ∑[ln(yᵢ) - ln f(Eᵢ)]².
 
-```math
-f(E) = A * E^(-γ1) * (1 + (E/Eb)^m)^((γ2 - γ1)/m)
-```
+Returns a NamedTuple with fields
+- `A`: amplitude
+- `γ`: power-law index
 """
-struct SmoothBrokenPowerlaw{T}
-    A::T
-    γ1::T
-    γ2::T
-    Eb::T
-    m::T
+function fit(::Type{<:PowerLaw}, E, y)
+    N = length(E)
+    # Log-transform the data and build the design matrix
+    yln = log.(y)
+    X = hcat(ones(N), -log.(E))
+
+    # Solve the normal equations
+    θ = X \ yln
+    α, γ = θ
+
+    # Back-transform to original parameters
+    A = exp(α)
+    return PowerLaw(A, γ)
 end
-
-(f::SmoothBrokenPowerlaw)(E) = sbpl(E, f.A, f.γ1, f.γ2, f.Eb, f.m)
 
 function fit(::Type{<:SmoothBrokenPowerlaw}, E, y; kw...)
     alg = NonlinearSolve.TrustRegion()
@@ -139,26 +71,45 @@ function fit(::Type{<:SmoothBrokenPowerlaw}, E, y; kw...)
     return SmoothBrokenPowerlaw(sol.u..., 1.0)
 end
 
-function log_sbpl(E, A, γ1, γ2, Eb, m)
-    x = E / Eb
-    return nm.log(A) - γ1 * nm.log(x) + ((γ1 - γ2) / m) * nm.log(1 + x^m)
-end
-
-sbpl(args...) = exp(log_sbpl(args...))
-
 function log_sbpl_model(E, p)
     A, γ1, γ2, Eb = p
     m = 1
     return log_sbpl.(E, A, γ1, γ2, Eb, m)
 end
 
-include("model.jl")
 
-for model in (:log_plec_model, :log_sbpl_model, :log_two_pop_model, :log_plec_sbpl_model)
+function log_plec_model(E, p)
+    A, γ, Ec = p
+    return nm.log(A) .- γ .* nm.log.(E) .- (E ./ Ec)
+end
+
+function log_powerlaw_model(E, p)
+    A, γ = p
+    return nm.log(A) .- γ .* nm.log.(E)
+end
+
+function init_guess(::typeof(log_plec_model), energies, flux)
+    i = argmax(flux)
+    γ0 = 0.5
+    E0 = energies[i]
+    Ec0 = energies[end]
+    A = flux[i] / E0^γ0 * exp(E0 / Ec0)
+    return [A, γ0, Ec0]
+end
+
+function init_guess(::typeof(log_sbpl_model), energies, flux)
+    i = argmax(flux)
+    m = 1
+    γ1, γ2 = -5.0, 3.0
+    E0 = energies[i]
+    Eb = 1.0e3
+    A = flux[i] / exp(log_sbpl_model(E0, [1, γ1, γ2, Eb]))
+    return [A, γ1, γ2, Eb]
+end
+
+for model in (:log_plec_model, :log_sbpl_model)
     sciml_model = Symbol(model, :_sciml)
     @eval $sciml_model(p, E) = $model(E, p)
-    @eval export $model
-    @eval export $sciml_model
     @eval init_guess(::typeof($sciml_model), energies, flux) = init_guess($model, energies, flux)
 end
 
@@ -178,16 +129,16 @@ function remove_nan(Xs...)
 end
 
 
-function fit_flux_two_step(flux, energies, Emin; kw...)
-    # first fit energy below Emin with `PowerLawExp`
+function fit_flux_two_step(flux, energies, Emin; model1 = PowerLawExp, model2 = SmoothBrokenPowerlaw, kw...)
+    # first fit energy below Emin with model1 (default: PowerLawExp)
     flux_1 = flux[energies .<= Emin]
     Es1 = energies[energies .<= Emin]
-    f1 = fit(PowerLawExp, Es1, flux_1)
+    f1 = fit(model1, Es1, flux_1)
 
-    # second fit the remaining flux of energy above Emin with `SmoothBrokenPowerlaw`
+    # second fit the remaining flux of energy above Emin with model2 (default: SmoothBrokenPowerlaw)
     δEs = energies[energies .> Emin]
     δflux = flux[energies .> Emin] - f1.(δEs)
-    f2 = fit(SmoothBrokenPowerlaw, δEs, δflux)
+    f2 = fit(model2, δEs, δflux)
 
     # Create combined model
     model = TwoStepModel(f1, f2, Emin)

@@ -1,59 +1,126 @@
-abstract type SpectralModel end
+# https://fjebaker.github.io/SpectralFitting.jl/dev/models/using-models/#SpectralFitting.AbstractSpectralModel
+import Base: iterate
 
-function log_plec_model(E, p)
-    A, γ, Ec = p
-    return nm.log(A) .- γ .* nm.log.(E) .- (E ./ Ec)
+abstract type SpectralModel{T} end
+
+function Base.iterate(m::T, state = 1) where {T <: SpectralModel}
+    return state > fieldcount(T) ? nothing : (getfield(m, state), state + 1)
 end
 
-function log_plec_sbpl_model(E, p)
-    A1, γ1, Ec1,    # PLEC params
-        A2, γ2, γ3, Eb = p  # SBPL params
-    m = 1
+"""
+Power-law model.
 
-    # Component 1: PLEC
-    f1 = @. A1 * E^(-γ1) * exp(-E / Ec1)
-
-    # Component 2: SBPL
-    x = E ./ Eb
-    f2 = @. A2 * x^(-γ2) * (1 + x^m)^((γ2 - γ3) / m)
-
-    return log10.(f1 .+ f2)
+```math
+f(E) = A * E^(-γ)
+```
+"""
+struct PowerLaw{T} <: SpectralModel{T}
+    A::T
+    γ::T
 end
 
-function log_two_pop_model(p, E)
-    A1, γ1, Ec1, A2, γ2, Ec2 = p
-    f1 = A1 .* E .^ (-γ1) .* exp.(-E ./ Ec1)
-    f2 = A2 .* E .^ (-γ2) .* exp.(-E ./ Ec2)
-    flux = f1 .+ f2
-    return NaNMath.log10.(flux)
+(f::PowerLaw)(E) = f.A * E^(-f.γ)
+
+"""
+Power-law model with exponential cutoff.
+
+```math
+f(E) = A * E^(-γ) * exp(-E/E_c)
+```
+"""
+struct PowerLawExp{T} <: SpectralModel{T}
+    A::T
+    γ::T
+    E_c::T
 end
 
-function init_guess(::typeof(log_plec_model), energies, flux)
-    i = argmax(flux)
-    γ0 = 0.5
-    E0 = energies[i]
-    Ec0 = energies[end]
-    A = flux[i] / E0^γ0 * exp(E0 / Ec0)
-    return [A, γ0, Ec0]
+(f::PowerLawExp)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
+
+
+"""
+    SmoothBrokenPowerlaw{T}
+
+Smooth broken power-law model.
+
+```math
+f(E) = A * E^(-γ1) * (1 + (E/Eb)^m)^((γ2 - γ1)/m)
+```
+
+# References
+- [gammapy](https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_smooth_broken_powerlaw.html)
+"""
+struct SmoothBrokenPowerlaw{T} <: SpectralModel{T}
+    A::T
+    γ1::T
+    γ2::T
+    Eb::T
+    m::T
 end
 
-function init_guess(::typeof(log_sbpl_model), energies, flux)
-    i = argmax(flux)
-    m = 1
-    γ1, γ2 = -5.0, 3.0
-    E0 = energies[i]
-    Eb = 1.0e3
-    A = flux[i] / exp(log_sbpl_model(E0, [1, γ1, γ2, Eb]))
-    return [A, γ1, γ2, Eb]
+function log_sbpl(E, A, γ1, γ2, Eb, m)
+    x = E / Eb
+    return log(A) - γ1 * log(E) + ((γ1 - γ2) / m) * log(1 + x^m)
 end
 
-function init_guess(::typeof(log_two_pop_model), energies, flux)
-    i = argmax(flux)
-    E0 = energies[i]
-    Ec1 = E0
-    Ec2 = 100.0e0
-    γ1 = γ2 = 2.5
-    A1 = flux[i] / E0^γ1 * exp(E0 / Ec1)
-    A2 = A1 / 100
-    return [A1, γ1, Ec1, A2, γ2, Ec2]
+(m::SmoothBrokenPowerlaw)(E) = exp(log_sbpl(E, m...))
+
+
+"""
+    TwoStepModel{T,M1,M2}
+
+General two-step combined model with a transition energy Emin.
+
+The combined model is defined as:
+- For E ≤ Emin: f(E) = model1(E)
+- For E > Emin: f(E) = model1(E) + model2(E)
+
+# Fields
+- `model1::M1`: First model (typically for low energy region)
+- `model2::M2`: Second model (typically for high energy region)
+- `Emin::T`: Transition energy between the two components
+
+# Usage
+```julia
+model = TwoStepModel(model1, model2, Emin)
+flux = model(energy)  # Evaluate at any energy
+```
+
+# Examples
+```julia
+# With PowerLawExp and SmoothBrokenPowerlaw
+plec = PowerLawExp(A, γ, E_c)
+sbpl = SmoothBrokenPowerlaw(A, γ1, γ2, Eb, m)
+model = TwoStepModel(plec, sbpl, 100.0)
+
+# With any callable models
+gaussian = x -> exp(-x^2)
+exponential = x -> exp(-x)
+model = TwoStepModel(gaussian, exponential, 2.0)
+```
+"""
+struct TwoStepModel{T, M1, M2}
+    model1::M1
+    model2::M2
+    Emin::T
+end
+
+# Indexing interface for backward compatibility
+Base.getindex(model::TwoStepModel, i::Integer) = if i == 1
+    model.model1
+elseif i == 2
+    model.model2
+elseif i == 3
+    model.Emin
+else
+    throw(ArgumentError("Index out of bounds"))
+end
+
+function (model::TwoStepModel)(E)
+    model1_flux = model.model1(E)
+    if E <= model.Emin
+        return model1_flux
+    else
+        model2_flux = model.model2(E)
+        return model1_flux + model2_flux
+    end
 end
