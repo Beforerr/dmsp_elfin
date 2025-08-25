@@ -2,6 +2,7 @@ using Makie: heatmap!, Axis
 export plot_elfin_dmsp, plot_spectra
 export plot_flux_by_mlat, plot_flux_by_mlat
 using Makie
+using Printf
 
 import SpacePhysicsMakie
 using SpacePhysicsMakie: set_if_valid!
@@ -136,10 +137,15 @@ function plot_spectra!(ax, flux, flux_1, model)
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 3, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
 
-    # Plot individual components
-    lines!(ax, energies, model.model1.(energies); label = "PowerLawExp", linestyle = :dot, color = :blue)
+    # Plot individual components with parameters in labels
+    plec = model.model1
+    sbpl = model.model2
+    plec_label = "PLEC: A=$(@sprintf "%.0e" plec.A), γ=$(@sprintf "%.1e" plec.γ), Ec=$(@sprintf "%.0e" plec.E_c)keV"
+    sbpl_label = "SBPL: A=$(@sprintf "%.0e" sbpl.A), γ₁=$(@sprintf "%.1e" sbpl.γ1), γ₂=$(@sprintf "%.1e" sbpl.γ2), Eb=$(@sprintf "%.0e" sbpl.Eb)keV"
+    
+    lines!(ax, energies, model.model1.(energies); label = plec_label, linestyle = :dot, color = :blue)
     E_high = energies[energies .>= Emin]
-    lines!(ax, E_high, model.model2.(E_high); label = "SmoothBrokenPowerlaw", linestyle = :dot, color = :green)
+    lines!(ax, E_high, model.model2.(E_high); label = sbpl_label, linestyle = :dot, color = :green)
     return ax
 end
 
@@ -156,7 +162,8 @@ function plot_spectra(f, df::DataFrame)
         ax
     end
     xlims!.(axs, 0.011, 20000)
-    return ylims!.(axs, 1.0e1, 1.0e12)
+    ylims!.(axs, 1.0e1, 1.0e12)
+    return axs
 end
 
 

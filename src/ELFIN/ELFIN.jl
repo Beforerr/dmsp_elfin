@@ -14,11 +14,10 @@ function precipitating_flux(trange, probe; level = "l2")
     elx_anti = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_anti)))
     elx_energies = [63.0, 98.0, 139.0, 183.0, 238.0, 305.0, 385.0, 520.0, 753.0, 1082.0, 1530.0, 2121.0, 2894.0, 3729.0, 4906.0, 6500.0]
     dims = (Ti(parent(elx_para.dims[1])), Y(elx_energies))
-    elx_flux = abs.(elx_para .- elx_anti)
+    elx_para = DimArray(elx_para, dims; metadata = elx_para.metadata)
+    elx_anti = DimArray(elx_anti, dims; metadata = elx_anti.metadata)
 
-    elx_para = rebuild(elx_para, dims = dims)
-    elx_anti = rebuild(elx_anti, dims = dims)
-    elx_flux = rebuild(elx_flux, dims = dims)
+    elx_flux = abs.(elx_para .- elx_anti)
     ds = DimStack((; para = elx_para, anti = elx_anti, prec = elx_flux))
 
     for da in layers(ds)

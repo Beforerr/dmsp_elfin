@@ -75,6 +75,33 @@ dropmissing!(join_df)
 ```
 
 ```@example demo
+sdf = @rsubset(join_df, :mlat ∈ mlats)
+flux1 = sdf[1, :].flux
+flux2 = sdf[1, :].flux_1
+res = fit_two_flux(flux1, flux2; flux_threshold=100)
+
+f = Figure()
+ax = plot_spectra(f[1, 1], flux1, flux2, res.model)
+ylims!(ax, 1.0e1, 1.0e11)
+axislegend(ax; position=:lb)
+ax.title = "Two-Step Model Fit (MLAT = $(round(sdf[1, :].mlat, digits=1))°)"
+f
+```
+
+## Fit all MLT values and analyze parameter variation
+
+```@example demo
+# Function to fit flux for a single row and extract parameters
+# Fit all rows in the dataframe
+@info "Fitting $(nrow(join_df)) MLT values..."
+
+flux_threshold = 200
+@rtransform! join_df $AsTable = fit_two_flux(:flux, :flux_1; flux_threshold)
+successful_fits = filter(r -> r.success, join_df; view=true)
+```
+
+
+```@example demo
 # Make MLAT as the x axis
 f = Figure()
 colorrange = (1e3, 1e11)
@@ -91,39 +118,12 @@ for ax in (p1.axis, p2.axis)
 end
 
 sdf = @rsubset(join_df, :mlat ∈ mlats)
-plot_spectra(f[3, 1:end], sdf)
+axs = plot_spectra(f[3, 1:end], sdf)
 
+hlines!.(axs, flux_threshold; color = :black, linestyle = :dash)
+axislegend.(axs; position=:lb)
 hidexdecorations!(p1.axis; grid=false)
 f
-```
-
-```@example demo
-flux1 = sdf[1, :].flux
-flux2 = sdf[1, :].flux_1
-ff = vcat(flux1.data, flux2.data)
-ee = vcat(flux1.dims[1].val, flux2.dims[1].val)
-energies = ee
-ff, ee = remove_nan(ff, ee)
-
-model, flux_modeled, Emin, score = fit_flux_two_step(ff, ee)
-
-f = Figure()
-ax = plot_spectra(f[1, 1], flux1, flux2, model)
-ylims!(ax, 1.0e1, 1.0e11)
-axislegend(ax; position=:lb)
-ax.title = "Two-Step Model Fit (MLAT = $(round(sdf[1, :].mlat, digits=1))°)"
-f
-```
-
-## Fit all MLT values and analyze parameter variation
-
-```@example demo
-# Function to fit flux for a single row and extract parameters
-# Fit all rows in the dataframe
-@info "Fitting $(nrow(join_df)) MLT values..."
-
-@rtransform! join_df $AsTable = fit_row_parameters(:flux, :flux_1)
-successful_fits = filter(r -> r.success, join_df; view=true)
 ```
 
 ## Comprehensive Parameter Analysis

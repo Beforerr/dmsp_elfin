@@ -3,7 +3,9 @@ import NaNMath as nm
 using Statistics: mean
 export init_guess, TwoStepModel
 
+# https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/index.html
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
+# https://fjebaker.github.io/SpectralFitting.jl/dev/
 
 """
 Power-law model with exponential cutoff.
@@ -39,8 +41,6 @@ The combined model is defined as:
 model = TwoStepModel(model1, model2, Emin)
 flux = model(energy)  # Evaluate at any energy
 ```
-
-
 
 # Examples
 ```julia
@@ -224,7 +224,7 @@ function fit_flux_two_step(flux, energies; kw...)
     Emins = filter(sorted_energies) do Emin
         n_low = sum(energies .<= Emin)
         n_high = sum(energies .> Emin)
-        n_low >= 3 && n_high >= 3
+        n_low >= 3 && n_high >= 5
     end
 
     isempty(Emins) && return nothing, nothing, nothing
@@ -251,16 +251,17 @@ function fit_flux_two_step(flux, energies; kw...)
     return best_model, best_flux_modeled, best_Emin, best_score
 end
 
-export fit_row_parameters
+export fit_two_flux
 
 energies(x) = parent(x.dims[1].val)
 
-function fit_row_parameters(flux1, flux2)
-    ff = vcat(parent(flux1), parent(flux2))
-    ee = vcat(energies(flux1), energies(flux2))
-    ff, ee = remove_nan(ff, ee)
-    n_points = length(ff)
-    model, flux_modeled, Emin, score = fit_flux_two_step(ff, ee)
+function fit_two_flux(flux1, flux2; flux_threshold=100)
+    flux = vcat(flux1, flux2)
+    # Filter out NaN values and flux below threshold
+    valid_idx = .!isnan.(flux) .& (flux .>= flux_threshold)
+    clean_flux = flux[valid_idx]
+    n_points = length(clean_flux)
+    model, flux_modeled, Emin, score = fit_flux_two_step(parent(clean_flux), energies(clean_flux))
     success = !isnothing(model)
     return (; success, model, flux_modeled, n_points, Emin, score)
 end
