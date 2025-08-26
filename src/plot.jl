@@ -2,7 +2,6 @@ using Makie: heatmap!, Axis
 export plot_elfin_dmsp, plot_spectra
 export plot_flux_by_mlat, plot_flux_by_mlat
 using Makie
-using Printf
 
 import SpacePhysicsMakie
 using SpacePhysicsMakie: set_if_valid!
@@ -61,14 +60,11 @@ end
 
 
 """
-    plot_conjunction(event, dmsp_interp, elfin_interp, output_dir="plots")
+    plot_conjunction(event, dmsp_interp, elfin_interp)
 
 Plot a conjunction event.
 """
-function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir = "plots")
-    # Create output directory if it doesn't exist
-    mkpath(output_dir)
-
+function plot_conjunction(event, dmsp_interp, elfin_interp)
     # Extract event data
     start_idx = event.start_idx
     end_idx = event.end_idx
@@ -118,34 +114,29 @@ function plot_conjunction(event, dmsp_interp, elfin_interp, output_dir = "plots"
         p, "Start: $start_str, Duration: $(round(duration_min, digits = 1)) minutes",
         subplot = 0
     )
-
-    # Save figure
-    filename = "conjunction_$(Dates.format(event.start_time, "yyyymmdd_HHMMSS")).png"
-    filepath = joinpath(output_dir, filename)
-    savefig(p, filepath)
-
-    println("Saved plot to $filepath")
-    return filepath
+    return p
 end
 
-function plot_spectra!(ax, flux, flux_1, model)
-    Emin = model.Emin
-    scatterlines!(ax, flux)
-    scatterlines!(ax, flux_1)
+function plot_spectra!(ax, energies, model)
+    return lines!(ax, energies, model; label = string(model), linestyle = :dot)
+end
 
-    energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
+function plot_spectra!(ax, energies, model::TwoStepModel)
+    Emin = model.Emin
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 3, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
 
     # Plot individual components with parameters in labels
-    m1 = model.model1
-    m2 = model.model2
-    m1_label = "PLEC: A=$(@sprintf "%.0e" m1.A), γ=$(@sprintf "%.1e" m1.γ), Ec=$(@sprintf "%.0e" m1.E_c)keV"
-    m2_label = string(m2)
-
-    lines!(ax, energies, m1.(energies); label = m1_label, linestyle = :dot, color = :blue)
+    plot_spectra!(ax, energies, model.model1)
     E_high = energies[energies .>= Emin]
-    lines!(ax, E_high, m2.(E_high); label = m2_label, linestyle = :dot, color = :green)
+    return plot_spectra!(ax, E_high, model.model2)
+end
+
+function plot_spectra!(ax, flux, flux_1, model)
+    scatterlines!(ax, flux)
+    scatterlines!(ax, flux_1)
+    energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
+    plot_spectra!(ax, energies, model)
     return ax
 end
 
@@ -187,15 +178,10 @@ function plot_example_fits!(ax, df)
         ff, ee = remove_nan(ff, ee)
 
         # Plot original data
-        scatter!(
-            ax, ee, ff, color = colors[i], alpha = 0.6,
-            label = "MLAT $(round(row.mlat, digits = 1))°"
-        )
-
-        lines!(
-            ax, ee, row.flux_modeled, color = colors[i], alpha = 0.6,
-            label = "MLAT $(round(row.mlat, digits = 1))°"
-        )
+        label = "MLAT $(round(row.mlat, digits = 1))°"
+        alpha = 0.6
+        scatter!(ax, ee, ff; color = colors[i], alpha, label)
+        lines!(ax, ee, row.flux_modeled; color = colors[i], alpha, label)
     end
     return
 end

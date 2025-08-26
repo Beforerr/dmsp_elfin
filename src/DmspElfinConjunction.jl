@@ -10,7 +10,9 @@ export get_flux_by_mlat  # re-export from this module
 using SPEDAS
 using SpacePhysicsMakie: set_if_valid!
 using GeoCotrans
+using Printf
 
+include("utils.jl")
 include("AACGM.jl")
 include("fit.jl")
 include("plot.jl")

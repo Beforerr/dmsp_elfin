@@ -12,6 +12,19 @@ function Base.iterate(m::T, state = 1) where {T <: SpectralModel}
     return state > fieldcount(T) ? nothing : (getfield(m, state), state + 1)
 end
 
+Base.broadcastable(o::SpectralModel) = Ref(o)
+
+function Base.show(io::IO, m::T) where {T <: SpectralModel}
+    print(io, Base.typename(T).name, "(")
+    for fn in fieldnames(T)
+        fv = getfield(m, fn)
+        print(io, fn, "=", @sprintf("%.2g", fv))
+        fn != last(fieldnames(T)) && print(io, ", ")
+    end
+    print(io, ")")
+    return 
+end
+
 """
 Power-law model.
 
@@ -33,7 +46,7 @@ Power-law model with exponential cutoff.
 f(E) = A * E^(-γ) * exp(-E/E_c)
 ```
 """
-struct PowerLawExpCutoff{T} <: SpectralModel{T}
+@kwdef struct PowerLawExpCutoff{T} <: SpectralModel{T}
     A::T
     γ::T
     E_c::T
@@ -50,7 +63,7 @@ f(E) = A * E * (1 + E/(κ*E_c))^(-κ-1)
 
 Where κ is the kappa parameter controlling the suprathermal tail.
 """
-struct KappaDistribution{T} <: SpectralModel{T}
+@kwdef struct KappaDistribution{T} <: SpectralModel{T}
     A::T
     κ::T
     E_c::T
@@ -58,11 +71,7 @@ end
 
 (m::KappaDistribution)(E) = m.A * E * (1 + E / (m.κ * m.E_c))^(-m.κ - 1)
 
-log_eval(m::KappaDistribution, E) = @. nm.log(m.A) + nm.log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
-
-_print(x) = @sprintf "%.0e" x
-
-Base.show(io::IO, m::KappaDistribution) = print(io, "KappaDistribution(A=$(_print(m.A)), κ=$(_print(m.κ)), E_c=$(_print(m.E_c)))")
+log_eval(m::KappaDistribution, E) = nm.log(m.A) + nm.log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
 
 
 """
@@ -92,6 +101,16 @@ end
 
 (m::SmoothBrokenPowerlaw)(E) = exp(log_sbpl(E, m...))
 
+# Fixed m = 1
+struct SmoothBrokenPowerlawFixed{T} <: SpectralModel{T}
+    A::T
+    γ1::T
+    γ2::T
+    Eb::T
+end
+
+
+(m::SmoothBrokenPowerlawFixed)(E) = exp(log_sbpl(E, m..., 1))
 
 """
     TwoStepModel{M1,M2,T}

@@ -7,14 +7,16 @@ using PySPEDAS: promote_cdf_attributes!
 
 export precipitating_flux, gei
 
+function standardize(x)
+    return set(x, Dim{:time} => Ti, Dim{:v_dim} => Y)
+end
+
 # About 1.4s time resolution
 function precipitating_flux(trange, probe; level = "l2")
     epd_ds = elfin.epd(trange; probe, level)
     @info "availabel tvar names: $(keys(epd_ds))"
-    elx_para = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_para)))
-    elx_anti = DimArray(getproperty(epd_ds, Symbol(:el, probe, :_pef_hs_nflux_anti)))
-    elx_para = set(elx_para, Dim{:time} => Ti, Dim{:v_dim} => Y)
-    elx_anti = set(elx_anti, Dim{:time} => Ti, Dim{:v_dim} => Y)
+    elx_para = DimArray(epd_ds[Symbol(:el, probe, :_pef_hs_nflux_para)]) |> standardize
+    elx_anti = DimArray(epd_ds[Symbol(:el, probe, :_pef_hs_nflux_anti)]) |> standardize
     
     elx_flux = abs.(elx_para .- elx_anti)
     ds = DimStack((; para = elx_para, anti = elx_anti, prec = elx_flux))
@@ -30,8 +32,8 @@ end
 
 function gei(trange, probe)
     elx_state = elfin.state(trange; probe)
-    elx_gei = DimArray(getproperty(elx_state, Symbol(:el, probe, :_pos_gei)))
-    return set(elx_gei, Dim{:time} => Ti)
+    name = Symbol(:el, probe, :_pos_gei)
+    return DimArray(elx_state[name]) |> standardize
 end
 
 end

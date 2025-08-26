@@ -84,10 +84,13 @@ idx = 3
 flux1 = sdf[idx, :].flux
 flux2 = sdf[idx, :].flux_1
 modelType = TwoStepModel{PowerLawExpCutoff, KappaDistribution}
-res = fit_two_flux(modelType, flux1, flux2; flux_threshold)
+res = fit_two_flux(modelType, flux1, flux2; flux_threshold, method = :sciml, verbose = true)
+```
 
+```@example demo
 f = Figure()
-ax = plot_spectra(f[1, 1], flux1, flux2, res.model)
+model = res.model
+ax = plot_spectra(f[1, 1], flux1, flux2, model)
 ylims!(ax, 1.0e1, 1.0e12)
 axislegend(ax; position=:lb)
 hlines!(ax, flux_threshold; color = :black, linestyle = :dash)
