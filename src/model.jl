@@ -1,7 +1,12 @@
 # https://fjebaker.github.io/SpectralFitting.jl/dev/models/using-models/#SpectralFitting.AbstractSpectralModel
-import Base: iterate
+import Base: iterate, show
+
+export SpectralModel, TwoStepModel, PowerLaw, PowerLawExpCutoff, SmoothBrokenPowerlaw, KappaDistribution
 
 abstract type SpectralModel{T} end
+
+paramcount(m::Type{<:SpectralModel}) = fieldcount(m)
+paramcount(m::SpectralModel) = paramcount(m)
 
 function Base.iterate(m::T, state = 1) where {T <: SpectralModel}
     return state > fieldcount(T) ? nothing : (getfield(m, state), state + 1)
@@ -28,13 +33,36 @@ Power-law model with exponential cutoff.
 f(E) = A * E^(-γ) * exp(-E/E_c)
 ```
 """
-struct PowerLawExp{T} <: SpectralModel{T}
+struct PowerLawExpCutoff{T} <: SpectralModel{T}
     A::T
     γ::T
     E_c::T
 end
 
-(f::PowerLawExp)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
+(f::PowerLawExpCutoff)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
+
+"""
+Kappa distribution spectral model.
+
+```math
+f(E) = A * E * (1 + E/(κ*E_c))^(-κ-1)
+```
+
+Where κ is the kappa parameter controlling the suprathermal tail.
+"""
+struct KappaDistribution{T} <: SpectralModel{T}
+    A::T
+    κ::T
+    E_c::T
+end
+
+(m::KappaDistribution)(E) = m.A * E * (1 + E / (m.κ * m.E_c))^(-m.κ - 1)
+
+log_eval(m::KappaDistribution, E) = @. nm.log(m.A) + nm.log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
+
+_print(x) = @sprintf "%.0e" x
+
+Base.show(io::IO, m::KappaDistribution) = print(io, "KappaDistribution(A=$(_print(m.A)), κ=$(_print(m.κ)), E_c=$(_print(m.E_c)))")
 
 
 """
@@ -59,14 +87,14 @@ end
 
 function log_sbpl(E, A, γ1, γ2, Eb, m)
     x = E / Eb
-    return log(A) - γ1 * log(E) + ((γ1 - γ2) / m) * log(1 + x^m)
+    return nm.log(A) - γ1 * nm.log(E) + ((γ1 - γ2) / m) * nm.log(1 + x^m)
 end
 
 (m::SmoothBrokenPowerlaw)(E) = exp(log_sbpl(E, m...))
 
 
 """
-    TwoStepModel{T,M1,M2}
+    TwoStepModel{M1,M2,T}
 
 General two-step combined model with a transition energy Emin.
 
@@ -87,8 +115,8 @@ flux = model(energy)  # Evaluate at any energy
 
 # Examples
 ```julia
-# With PowerLawExp and SmoothBrokenPowerlaw
-plec = PowerLawExp(A, γ, E_c)
+# With PowerLawExpCutoff and SmoothBrokenPowerlaw
+plec = PowerLawExpCutoff(A, γ, E_c)
 sbpl = SmoothBrokenPowerlaw(A, γ1, γ2, Eb, m)
 model = TwoStepModel(plec, sbpl, 100.0)
 
@@ -98,7 +126,7 @@ exponential = x -> exp(-x)
 model = TwoStepModel(gaussian, exponential, 2.0)
 ```
 """
-struct TwoStepModel{T, M1, M2}
+struct TwoStepModel{M1, M2, T}
     model1::M1
     model2::M2
     Emin::T
@@ -115,12 +143,12 @@ else
     throw(ArgumentError("Index out of bounds"))
 end
 
-function (model::TwoStepModel)(E)
-    model1_flux = model.model1(E)
-    if E <= model.Emin
+function (m::TwoStepModel)(E)
+    model1_flux = m.model1(E)
+    if E <= m.Emin
         return model1_flux
     else
-        model2_flux = model.model2(E)
+        model2_flux = m.model2(E)
         return model1_flux + model2_flux
     end
 end

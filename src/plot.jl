@@ -138,14 +138,14 @@ function plot_spectra!(ax, flux, flux_1, model)
     vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
 
     # Plot individual components with parameters in labels
-    plec = model.model1
-    sbpl = model.model2
-    plec_label = "PLEC: A=$(@sprintf "%.0e" plec.A), γ=$(@sprintf "%.1e" plec.γ), Ec=$(@sprintf "%.0e" plec.E_c)keV"
-    sbpl_label = "SBPL: A=$(@sprintf "%.0e" sbpl.A), γ₁=$(@sprintf "%.1e" sbpl.γ1), γ₂=$(@sprintf "%.1e" sbpl.γ2), Eb=$(@sprintf "%.0e" sbpl.Eb)keV"
+    m1 = model.model1
+    m2 = model.model2
+    m1_label = "PLEC: A=$(@sprintf "%.0e" m1.A), γ=$(@sprintf "%.1e" m1.γ), Ec=$(@sprintf "%.0e" m1.E_c)keV"
+    m2_label = string(m2)
 
-    lines!(ax, energies, model.model1.(energies); label = plec_label, linestyle = :dot, color = :blue)
+    lines!(ax, energies, m1.(energies); label = m1_label, linestyle = :dot, color = :blue)
     E_high = energies[energies .>= Emin]
-    lines!(ax, E_high, model.model2.(E_high); label = sbpl_label, linestyle = :dot, color = :green)
+    lines!(ax, E_high, m2.(E_high); label = m2_label, linestyle = :dot, color = :green)
     return ax
 end
 
@@ -168,7 +168,7 @@ end
 
 
 export plot_example_fits, plot_parameters_variation
-export plot_PowerLawExp_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
+export plot_PowerLawExpCutoff_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
 
 # Plot : Example fitted spectra for selected MLATs
 function plot_example_fits!(ax, df)
@@ -212,13 +212,13 @@ function plot_example_fits(f, args...)
 end
 
 function plot_parameters_variation(f, mlats, models, n_points; scores = nothing)
-    # Row 1: PowerLawExp parameters
+    # Row 1: PowerLawExpCutoff parameters
 
-    PowerLawExp_models = getindex.(models, 1)
+    PowerLawExpCutoff_models = getindex.(models, 1)
     SmoothBrokenPowerlaw_models = getindex.(models, 2)
     Emins = getindex.(models, 3)
 
-    plot_PowerLawExp_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExp_models)
+    plot_PowerLawExpCutoff_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExpCutoff_models)
     plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_models)
     plot_fit_parameters_variation(f[1, 1][4:5, 1], mlats, Emins, n_points; scores)
     return f
@@ -243,7 +243,7 @@ function plot_fit_parameters_variation(f, mlats, Emins, n_points; scores = nothi
 end
 
 
-function plot_PowerLawExp_parameter_variation(f, mlats, params)
+function plot_PowerLawExpCutoff_parameter_variation(f, mlats, params)
     As = [p.A for p in params]
     γs = [p.γ for p in params]
     E_cs = [p.E_c for p in params]

@@ -1,5 +1,6 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 DMSP = "18f86b58-c793-4198-b447-5463fba1ecf3"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
@@ -20,6 +21,8 @@ TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
 DMSP = {path = "../lib/DMSP"}
 DmspElfinConjunction = {path = ".."}
 ELFIN = {path = "../lib/ELFIN"}
+PySPEDAS = {path = "/Users/zijin/.julia/dev/PySPEDAS"}
+SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
 
 [compat]
 DataFramesMeta = "0.15.4"

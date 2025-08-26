@@ -29,7 +29,6 @@ SphericalHarmonics = {url = "https://github.com/jishnub/SphericalHarmonics.jl"}
 
 [compat]
 CurveFit = "1.0.0"
-DataFramesMeta = "0.15.4"
 DimensionalData = "0.29.16"
 GeoCotrans = "0.1.2"
 LeastSquaresOptim = "0.8.7"

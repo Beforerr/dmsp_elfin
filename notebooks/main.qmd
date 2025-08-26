@@ -28,18 +28,18 @@ param_stats = (
 # Create correlation plot between key parameters
 f_corr = Figure(size=(1200, 900))
 
-# PowerLawExp γ vs E_c
-ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExp)",
+# PowerLawExpCutoff γ vs E_c
+ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExpCutoff)",
     ylabel="Cutoff Energy E_c (keV)", yscale=log10,
-    title="PowerLawExp: γ vs E_c")
+    title="PowerLawExpCutoff: γ vs E_c")
 scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
     [p.plec_E_c for p in param_analysis],
     color=mlats_all, colormap=:viridis, markersize=8)
 
-# PowerLawExp A vs γ  
-ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExp)",
+# PowerLawExpCutoff A vs γ  
+ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExpCutoff)",
     ylabel="Power Index γ", xscale=log10,
-    title="PowerLawExp: A vs γ")
+    title="PowerLawExpCutoff: A vs γ")
 scatter!(ax_corr2, [p.plec_A for p in param_analysis],
     [p.plec_γ for p in param_analysis],
     color=mlats_all, colormap=:viridis, markersize=8)
@@ -52,7 +52,7 @@ scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
     [p.sbpl_γ2 for p in param_analysis],
     color=mlats_all, colormap=:viridis, markersize=8)
 
-# Break energy vs MLAT colored by PowerLawExp cutoff
+# Break energy vs MLAT colored by PowerLawExpCutoff cutoff
 ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
     yscale=log10, title="Break Energy vs MLAT")
 scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],

@@ -34,7 +34,6 @@ elx_aacgm = gei2aacgm(elx_gei)
 elx_mlat = elx_aacgm.mlat
 
 dmsp_flux = DMSP.load(trange, 16, "el_d_flux")
-@info dmsp_flux.dims[2].val.metadata
 dmsp_geod = DMSP.geod(trange, 16)
 dmsp_aacgm = geod2aacgm(dmsp_geod)
 dmsp_mlat = dmsp_aacgm.mlat
@@ -74,18 +73,24 @@ sort!(join_df, :mlat)
 dropmissing!(join_df)
 ```
 
+Fit the two-step model to the flux data on a single MLAT value.
+
 ```@example demo
 mlats = [-61, -63, -66, -69]
+flux_threshold = 100
 
 sdf = @rsubset(join_df, :mlat ∈ mlats)
-flux1 = sdf[1, :].flux
-flux2 = sdf[1, :].flux_1
-res = fit_two_flux(flux1, flux2; flux_threshold=100)
+idx = 3
+flux1 = sdf[idx, :].flux
+flux2 = sdf[idx, :].flux_1
+modelType = TwoStepModel{PowerLawExpCutoff, KappaDistribution}
+res = fit_two_flux(modelType, flux1, flux2; flux_threshold)
 
 f = Figure()
 ax = plot_spectra(f[1, 1], flux1, flux2, res.model)
-ylims!(ax, 1.0e1, 1.0e11)
+ylims!(ax, 1.0e1, 1.0e12)
 axislegend(ax; position=:lb)
+hlines!(ax, flux_threshold; color = :black, linestyle = :dash)
 ax.title = "Two-Step Model Fit (MLAT = $(round(sdf[1, :].mlat, digits=1))°)"
 f
 ```
@@ -128,7 +133,7 @@ f
 
 ## Comprehensive Parameter Analysis
 
-Plotting model-calculated flux vs MLAT and how the PowerLawExp parameters change over MLAT.
+Plotting model-calculated flux vs MLAT and how the PowerLawExpCutoff parameters change over MLAT.
 
 1. Spatial Variations: How particle precipitation characteristics change with magnetic latitude
 2. Spectral Hardness Trends: Whether spectra become harder/softer at different MLATs

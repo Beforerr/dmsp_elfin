@@ -14,6 +14,7 @@ using GeoCotrans
 include("AACGM.jl")
 include("fit.jl")
 include("plot.jl")
+include("makie.jl")
 
 ntime(x) = size(x, 1)
 
