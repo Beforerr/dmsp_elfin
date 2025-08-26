@@ -83,6 +83,7 @@ sdf = @rsubset(join_df, :mlat ∈ mlats)
 idx = 3
 flux1 = sdf[idx, :].flux
 flux2 = sdf[idx, :].flux_1
+flux = vcat(flux1, flux2)
 modelType = TwoStepModel{PowerLawExpCutoff, KappaDistribution}
 res = fit_two_flux(modelType, flux1, flux2; flux_threshold, method = :sciml, verbose = true)
 ```
@@ -144,11 +145,12 @@ Plotting model-calculated flux vs MLAT and how the PowerLawExpCutoff parameters 
 <!-- 4. Parameter Correlations: Relationships between spectral parameters that reveal physical processes -->
 
 ```@example demo
+Es = energies(flux)
 modeled_fluxes = @with successful_fits begin
     flux_modeled = stack(:model) do model
-        model.(energies)
+        model.(Es)
     end
-    DimArray(flux_modeled', (X(:mlat), Y(energies)))
+    DimArray(flux_modeled', (X(:mlat), Y(Es)))
 end
 ```
 

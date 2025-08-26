@@ -79,7 +79,7 @@ end
 
 # https://github.com/JuliaNLSolvers/LsqFit.jl
 function LsqFit_log_fit(Model, E, y; kw...)
-    f = (E, p) -> (m = Model(p...); log_eval(m, E))
+    f = (E, p) -> (m = Model(p...); log_eval.(m, E))
     p0 = init_guess(Model, E, y)
     fit = LsqFit.curve_fit(f, E, nm.log.(y), p0; kw...)
     return Model(fit.param...)
@@ -142,7 +142,7 @@ function fit(::Type{<:SmoothBrokenPowerlawFixed}, E, y; kw...)
     return SmoothBrokenPowerlawFixed(sol.u...)
 end
 
-function fit(M::Type{<:KappaDistribution}, E, y; method = :LsqFit, kw...)
+function fit(M::Type{<:KappaDistribution}, E, y; method = :sciml, kw...)
     return if method == :jso
         jso_nls_fit(M, E, y; kw...)
     elseif method == :sciml
@@ -184,19 +184,24 @@ using ADNLPModels, CaNNOLeS, JSOSolvers
 export remove_nan, fit_flux_two_step, jso_nls_fit, jso_constrained_nls_fit, jso_trunk_fit
 
 # TODO: ignore the last channel of dmsp_flux
+"""
+    fit_flux_two_step(M1, M2, flux, energies, Emin; kw...)
 
+First fit high energy part (E > Emin) with model2
+Then fit low energy (cold) part after subtracting high energy contribution
+"""
 function fit_flux_two_step(M1, M2, flux, energies, Emin; kw...)
-    # first fit energy below Emin with model1 (default: PowerLawExpCutoff)
-    flux_1 = flux[energies .<= Emin]
-    Es1 = energies[energies .<= Emin]
-    model1 = fit(M1, Es1, flux_1)
+    high_energy_idx = energies .> Emin
+    flux_high = flux[high_energy_idx]
+    Es_high = energies[high_energy_idx]
+    model2 = fit(M2, Es_high, flux_high; kw...)
 
-    # second fit the remaining flux of energy above Emin with model2 (default: SmoothBrokenPowerlaw)
-    δEs = energies[energies .> Emin]
-    δflux = flux[energies .> Emin] .- model1.(δEs)
-    model2 = fit(M2, δEs, δflux; kw...)
+    low_energy_idx = energies .<= Emin
+    flux_low = flux[low_energy_idx]
+    Es_low = energies[low_energy_idx]
+    δflux_low = flux_low .- model2.(Es_low)
+    model1 = fit(M1, Es_low, δflux_low)
 
-    # Create combined model
     model = TwoStepModel(model1, model2, Emin)
     flux_modeled = model.(energies)
 
@@ -271,6 +276,6 @@ function fit_two_flux(modelType, flux1, flux2; flux_threshold = 100, kw...)
 end
 
 function fit_two_flux(flux1, flux2; kw...)
-    modelType = TwoStepModel{PowerLawExpCutoff, SmoothBrokenPowerlaw}
+    modelType = TwoStepModel{PowerLawExpCutoff, KappaDistribution}
     return fit_two_flux(modelType, flux1, flux2; kw...)
 end

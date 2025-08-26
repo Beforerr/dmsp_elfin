@@ -11,6 +11,7 @@ using SPEDAS
 using SpacePhysicsMakie: set_if_valid!
 using GeoCotrans
 using Printf
+export energies
 
 include("utils.jl")
 include("AACGM.jl")
