@@ -3,6 +3,7 @@ module DmspElfinConjunction
 using Dates
 using DataFrames
 using DimensionalData
+import Speasy
 
 export get_elfin_flux_by_mlat, integrate_diff_flux
 export get_flux_by_mlat  # re-export from this module
@@ -12,6 +13,7 @@ using SpacePhysicsMakie: set_if_valid!
 using GeoCotrans
 using Printf
 export energies
+export maxAE
 
 include("utils.jl")
 include("AACGM.jl")
@@ -20,6 +22,13 @@ include("plot.jl")
 include("makie.jl")
 
 ntime(x) = size(x, 1)
+
+# use maxAE for three hours before the event
+function maxAE(trange, dt = Hour(3))
+    pre_range = DateTime.(trange) .- dt
+    ae = Speasy.get_data("cda/OMNI_HRO2_1MIN/AE_INDEX", pre_range...)
+    return maximum(ae), ae
+end
 
 function integrate_diff_flux(flux)
     Es = flux.dims[2].val

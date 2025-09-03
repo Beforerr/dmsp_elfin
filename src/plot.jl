@@ -1,4 +1,5 @@
 using Makie: heatmap!, Axis
+export set_mlat_dim
 export plot_elfin_dmsp, plot_spectra
 export plot_flux_by_mlat, plot_flux_by_mlat
 using Makie
@@ -9,6 +10,11 @@ using SpacePhysicsMakie: set_if_valid!
 baremodule YLabel
     nflux = "Flux (1/cm²/s/sr/MeV)"
     E = "Energy (keV)"
+    A = "Amplitude A"
+    γ = γ1 = γ2 = "Power Index γ"
+    E_c = "Cutoff Energy E_c (keV)"
+    Eb = "Break Energy Eb (keV)"
+    κ = "Kappa κ"
     B = "B (nT)"
     V = "V (km s⁻¹)"
     n = "n (cm⁻³)"
@@ -27,13 +33,17 @@ function set_dmsp_flux_opts!(ds)
     return ds
 end
 
-set_mlat_dim(flux, mlat) = set(flux, Ti => X(mlat))
-set_mlat_dim(flux, mlat, tspan) = set(tview(flux, tspan), Ti => X(tview(mlat, tspan)))
+set_mlat_dim(A, mlat) = set(A, Ti => X(mlat.data))
+set_mlat_dim(A, mlat, tspan) = set(tview(A, tspan), Ti => X(tview(mlat, tspan).data))
 
 function plot_flux_by_mlat(f, flux; kw...)
     ax = Axis(f; yscale = log10, ylabel = 𝒀.E)
     plot = heatmap!(ax, flux; colorscale = log10, kw...)
     return Makie.AxisPlot(ax, plot)
+end
+
+function plot_x_by_mlat(f, flux, mlat, args...; kw...)
+    return plot_flux_by_mlat(f, set_mlat_dim(flux, mlat, args...); kw...)
 end
 
 function plot_flux_by_mlat(f, flux, mlat, args...; kw...)
@@ -128,8 +138,7 @@ function plot_spectra!(ax, energies, model::TwoStepModel)
 
     # Plot individual components with parameters in labels
     plot_spectra!(ax, energies, model.model1)
-    E_high = energies[energies .>= Emin]
-    return plot_spectra!(ax, E_high, model.model2)
+    return plot_spectra!(ax, energies, model.model2)
 end
 
 function plot_spectra!(ax, flux, flux_1, model)
@@ -159,7 +168,7 @@ end
 
 
 export plot_example_fits, plot_parameters_variation
-export plot_PowerLawExpCutoff_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation
+export plot_PowerLawExpCutoff_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation, plot_model_parameters, plot_parameters_variation_generic
 
 # Plot : Example fitted spectra for selected MLATs
 function plot_example_fits!(ax, df)
@@ -197,19 +206,6 @@ function plot_example_fits(f, args...)
     return ax
 end
 
-function plot_parameters_variation(f, mlats, models, n_points; scores = nothing)
-    # Row 1: PowerLawExpCutoff parameters
-
-    PowerLawExpCutoff_models = getindex.(models, 1)
-    SmoothBrokenPowerlaw_models = getindex.(models, 2)
-    Emins = getindex.(models, 3)
-
-    plot_PowerLawExpCutoff_parameter_variation(f[1, 1][1:3, 1], mlats, PowerLawExpCutoff_models)
-    plot_SmoothBrokenPowerlaw_parameter_variation(f[1, 2][1:5, 1], mlats, SmoothBrokenPowerlaw_models)
-    plot_fit_parameters_variation(f[1, 1][4:5, 1], mlats, Emins, n_points; scores)
-    return f
-end
-
 function plot_fit_parameters_variation(f, mlats, Emins, n_points; scores = nothing)
     xlabel = "MLAT"
     ax1 = Axis(f[1, 1]; xlabel, ylabel = "Energy Transition (keV)")
@@ -228,51 +224,84 @@ function plot_fit_parameters_variation(f, mlats, Emins, n_points; scores = nothi
     return f
 end
 
+"""
+    plot_parameters_variation(f, mlats, models::Vector{<:SpectralModel}; colors=nothing)
 
-function plot_PowerLawExpCutoff_parameter_variation(f, mlats, params)
-    As = [p.A for p in params]
-    γs = [p.γ for p in params]
-    E_cs = [p.E_c for p in params]
-    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
-    scatterlines!(ax1, mlats, As, color = :blue)
-    ax2 = Axis(f[2, 1]; ylabel = "Power Index γ")
-    scatterlines!(ax2, mlats, γs, color = :red)
-    ax3 = Axis(f[3, 1]; xlabel = "MLAT", ylabel = "Cutoff Energy E_c (keV)", yscale = log10)
-    scatterlines!(ax3, mlats, E_cs, color = :green)
-    hidexdecorations!.((ax1, ax2); grid = false)
+Generic function to plot parameters of any spectral model type.
+"""
+function plot_parameters_variation(f, T::Type{<:SpectralModel}, mlats, models)
+    if isempty(models)
+        return f
+    end
+    # Get field names from the first model
+    field_names = fieldnames(T)
+    # Create plots for each parameter
+    axes = []
+    for (i, fn) in enumerate(field_names)
+        values = getfield.(models, fn)
+        # Determine if we need log scale (for amplitude-like parameters)
+        use_log = fn in (:A, :E_c, :Eb) || any(v -> v > 1000, values)
 
+        ylabel = isdefined(YLabel, fn) ? getproperty(YLabel, fn) : string(fn)
+        xlabel = "MLAT"
+
+        ax = Axis(f[i, 1]; xlabel, ylabel, yscale = use_log ? log10 : identity)
+        scatterlines!(ax, mlats, values)
+        push!(axes, ax)
+    end
+
+    # Hide x decorations for all but last axis
+    hidexdecorations!.(axes[1:(end - 1)]; grid = false)
     return f
 end
 
-function plot_PowerLaw_parameter_variation(f, mlats, params)
-    As = [p.A for p in params]
-    γs = [p.γ for p in params]
-    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
-    scatterlines!(ax1, mlats, As, color = :blue)
-    ax2 = Axis(f[2, 1]; xlabel = "MLAT", ylabel = "Power Index γ")
-    scatterlines!(ax2, mlats, γs, color = :red)
-    hidexdecorations!(ax1; grid = false)
+"""
+    plot_parameters_variation(f, TwoStepModel, mlats, models, n_points; scores=nothing)
 
+Generalized version of plot_parameters_variation that works with any TwoStepModel types.
+
+# Arguments
+- `f`: Figure for plotting
+- `n_points`: Number of data points for each fit
+- `scores`: Optional fit quality scores
+
+# Example  
+```julia
+models = [TwoStepModel(PowerLaw(...), KappaDistribution(...), 50.0), ...]
+plot_parameters_variation(fig, mlats, models, n_points)
+```
+"""
+function plot_parameters_variation(f, ::Type{<:TwoStepModel}, mlats, models, n_points; scores = nothing)
+    # Extract model components
+    model1s = [m.model1 for m in models]
+    model2s = [m.model2 for m in models]
+    Emins = [m.Emin for m in models]
+
+    # Get model types
+    M1_type = spectral_type(model1s)
+    M2_type = spectral_type(model2s)
+
+    # Calculate grid layout
+    n_params_1 = length(fieldnames(M1_type))
+    n_params_2 = length(fieldnames(M2_type))
+    fit_params_rows = scores === nothing ? 2 : 3
+
+    # Plot model1 parameters
+    plot_parameters_variation(f[1:n_params_1, 1], mlats, model1s)
+
+    # Plot model2 parameters
+    plot_parameters_variation(f[1:n_params_2, 2], mlats, model2s)
+
+    # Plot fit parameters (Emin, n_points, scores)
+    fit_start_row = n_params_1 + 1
+    plot_fit_parameters_variation(
+        f[fit_start_row:(fit_start_row + fit_params_rows - 1), 1],
+        mlats, Emins, n_points; scores
+    )
     return f
 end
 
-function plot_SmoothBrokenPowerlaw_parameter_variation(f, mlats, params)
-    As = [p.A for p in params]
-    γ1s = [p.γ1 for p in params]
-    γ2s = [p.γ2 for p in params]
-    Eb = [p.Eb for p in params]
-    ms = [p.m for p in params]
-
-    ax1 = Axis(f[1, 1]; ylabel = "Amplitude A", yscale = log10)
-    scatterlines!(ax1, mlats, As, color = :purple)
-    ax2 = Axis(f[2, 1]; ylabel = "Power Index γ₁")
-    scatterlines!(ax2, mlats, γ1s, color = :orange)
-    ax3 = Axis(f[3, 1]; ylabel = "Power Index γ₂")
-    scatterlines!(ax3, mlats, γ2s, color = :cyan)
-    ax4 = Axis(f[4, 1]; ylabel = "Break Energy Eb (keV)", yscale = log10)
-    scatterlines!(ax4, mlats, Eb, color = :brown)
-    ax5 = Axis(f[5, 1]; xlabel = "MLAT", ylabel = "Smoothness m")
-    scatterlines!(ax5, mlats, ms, color = :teal)
-    hidexdecorations!.((ax1, ax2, ax3, ax4); grid = false)
-    return f
-end
+spectral_type(T) = T
+spectral_type(T::Union) = T.a == Nothing ? T.b : T.a
+spectral_type(models::AbstractArray) = spectral_type(eltype(models))
+plot_parameters_variation(f, mlats, models, args...; kw...) = plot_parameters_variation(f, spectral_type(models), mlats, models, args...; kw...)

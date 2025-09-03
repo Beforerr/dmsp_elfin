@@ -1,13 +1,18 @@
 # Example demo
 
-```{julia}
+```@example demo
+import Pkg
+Pkg.activate("docs")
 using DmspElfinConjunction
-using DmspElfinConjunction
+import DmspElfinConjunction as DE
 using DMSP, ELFIN
 using SPEDAS
+using Speasy
 using SpacePhysicsMakie
 using Dates, TimeseriesUtilities
 using DataFrames, DataFramesMeta, DimensionalData
+using IRBEM
+using Beforerr
 
 using SpacePhysicsMakie: set_if_valid!
 import DmspElfinConjunction.YLabel as 𝒀
@@ -20,11 +25,17 @@ else
     using GLMakie
     GLMakie.activate!()
 end
+
+Beforerr.DEFAULT_FORMATS = ["png"]
+
+# Set better default colormap for wide dynamic range (10^3 to 10^11)
+set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
 ```
 
 ```@example demo
 probe = "a"
 trange = ["2022-07-02", "2022-07-03"]
+id = 16
 
 # Load ELFIN EPD data
 elx_flux = ELFIN.precipitating_flux(trange, probe)
@@ -32,11 +43,22 @@ elx_gei = ELFIN.gei(trange, probe)
 elx_gei = tinterp(elx_gei, elx_flux.anti)
 elx_aacgm = gei2aacgm(elx_gei)
 elx_mlat = elx_aacgm.mlat
+elx_geo = gei2geo(elx_gei)
+elx_mlt = get_mlt(elx_geo)
+ae_max, ae = DE.maxAE(trange)
 
-dmsp_flux = DMSP.load(trange, 16, "el_d_flux")
-dmsp_geod = DMSP.geod(trange, 16)
+dmsp_flux = DMSP.load(trange, id, "el_d_flux")
+dmsp_geod = DMSP.geod(trange, id)
 dmsp_aacgm = geod2aacgm(dmsp_geod)
 dmsp_mlat = dmsp_aacgm.mlat
+
+dmsp_geo = Speasy.get_data("ssc/dmspf$id/geo", trange...) |> DimArray
+
+dmsp_mlt = get_mlt(dmsp_geo)
+dmsp_geo_2 = geod2geo(dmsp_geod)
+dmsp_mlt_2 = get_mlt(dmsp_geo_2)
+
+dmsp_mlt_file = DMSP.load(trange, id, "mlt")
 
 # use keV as the basic unit for energy dimension
 dmsp_flux = set(dmsp_flux, Y => dims(dmsp_flux, Y).val .* 1e-3)
@@ -54,15 +76,18 @@ end
 elx_mlat = SPEDAS.setmeta(elx_mlat, :label => "ELFIN")
 set_if_valid!(dmsp_mlat.metadata, :labels => "DMSP")
 
-trial_tr = ["2022-07-02T04:50", "2022-07-02T05:20"]
+trial_tr = [DateTime("2022-07-02T04:50"), DateTime("2022-07-02T05:20")]
 zoom_tr = timerange(tview(elx_flux.para, trial_tr))
 tvars = (
     elx_flux.para, elx_flux.anti, elx_flux.prec,
     dmsp_flux,
     [elx_mlat, dmsp_mlat],
+    # [elx_mlt, dmsp_mlt_2, dmsp_mlt_file],
 )
 tplot(tvars, zoom_tr...)
 ```
+
+## Flux Data by MLAT
 
 ```@example demo
 elx_df = get_flux_by_mlat(elx_flux.prec, elx_mlat, zoom_tr)
@@ -71,7 +96,15 @@ dmsp_df = get_flux_by_mlat(dmsp_flux, dmsp_mlat, trial_tr)
 join_df = leftjoin(dmsp_df, elx_df, on=:mlat, makeunique=true)
 sort!(join_df, :mlat)
 dropmissing!(join_df)
+
+# Add MLT values for each MLAT bin
+@rtransform! join_df begin
+    :dmsp_mlt = tmean(tview(dmsp_mlt_2, :mlat_t0, :mlat_t1))
+    :elfin_mlt = tmean(tview(elx_mlt, :mlat_t0_1, :mlat_t1_1))
+end
 ```
+
+## Example of fitting a two-step model
 
 Fit the two-step model to the flux data on a single MLAT value.
 
@@ -99,40 +132,52 @@ ax.title = "Two-Step Model Fit (MLAT = $(round(sdf[1, :].mlat, digits=1))°)"
 f
 ```
 
-## Fit all MLT values and analyze parameter variation
+## Fit all MLAT values and analyze parameter variation
 
 ```@example demo
 # Function to fit flux for a single row and extract parameters
 # Fit all rows in the dataframe
-@info "Fitting $(nrow(join_df)) MLT values..."
+@info "Fitting $(nrow(join_df)) MLAT values..."
 
 flux_threshold = 200
 @rtransform! join_df $AsTable = fit_two_flux(:flux, :flux_1; flux_threshold)
-successful_fits = filter(r -> r.success, join_df; view=true)
+successful_fits = filter(r -> r.success, join_df)
 ```
 
 
 ```@example demo
 # Make MLAT as the x axis
-f = Figure()
+f = Figure(; size=(1200, 1000))
 colorrange = (1e3, 1e11)
+
 p1 = plot_flux_by_mlat(f[1, 1], elx_flux.prec, elx_mlat, zoom_tr; colorrange)
 p2 = plot_flux_by_mlat(f[2, 1], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
 xlims!(p1.axis, -54, -75)
 xlims!(p2.axis, -54, -75)
 Colorbar(f[1:2, 2], p1.plot; label=𝒀.nflux)
 
+ax = Axis(f[3, 1])
+scatterlines!(ax, set_mlat_dim(elx_mlt, elx_mlat, zoom_tr); label="ELFIN")
+scatterlines!(ax, set_mlat_dim(dmsp_mlt_2, dmsp_mlat, trial_tr); label="DMSP (Calculated)")
+scatterlines!(ax, set_mlat_dim(dmsp_mlt_file, dmsp_mlat, trial_tr); label="DMSP (File)")
+xlims!(ax, -54, -75)
+axislegend(ax; position=:lb)
+
+mlats = [-55, -60, -71.5]
+
 for ax in (p1.axis, p2.axis)
     vlines!(ax, mlats)
 end
 
 sdf = @rsubset(join_df, :mlat ∈ mlats)
-axs = plot_spectra(f[3, 1:end], sdf)
+axs = plot_spectra(f[4, 1:end], sdf)
 
 hlines!.(axs, flux_threshold; color = :black, linestyle = :dash)
 axislegend.(axs; position=:lb)
 hidexdecorations!(p1.axis; grid=false)
+easy_save("flux_with_fit")
 f
+
 ```
 
 ## Comprehensive Parameter Analysis

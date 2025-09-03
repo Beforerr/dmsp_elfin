@@ -23,12 +23,13 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SpacePhysicsMakie = "0c28ffd8-ae30-4a56-b2e4-f8332c621ad2"
+Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
 SphericalHarmonics = "c489a379-e885-57ff-9236-bd896d33c250"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [sources]
 CurveFit = {url = "https://github.com/SciML/CurveFit.jl"}
-SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
+# SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
 SphericalHarmonics = {url = "https://github.com/jishnub/SphericalHarmonics.jl"}
 
 [compat]
@@ -45,4 +46,5 @@ NaNMath = "1"
 NonlinearSolve = "4.9.0"
 Printf = "1"
 SciMLBase = "2.96.0"
+Speasy = "0.4.5"
 Statistics = "1"
