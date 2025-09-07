@@ -48,6 +48,23 @@ tplot([[dmsp_geo_file.x, dmsp_geo[:,1]], [dmsp_geo_file.y, dmsp_geo[:,2]], [dmsp
 ```
 
 
+
+TODO: Investigate the error below
+
+```{julia}
+┌ Warning: Failed to download file: HTTP.Exceptions.StatusError(500, "GET", "/getMadfile.cgi?user_affiliation=Madrigal.jl&fileName=%2Fopt%2Fopenmadrigal%2Fmadroot%2Fexperiments3%2F2021%2Fdms%2F21feb21%2Fdms_20210221_18e.001.hdf5&fileType=-2&user_email=zijin%40ucla.edu&user_fullname=Zijin%2BZhang", HTTP.Messages.Response:
+│ """
+│ HTTP/1.1 500 Internal Server Error
+│ Date: Sun, 07 Sep 2025 19:33:42 GMT
+│ Server: Apache/2.4.58
+│ Connection: close
+│ Transfer-Encoding: chunked
+│ Content-Type: text/html; charset=utf-8
+│ 
+│ """)
+```
+
+
 [Defense Meteorological Satellite Program > United States Space Force > Fact Sheets](https://www.spaceforce.mil/About-Us/Fact-Sheets/Article/2197779/defense-meteorological-satellite-program/)
 
 

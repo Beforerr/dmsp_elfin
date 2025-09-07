@@ -26,3 +26,13 @@ function mlt_dist(x, y)
     d = abs(x - y)
     return min(d, 24 - d)
 end
+
+# the mean of [1,23] should be 0
+cos24(x) = cos(x * 2π / 24)
+sin24(x) = sin(x * 2π / 24)
+
+function local_mlt_mean(x)
+    real = mean(cos24, x)
+    imag = mean(sin24, x)
+    return mod(angle(real + imag * im) * 24 / 2π, 24)
+end

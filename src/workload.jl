@@ -1,8 +1,9 @@
 using Statistics: mean
 using Speasy
 import TimeseriesUtilities
-using TimeseriesUtilities: tresample, tview
+using TimeseriesUtilities: tresample, tview, tsort
 using PartialFunctions
+using DrWatson
 
 """
     gei2mlt_mlat(gei)
@@ -102,10 +103,11 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
         dmsp_range = extend(trange, Δt)
         f = DMSP.flux(dmsp_range, id)
         mlt, mlat = get_mlt_mlat(dmsp_range, id)
-        if isnothing(f)
-            @warn "Skipping DMSP ID $id due to missing flux data for range $dmsp_range"
+        if isnothing(f) || isempty(f)
+            @warn "Skipping DMSP ID $id due to missing or empty flux data for range $dmsp_range"
             return (; df = DataFrame(), dmsp = nothing)
         end
+        f = tsort(f)
         dmsp = (; id, flux = f, mlt, mlat)
         dmsp_df = get_flux_by_mlat(f, mlat)
 
@@ -115,8 +117,8 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
             dropmissing!()
             @rtransform! @astable begin
                 :success = false
-                :dmsp_mlt = mean(tview(mlt, :mlat_t0_dmsp, :mlat_t1_dmsp))
-                :elfin_mlt = mean(tview(elx_mlt, :mlat_t0_elx, :mlat_t1_elx))
+                :dmsp_mlt = local_mlt_mean(tview(mlt, :trange_dmsp))
+                :elfin_mlt = local_mlt_mean(tview(elx_mlt, :trange_elx))
                 :Δmlt = mlt_dist(:dmsp_mlt, :elfin_mlt)
                 :id = id
             end
@@ -126,7 +128,7 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
             @aside @info "There are $(nrow(_)) elements before filtering"
             @rsubset! begin
                 :Δmlt < Δmlt_max
-                # sum(:flux_elx[1:3] .> 200) >= 3
+                sum(:flux_elx[1:3] .> 200) >= 3
             end
             @aside @info "There are $(nrow(_)) elements after filtering"
             @rtransform! $AsTable = begin
@@ -150,9 +152,22 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
         return DataFrame(), elfin, []
     end
 
-    df = mapreduce(first, vcat $ (; cols = :union), successful_results)
+    df = mapreduce(first, vcat, successful_results)
     dmsps = map(last, successful_results)
     return df, elfin, dmsps
+end
+
+workload((trange, ids); kw...) = workload(trange, ids; kw...)
+
+function produce(trange, ids; kw...)
+    conf = @strdict ids trange
+    filename = "t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"
+    return produce_or_load(conf, datadir(); filename) do c
+        df = workload(c["trange"], c["ids"]; kw...)[1]
+        df.maxAE .= maxAE(c["trange"])[1]
+        conf["df"] = df
+        return conf
+    end
 end
 
 
@@ -167,10 +182,10 @@ If mlat = [-74.0, -72.0, -71.0], the function creates a grid:
 [-74.0, -73.5, -73.0, -72.5, -72.0, -71.5, -71.0]
 where -73.5, -73.0, -72.5, -71.5 are filled with NaN.
 """
-model_flux(models, mlat; δmlat = 0.5) = begin
+model_flux(models, mlats; δmlat = 0.5) = begin
     Es = default_energies()
 
-    mlat_min, mlat_max = extrema(mlat)
+    mlat_min, mlat_max = extrema(mlats)
     full_mlat = mlat_min:δmlat:mlat_max  # 0.5° bins as edges
 
     # Create data matrix with NaNs for missing MLATs
@@ -179,7 +194,7 @@ model_flux(models, mlat; δmlat = 0.5) = begin
     # Fill in data for available MLATs
     for (i, m) in enumerate(full_mlat)
         # Find closest MLAT bin edge
-        idx = findfirst(==(m), mlat)
+        idx = findfirst(==(m), mlats)
         if !isnothing(idx)
             model = models[idx]
             data[i, :] .= model.(Es)
@@ -211,16 +226,16 @@ function plot_flux_analysis(f, df, elfin, dmsps; mlats = nothing)
     mlt_axplot = lines(f[1, 1:2], elfin.mlat.data, elfin.mlt.data; label = "ELFIN", axis = mlt_ax)
 
     # Plot ELFIN flux
-    replace!(elfin.flux, 0 => NaN)
-    p_elfin = plot_flux_by_mlat(f[2, 1:2], elfin.flux, elfin.mlat; colorrange)
+    elx_flux = replace(elfin.flux, 0 => NaN)
+    p_elfin = plot_flux_by_mlat(f[2, 1:2], elx_flux, elfin.mlat; colorrange)
     xlims = extrema(elfin.mlat)
 
     # Plot DMSP fluxes
     idx = 3
-    dmsp_plots = mapreduce(vcat, enumerate(dmsps)) do (i, dmsp)
-        @unpack id, mlat, flux = dmsp
+    dmsp_plots = mapreduce(vcat, dmsps) do dmsp
+        @unpack id, mlat = dmsp
         gdf = @subset(df, :id .== id)
-        flux = replace!(flux, 0 => NaN)
+        flux = replace(dmsp.flux, 0 => NaN)
         p1 = plot_flux_by_mlat(f[idx, 1:2], flux, mlat; colorrange)
         xlims!(p1.axis, xlims)
         modeled_fluxes = model_flux(gdf.model, gdf.mlat)
@@ -243,22 +258,15 @@ function plot_flux_analysis(f, df, elfin, dmsps; mlats = nothing)
 
         [p1, p2]
     end
-    flux_plots = [p_elfin, dmsp_plots...]
+    all_plots = [mlt_axplot, p_elfin, dmsp_plots...]
 
-    axs = axis.(flux_plots)
+    axs = axis.(all_plots)
     linkxaxes!(axs...)
 
     Colorbar(f[2:end, 3], p_elfin.plot; label = 𝒀.nflux)
-    if !isnothing(mlats)
-        vlines!.(axs, Ref(mlats))
-    end
-
-
-    all_plots = [flux_plots..., mlt_axplot]
+    !isnothing(mlats) && vlines!.(axs, Ref(mlats))
     # Set x-axis hide decorations
-    map(all_plots) do p
-        xlims!(p.axis, xlims)
-    end
+    xlims!.(axs, Ref(xlims))
 
     map((mlt_axplot, p_elfin)) do p
         hidexdecorations!(p.axis; grid = false)

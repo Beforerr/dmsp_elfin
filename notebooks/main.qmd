@@ -1,6 +1,5 @@
 ## Loading ELFIN Flux and State Data
 
-
 ```{julia}
 import Pkg
 Pkg.activate("docs")
@@ -12,6 +11,7 @@ using GeoCotrans, IRBEM
 using SPEDAS
 includet("../src/plot.jl")
 includet("../src/workload.jl")
+includet("../src/conjugation.jl")
 ```
 
 ```{julia}
@@ -49,7 +49,7 @@ Filter time ranges (t0, t1) so that Δmlt < 1 and Δmlat < 8 for at least one DM
 Δmlt_max = 1
 Δmlat_max = 8
 
-valid_ranges_with_ids = find_separate_conditions(
+find_separate_conditions(
     continuous_ranges, elx_gei; ids=dmsp_ids, Δt, Δmlt_max, Δmlat_max
 )
 ```
@@ -62,10 +62,20 @@ valid_ranges_with_ids_simultaneous = find_simultaneous_conditions(
 )
 ```
 
+Find time ranges where corresponding MLT differences are also within threshold after matching binned MLAT.
+
+```{julia}
+valid_ranges_with_ids = find_matched_mlat_conditions(
+    continuous_ranges, elx_gei; ids=dmsp_ids, Δt, Δmlt_max
+)
+```
+
+### Randomly check
+
 For each valid range, get the fluxes and MLATs and fit the fluxes by MLAT
 
 ```{julia}
-result = rand(valid_ranges_with_ids_simultaneous)
+result = rand(valid_ranges_with_ids)
 
 # result = valid_ranges_with_ids[13]
 # result = valid_ranges_with_ids[14]
@@ -77,10 +87,9 @@ using StatsBase
 using Accessors
 
 if nrow(df) > 0
-    tdf = @rsubset(df, mlt_dist(:dmsp_mlt, :elfin_mlt) < Δmlt_max, :success)
     # random select three mlats
-    mlats = sort!(sample(tdf.mlat, min(3, nrow(tdf)), replace=false))
-    plot_flux_analysis(tdf, elfin, dmsp; mlats)[1]
+    mlats = sort!(sample(df.mlat, min(3, nrow(df)), replace=false))
+    plot_flux_analysis(df, elfin, dmsp; mlats)[1]
 else
     println("No valid data found")
 end
@@ -88,36 +97,35 @@ end
 ```
 
 ```{julia}
-lens = @optic _.model2.E_c
-```
-
-```{julia}
 plot_elfin_dmsp(result...; elx_flux=elx_flux.prec, elx_gei)
 # plot_elfin_dmsp(valid_ranges_with_ids[4]...; elx_flux = elx_flux.prec, elx_gei)
 ```
 
-
-Get the fluxes averaged over MLAT (0.5 MLAT bin) for each mission
+### Bulk processing and statistics
 
 ```{julia}
-using Statistics
-using DataFrames, DataFramesMeta
-
-# ELFIN
-trange, ids = valid_ranges_with_ids[end-10]
-
-elx_df = get_elfin_flux_by_mlat(elx_flux, elx_gei, trange)
-dmsp_df = mapreduce(vcat, ids) do id
-    df = get_dmsp_flux_by_mlat(trange, id)
-    df.id .= id
-    df
+dfs = map(valid_ranges_with_ids) do (trange, ids)
+    df = try
+        produce(trange, ids; elx_gei, elx_flux)[1]["df"]
+    catch
+        @warn "Failed to process $trange with $ids"
+        rethrow()
+    end
 end
-
-# join the dataframes based on mlat
-join_df = leftjoin(elx_df, dmsp_df, on=:mlat, makeunique=true)
-sort!(join_df, :mlat)
-dropmissing!(join_df)
+#  (2021-02-19T12:43:00.996538880, 2021-02-19T12:49:01.571536128) with [18]
+df = reduce(vcat, filter(!isempty, dfs))
 ```
+
+Probability distributions of observations in (Mlat, Ec) and (Mlat, gamma) spaces?
+
+```{julia}
+m1_len = @optic _.model1
+m2_len = @optic _.model2
+γ_len = @optic _.model1.γ
+κ_len = @optic _.model2.κ
+```
+
+
 
 ### Fit Fluxes
 
@@ -146,44 +154,6 @@ $$
 $$
 f(E) = A \cdot \left( \frac{E}{E_b} \right)^{-\gamma_1} \cdot \left[1 + \left(\frac{E}{E_b}\right)^m\right]^{(\gamma_1 - \gamma_2)/m}
 $$
-
-```{julia}
-function fit_flux(row, model)
-    elx_flux = row.flux ./ 1e6
-    elx_energies = elx_flux.dims[1].val
-    dmsp_flux = row.flux_1
-    dmsp_energies = dmsp_flux.dims[1].val
-
-    # Combine and filter out NaN values
-    flux_all = vcat(parent(dmsp_flux), parent(elx_flux))
-    energies = vcat(dmsp_energies, elx_energies)
-    valid_idx = .!isnan.(flux_all) .& .!isnan.(energies)
-    flux_all = flux_all[valid_idx]
-    energies = energies[valid_idx]
-
-    p0 = init_guess(model, energies, flux_all)
-    fit = curve_fit(model, energies, log10.(flux_all), p0)
-end
-```
-
-```{julia}
-using LsqFit
-using CurveFit
-using SciMLBase
-
-E = 10 .^ range(0.0, 3.0; length=100)
-
-true_params = [1e5, 1.8, 80.0, 1e3, 4.5, 800.0]
-log_flux = log_two_pop_model(true_params, E)
-flux = 10 .^ log_flux .* (1 .+ 0.02 .* randn(length(E)))  # 10% noise
-log_flux_data = log10.(flux)
-
-p0 = [1e5, 2.0, 50.0, 1e2, 5.0, 500.0]  # [A1, γ1, Ec1, A2, γ2, Ec2]
-# fit = curve_fit(log_two_pop_model, E, log_flux_data, p0)
-
-prob = NonlinearCurveFitProblem(log_two_pop_model, p0, E, log_flux_data)
-sol = solve(prob)
-```
 
 ### Plot Fluxes with Fitted Functions
 

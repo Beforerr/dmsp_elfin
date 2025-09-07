@@ -55,11 +55,21 @@ Note that the result may not be a valid PowerLawExpCutoff model (i.e. E_c <= 0)
 """
 function init_guess(M::Type{<:PowerLawExpCutoff}, E, y)
     m = unbound_fit(M, E, y)
-    if m.E_c > 0
-        return raw_vec(m)
+    return if m.E_c > 0
+        raw_vec(m)
     else
-        return _init_guess(M, E, y)
+        _init_guess(M, E, y)
     end
+end
+
+function init_guess(::Type{<:PowerLawExpCutoff2}, E, y)
+    m = unbound_fit(PowerLawExpCutoff, E, y)
+    A, γ, E_c = if m.E_c > 0
+        raw_vec(m)
+    else
+        _init_guess(PowerLawExpCutoff, E, y)
+    end
+    return [log(A), γ, log(E_c)]
 end
 
 function _init_guess(::Type{<:PowerLawExpCutoff}, E, y)
@@ -267,6 +277,6 @@ function fit_two_flux(modelType, flux1, flux2; flux_threshold = 200, kw...)
 end
 
 function fit_two_flux(flux1, flux2; kw...)
-    modelType = TwoStepModel{PowerLawExpCutoff, KappaDistribution}
+    modelType = TwoStepModel{PowerLawExpCutoff2, KappaDistribution}
     return fit_two_flux(modelType, flux1, flux2; kw...)
 end

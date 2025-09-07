@@ -1,18 +1,19 @@
 module DmspElfinConjunction
 
 using Dates
-using DataFrames
+using DataFrames, DataFramesMeta
 using DimensionalData
+using Dictionaries
 import Speasy
 
-export get_elfin_flux_by_mlat, integrate_diff_flux
-export get_flux_by_mlat  # re-export from this module
+export integrate_diff_flux
+export get_flux_by_mlat
 
 using SPEDAS
 using GeoCotrans
 using Printf
 export energies
-export dist, mlt_dist
+export dist, mlt_dist, local_mlt_mean
 export maxAE
 export extend
 
@@ -28,7 +29,7 @@ extend(timerange, Δt) = (timerange[1] - Δt, timerange[2] + Δt)
 function maxAE(trange, dt = Hour(3))
     pre_range = DateTime.(trange) .- dt
     ae = Speasy.get_data("cda/OMNI_HRO2_1MIN/AE_INDEX", pre_range...)
-    return maximum(ae), ae
+    return isempty(ae) ? missing : maximum(ae), ae
 end
 
 function integrate_diff_flux(flux)
@@ -40,61 +41,80 @@ function integrate_diff_flux(flux)
     end
 end
 
-function get_flux_by_mlat(flux, mlats; δmlat = 0.5, δt = Millisecond(1000))
-    # TODO: Improve the MLAT resolution by interpolating to 1 second first
-    # left closed, right open
-    mlat_min = round(minimum(mlats) * 2, RoundNearestTiesUp) / 2  # Round down to nearest 0.5
-    mlat_max = round(maximum(mlats) * 2, RoundNearestTiesUp) / 2   # Round up to nearest 0.5
+"""
+    bin_mlat_times(mlats; δmlat = 0.5, δt = Millisecond(1000))
+
+Divide `mlats` into bins with bin size `δmlat` and return time ranges for each bin with time resolution `δt`.
+
+Returns a dictionary mapping `mlat_bin => (t0, t1)` where t0 and t1 are the time bounds for that MLAT bin.
+"""
+function bin_mlat_times(mlats; δmlat = 0.5, δt = Millisecond(1000))
+    # Create MLAT bins - left closed, right open
+    mlat_min = round(minimum(mlats) * 2, RoundNearestTiesUp) / 2
+    mlat_max = round(maximum(mlats) * 2, RoundNearestTiesUp) / 2
     mlat_bins = mlat_min:δmlat:(mlat_max - δmlat)
 
-    times = mlats.dims[1].val
+    times = mlats.dims[1].val.data
     resolution(times) == δt || error("Time resolution does not match δt")
 
-    res = map(mlat_bins) do bin
+    # Create mapping of mlat_bin => (t0, t1)
+    bin_times = map(mlat_bins) do bin
         idxs = findall(x -> bin - δmlat / 2 <= x < bin + δmlat / 2, mlats)
-        if isempty(idxs)
-            # Return missing or default values if no indices found
-            return (missing, missing, missing, 0, 0)
-        end
-        min_idx = first(idxs)
-        max_idx = min(last(idxs), length(times))
-        mlat_t0 = times[min_idx] - δt / 2
-        mlat_t1 = times[max_idx] + δt / 2
-        flux_by_mlat = tview(flux, mlat_t0, mlat_t1)
-        mean_flux = tmean(flux_by_mlat)
-        mlat_t0, mlat_t1, mean_flux, ntime(flux_by_mlat), count(!isnan, mean_flux)
-    end
+        N = length(idxs)
+        if N == 0
+            nothing
+        elseif N == 1
+            [(times[idxs[1]] - δt / 2, times[idxs[1]] + δt / 2)]
+        else
+            # Group consecutive indices into continuous segments
+            segments = Tuple{Int, Int}[]
+            current_start = idxs[1]
 
-    return DataFrame(;
-        mlat = mlat_bins,
-        mlat_t0 = getindex.(res, 1),
-        mlat_t1 = getindex.(res, 2),
-        flux = getindex.(res, 3),
-        n_time = getindex.(res, 4),
-        nnan_count = getindex.(res, 5)
-    )
+            for i in 2:N
+                current_idx = idxs[i]
+                previous_idx = idxs[i - 1]
+                if current_idx != previous_idx + 1
+                    push!(segments, (current_start, previous_idx))
+                    current_start = idxs[i]
+                end
+            end
+            # Don't forget the last segment
+            push!(segments, (current_start, idxs[end]))
+
+            # Convert index segments to time ranges
+            map(segments) do (start_idx, end_idx)
+                t0 = times[start_idx] - δt / 2
+                t1 = times[end_idx] + δt / 2
+                (t0, t1)
+            end
+        end
+    end
+    return filter(!isnothing, Dictionary(mlat_bins, bin_times))
 end
 
+function get_flux_by_mlat(flux, mlats; kw...)
+    # Get MLAT bin time ranges
+    bin_times = bin_mlat_times(mlats; kw...)
+
+    # Expand each MLAT bin with multiple segments into separate rows
+    return mapreduce(vcat, pairs(bin_times)) do (mlat_bin, time_ranges)
+        df = DataFrame(;
+            mlat = fill(mlat_bin, length(time_ranges)),
+            trange = time_ranges,
+        )
+        @rtransform! df @astable begin
+            flux_by_mlat = tview(flux, :trange)
+            :flux = tmean(flux_by_mlat)
+            :n_time = ntime(flux_by_mlat)
+            :nnan_count = count(!isnan, :flux)
+        end
+    end
+end
 
 function get_flux_by_mlat(flux, mlat, timerange)
     flux_subset = tview(flux, timerange)
     mlat_subset = tview(mlat, timerange)
     return get_flux_by_mlat(flux_subset, mlat_subset)
-end
-
-# higher resolution of MLAT
-function get_elfin_flux_by_mlat(flux, pos_gei, timerange)
-    pos_aacgm = gei2aacgm(tview(pos_gei, timerange...))
-    mlat = pos_aacgm.mlat
-    return get_flux_by_mlat(flux, mlat, timerange)
-end
-
-
-function get_dmsp_flux_by_mlat(timerange, id)
-    dmsp_flux = DMSP.load(timerange, id, "el_d_flux")
-    dmsp_aacgm = DMSP.aacgm(timerange, id)
-    dmsp_mlat_highres = getindex.(dmsp_aacgm, 1)
-    return get_flux_by_mlat(dmsp_flux, dmsp_mlat_highres, timerange)
 end
 
 end

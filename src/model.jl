@@ -78,6 +78,26 @@ end
 log_eval(m::PowerLawExpCutoff, E) = nm.log(m.A) - m.γ * log(E) - E / m.E_c
 
 """
+Power-law model with exponential cutoff
+
+```math
+f(x) = A * E^(-γ) * exp(-E/E_c) = exp(log(A) - E/exp(log(E_c))) * E^(-γ)
+```
+
+This is the same as PowerLawExpCutoff but with log-transformed parameters (so that A>0 and E_c>0 when optimising over ℝ).
+"""
+@kwdef struct PowerLawExpCutoff2{T} <: SpectralModel{T}
+    logA::T
+    γ::T
+    logE_c::T
+end
+
+(m::PowerLawExpCutoff2)(E) = A(m) * E^(-m.γ) * exp(-E / E_c(m))
+
+A(m::PowerLawExpCutoff2) = exp(m.logA)
+E_c(m::PowerLawExpCutoff2) = exp(m.logE_c)
+
+"""
 Kappa distribution spectral model.
 
 ```math

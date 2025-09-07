@@ -89,8 +89,8 @@ dropmissing!(join_df)
 
 # Add MLT values for each MLAT bin
 @rtransform! join_df begin
-    :dmsp_mlt = tmean(tview(dmsp_mlt_2, :mlat_t0, :mlat_t1))
-    :elfin_mlt = tmean(tview(elx_mlt, :mlat_t0_1, :mlat_t1_1))
+    :dmsp_mlt = local_mlt_mean(tview(dmsp_mlt_2, :trange_dmsp))
+    :elfin_mlt = local_mlt_mean(tview(elx_mlt, :trange_elx))
 end
 ```
 
