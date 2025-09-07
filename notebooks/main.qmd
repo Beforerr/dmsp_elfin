@@ -1,90 +1,25 @@
-## Parameter Statistics and Correlations
-
-```julia
-#TODO: update this part
-# Calculate parameter statistics and correlations
-using Statistics
-
-# Create summary statistics
-param_stats = (
-    plec_A_mean=mean([p.plec_A for p in param_analysis]),
-    plec_A_std=std([p.plec_A for p in param_analysis]),
-    plec_γ_mean=mean([p.plec_γ for p in param_analysis]),
-    plec_γ_std=std([p.plec_γ for p in param_analysis]),
-    plec_E_c_mean=mean([p.plec_E_c for p in param_analysis]),
-    plec_E_c_std=std([p.plec_E_c for p in param_analysis]),
-    sbpl_A_mean=mean([p.sbpl_A for p in param_analysis]),
-    sbpl_A_std=std([p.sbpl_A for p in param_analysis]),
-    sbpl_γ1_mean=mean([p.sbpl_γ1 for p in param_analysis]),
-    sbpl_γ1_std=std([p.sbpl_γ1 for p in param_analysis]),
-    sbpl_γ2_mean=mean([p.sbpl_γ2 for p in param_analysis]),
-    sbpl_γ2_std=std([p.sbpl_γ2 for p in param_analysis]),
-    sbpl_Eb_mean=mean([p.sbpl_Eb for p in param_analysis]),
-    sbpl_Eb_std=std([p.sbpl_Eb for p in param_analysis])
-)
-
-@info "Parameter Statistics:" param_stats
-
-# Create correlation plot between key parameters
-f_corr = Figure(size=(1200, 900))
-
-# PowerLawExpCutoff γ vs E_c
-ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExpCutoff)",
-    ylabel="Cutoff Energy E_c (keV)", yscale=log10,
-    title="PowerLawExpCutoff: γ vs E_c")
-scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
-    [p.plec_E_c for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# PowerLawExpCutoff A vs γ  
-ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExpCutoff)",
-    ylabel="Power Index γ", xscale=log10,
-    title="PowerLawExpCutoff: A vs γ")
-scatter!(ax_corr2, [p.plec_A for p in param_analysis],
-    [p.plec_γ for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# SmoothBrokenPowerlaw γ1 vs γ2
-ax_corr3 = Axis(f_corr[2, 1], xlabel="Power Index γ₁ (SBPL)",
-    ylabel="Power Index γ₂ (SBPL)",
-    title="SmoothBrokenPowerlaw: γ₁ vs γ₂")
-scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
-    [p.sbpl_γ2 for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# Break energy vs MLAT colored by PowerLawExpCutoff cutoff
-ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
-    yscale=log10, title="Break Energy vs MLAT")
-scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],
-    color=[p.plec_E_c for p in param_analysis], colormap=:plasma, markersize=8)
-
-# Add colorbars
-Colorbar(f_corr[1:2, 3], colormap=:viridis, colorrange=extrema(mlats_all),
-    label="MLAT")
-
-f_corr
-```
-
-
-## Loading ELFIN Flux Data
+## Loading ELFIN Flux and State Data
 
 
 ```{julia}
+import Pkg
+Pkg.activate("docs")
+using DmspElfinConjunction, DMSP, ELFIN
+using Dates
+using TimeseriesUtilities
+using DimensionalData, DataFrames, DataFramesMeta
+using GeoCotrans, IRBEM
+using SPEDAS
+includet("../src/plot.jl")
+includet("../src/workload.jl")
+```
 
-using DMSP, ELFIN
-
-
-# TODO: update this part
+```{julia}
 probe = "b"
-tr = ["2021-01-01", "2021-02-01"]
-elx_flux = ELFIN.precipitating_flux(tr, probe)
-```
-
-Loading ELFIN State Data
-
-```{julia}
+tr = ["2021-01-01", "2021-03-01"]
+dmsp_ids = 16:18
 elx_gei = ELFIN.gei(tr, probe)
-# elx_gei = set(elx_gei, Dim{:time} => Ti)
+elx_flux = ELFIN.precipitating_flux(tr, probe)
 ```
 
 ### Finding Continuous Time Ranges
@@ -92,7 +27,7 @@ elx_gei = ELFIN.gei(tr, probe)
 ```{julia}
 using TimeseriesUtilities: find_continuous_timeranges
 
-continuous_ranges = TimeseriesUtilities.find_continuous_timeranges(elx_flux, Second(60))
+continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
 
 # Print the continuous time ranges
 println("Found $(length(continuous_ranges)) continuous time ranges:")
@@ -104,62 +39,27 @@ end
 
 ## Trajectory conjunction finder
 
-```{julia}
-id = 16
-probe = "b"
-tr = ["2021-01-01", "2021-02-01"]
-
-ids = 16:18
-dmsp_dicts = map(ids) do id
-    geo = Speasy.get_data("ssc/dmspf$id/geo", tr...)
-    Dict(:id => id, :geo => geo)
-end
-```
-
-### Convert coordinates to (MLT, MLat, Radius)
-
-```{julia}
-using IRBEM
-using DimensionalData
-
-elx_geo = gei2geo(elx_gei)
-elx_mlt = get_mlt(elx_geo)
-elx_aacgm = geo2aacgm(elx_geo)
-elx_mlat = elx_aacgm.mlat
-
-foreach(dmsp_dicts) do d
-    mlt = get_mlt(d[:geo])
-    aacgm = geo2aacgm(d[:geo])
-    mlat = aacgm.mlat
-    Δmlt = elx_mlt .- mlt
-    Δmlat = elx_aacgm.mlat .- mlat
-    d[:mlt] = rebuild(mlt; metadata=Dict(:label => "MLT DMSP$(d[:id])"))
-    d[:aacgm] = rebuild(aacgm; metadata=Dict(:label => "AACGM DMSP$(d[:id])"))
-    d[:mlat] = rebuild(mlat; metadata=Dict(:label => "MLAT DMSP$(d[:id])"))
-    d[:Δmlt] = rebuild(Δmlt; metadata=Dict(:label => "ΔMLT DMSP$(d[:id])"))
-    d[:Δmlat] = rebuild(Δmlat; metadata=Dict(:label => "ΔMLAT DMSP$(d[:id])"))
-    d
-end
-
-Δmlts = getindex.(dmsp_dicts, :Δmlt)
-Δmlats = getindex.(dmsp_dicts, :Δmlat)
-```
-
-
 ### MLAT and MLT differences
 
-Filter time ranges so that Δmlt < 1 and Δmlat < 8 for at least one DMSP
+Filter time ranges (t0, t1) so that Δmlt < 1 and Δmlat < 8 for at least one DMSP within the time range (t0 - Δt, t1 + Δt)
 
 ```{julia}
+Δt = Minute(10)
+# Δt = Minute(30)
+Δmlt_max = 1
+Δmlat_max = 8
+
 valid_ranges_with_ids = map(continuous_ranges) do ranges
+    elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, ranges))
+
     # Check which DMSP satellites satisfy the conditions
     valid_ids = Int[]
-    for (i, (Δmlt, Δmlat)) in enumerate(zip(Δmlts, Δmlats))
-        mlt_condition = any(abs.(tview(Δmlt, ranges...)) .< 1)
-        mlat_condition = any(abs.(tview(Δmlat, ranges...)) .< 8)
-
-        if mlt_condition && mlat_condition
-            push!(valid_ids, ids[i])
+    foreach(dmsp_ids) do id
+        dmsp_mlt, dmsp_mlat = get_mlt_mlat(extend(ranges, Δt), id)
+        # if any mlat and mlt difference is less than 8 and 1 respectively, push the id to valid_ids
+        # Note that dmsp_mlt and elx_mlt are of different sizes
+        if dist(mlt_dist, elx_mlt, dmsp_mlt) < Δmlt_max && dist(elx_mlat, dmsp_mlat) < Δmlat_max
+            push!(valid_ids, id)
         end
     end
     !isempty(valid_ids) ? (range=ranges, ids=valid_ids) : nothing
@@ -168,8 +68,38 @@ end
 valid_ranges_with_ids = filter(!isnothing, valid_ranges_with_ids)
 ```
 
+For each valid range, get the fluxes and MLATs and fit the fluxes by MLAT
+
 ```{julia}
-plot_elfin_dmsp(valid_ranges_with_ids[4]...)
+result = rand(valid_ranges_with_ids)
+
+# result = valid_ranges_with_ids[13]
+# result = valid_ranges_with_ids[14]
+df, elfin, dmsp = workload(result...; elx_gei, elx_flux)
+```
+
+```{julia}
+using StatsBase
+using Accessors
+
+if nrow(df) > 0
+    tdf = @rsubset(df, mlt_dist(:dmsp_mlt, :elfin_mlt) < Δmlt_max, :success)
+    # random select three mlats
+    mlats = sort!(sample(tdf.mlat, min(3, nrow(tdf)), replace=false))
+    plot_flux_analysis(tdf, elfin, dmsp; mlats)[1]
+else
+    println("No valid data found")
+end
+
+```
+
+```{julia}
+lens = @optic _.model2.E_c
+```
+
+```{julia}
+plot_elfin_dmsp(result...; elx_flux=elx_flux.prec, elx_gei)
+# plot_elfin_dmsp(valid_ranges_with_ids[4]...; elx_flux = elx_flux.prec, elx_gei)
 ```
 
 
@@ -318,6 +248,74 @@ axislegend(ax; merge=true)
 f
 ```
 
+## Parameter Statistics and Correlations
+
+```julia
+#TODO: update this part
+# Calculate parameter statistics and correlations
+using Statistics
+
+# Create summary statistics
+param_stats = (
+    plec_A_mean=mean([p.plec_A for p in param_analysis]),
+    plec_A_std=std([p.plec_A for p in param_analysis]),
+    plec_γ_mean=mean([p.plec_γ for p in param_analysis]),
+    plec_γ_std=std([p.plec_γ for p in param_analysis]),
+    plec_E_c_mean=mean([p.plec_E_c for p in param_analysis]),
+    plec_E_c_std=std([p.plec_E_c for p in param_analysis]),
+    sbpl_A_mean=mean([p.sbpl_A for p in param_analysis]),
+    sbpl_A_std=std([p.sbpl_A for p in param_analysis]),
+    sbpl_γ1_mean=mean([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ1_std=std([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ2_mean=mean([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_γ2_std=std([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_Eb_mean=mean([p.sbpl_Eb for p in param_analysis]),
+    sbpl_Eb_std=std([p.sbpl_Eb for p in param_analysis])
+)
+
+@info "Parameter Statistics:" param_stats
+
+# Create correlation plot between key parameters
+f_corr = Figure(size=(1200, 900))
+
+# PowerLawExpCutoff γ vs E_c
+ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExpCutoff)",
+    ylabel="Cutoff Energy E_c (keV)", yscale=log10,
+    title="PowerLawExpCutoff: γ vs E_c")
+scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
+    [p.plec_E_c for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# PowerLawExpCutoff A vs γ  
+ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExpCutoff)",
+    ylabel="Power Index γ", xscale=log10,
+    title="PowerLawExpCutoff: A vs γ")
+scatter!(ax_corr2, [p.plec_A for p in param_analysis],
+    [p.plec_γ for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# SmoothBrokenPowerlaw γ1 vs γ2
+ax_corr3 = Axis(f_corr[2, 1], xlabel="Power Index γ₁ (SBPL)",
+    ylabel="Power Index γ₂ (SBPL)",
+    title="SmoothBrokenPowerlaw: γ₁ vs γ₂")
+scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
+    [p.sbpl_γ2 for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# Break energy vs MLAT colored by PowerLawExpCutoff cutoff
+ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
+    yscale=log10, title="Break Energy vs MLAT")
+scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],
+    color=[p.plec_E_c for p in param_analysis], colormap=:plasma, markersize=8)
+
+# Add colorbars
+Colorbar(f_corr[1:2, 3], colormap=:viridis, colorrange=extrema(mlats_all),
+    label="MLAT")
+
+f_corr
+```
+
+
 
 
 ### Plot distance metrics
@@ -435,3 +433,4 @@ tplot([dmsp_flux, dmsp_J])
 ylims!(current_axis(), 1e9, 1e13)
 current_figure()
 ```
+

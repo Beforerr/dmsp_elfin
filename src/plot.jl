@@ -1,11 +1,15 @@
-using Makie: heatmap!, Axis
-export set_mlat_dim
-export plot_elfin_dmsp, plot_spectra
-export plot_flux_by_mlat, plot_flux_by_mlat
-using Makie
-
 import SpacePhysicsMakie
 using SpacePhysicsMakie: set_if_valid!
+using DmspElfinConjunction: TwoStepModel
+using UnPack
+using TimeseriesUtilities: times, tinterp
+using DimensionalData: set
+
+# Use CairoMakie in CI, GLMakie otherwise
+using GLMakie
+
+# Set better default colormap for wide dynamic range (10^3 to 10^11)
+set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
 
 baremodule YLabel
     nflux = "Flux (1/cm²/s/sr/MeV)"
@@ -33,12 +37,27 @@ function set_dmsp_flux_opts!(ds)
     return ds
 end
 
-set_mlat_dim(A, mlat) = set(A, Ti => X(mlat.data))
-set_mlat_dim(A, mlat, tspan) = set(tview(A, tspan), Ti => X(tview(mlat, tspan).data))
+const COLORRANGE = Ref((1.0e3, 1.0e11))
+
+export COLORRANGE
+
+function set_mlat_dim(A, mlat)
+    A_times = times(A)
+    x = if times(mlat) == A_times
+        mlat.data
+    else
+        _mlat = tinterp(mlat, A_times)
+        _mlat.data
+    end
+    return set(A, Ti => X(x))
+end
+# set_mlat_dim(A, mlat, tspan) = set(tview(A, tspan), Ti => X(tview(mlat, tspan).data))
 
 function plot_flux_by_mlat(f, flux; kw...)
     ax = Axis(f; yscale = log10, ylabel = 𝒀.E)
-    plot = heatmap!(ax, flux; colorscale = log10, kw...)
+    x = flux.dims[1].val
+    y = flux.dims[2].val
+    plot = heatmap!(ax, x, y, flux; colorscale = log10, colorrange = COLORRANGE[], kw...)
     return Makie.AxisPlot(ax, plot)
 end
 
@@ -157,54 +176,20 @@ end
 
 function plot_spectra(f, df::DataFrame)
     axs = map(enumerate(eachrow(df))) do (i, row)
-        ax = plot_spectra(f[1, i], row.flux, row.flux_1, row.model)
+        ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model)
         i == 1 || hideydecorations!(ax; grid = false)
         ax
     end
     xlims!.(axs, 0.011, 20000)
     ylims!.(axs, 1.0e1, 1.0e12)
+    linkyaxes!(axs...)
+    linkxaxes!(axs...)
     return axs
 end
 
 
-export plot_example_fits, plot_parameters_variation
+export plot_parameters_variation, plot_flux_analysis
 export plot_PowerLawExpCutoff_parameter_variation, plot_PowerLaw_parameter_variation, plot_SmoothBrokenPowerlaw_parameter_variation, plot_model_parameters, plot_parameters_variation_generic
-
-# Plot : Example fitted spectra for selected MLATs
-function plot_example_fits!(ax, df)
-    successful_fits = filter(r -> r.success, df; view = true)
-    # Plot a few example fits
-    example_indices = [1, div(nrow(successful_fits), 2), nrow(successful_fits)]
-    # color-coded by MLAT
-    colors = [:blue, :red, :green]
-
-    for (i, idx) in enumerate(example_indices)
-        row = successful_fits[idx, :]  # Get corresponding row from dataframe
-
-        # Get original data
-        ff = vcat(row.flux.data, row.flux_1.data)
-        ee = vcat(row.flux.dims[1].val, row.flux_1.dims[1].val)
-        ff, ee = remove_nan(ff, ee)
-
-        # Plot original data
-        label = "MLAT $(round(row.mlat, digits = 1))°"
-        alpha = 0.6
-        scatter!(ax, ee, ff; color = colors[i], alpha, label)
-        lines!(ax, ee, row.flux_modeled; color = colors[i], alpha, label)
-    end
-    return
-end
-
-
-function plot_example_fits(f, args...)
-    ax = Axis(
-        f, xlabel = 𝒀.E, ylabel = 𝒀.nflux,
-        xscale = log10, yscale = log10, title = "Fitted Spectra Examples"
-    )
-    plot_example_fits!(ax, args...)
-    axislegend(ax, position = :lb)
-    return ax
-end
 
 function plot_fit_parameters_variation(f, mlats, Emins, n_points; scores = nothing)
     xlabel = "MLAT"
@@ -305,3 +290,7 @@ spectral_type(T) = T
 spectral_type(T::Union) = T.a == Nothing ? T.b : T.a
 spectral_type(models::AbstractArray) = spectral_type(eltype(models))
 plot_parameters_variation(f, mlats, models, args...; kw...) = plot_parameters_variation(f, spectral_type(models), mlats, models, args...; kw...)
+
+dmsp_default_energy() = [0.03, 0.044, 0.065, 0.095, 0.139, 0.204, 0.3, 0.44, 0.646, 0.949, 1.392, 2.04, 3.0, 4.4, 6.46, 9.45, 13.9, 20.4, 30.0]
+elfin_default_energy() = [63.25, 97.98, 138.56, 183.3, 238.12, 305.2, 385.16, 520.48, 752.99, 1081.67, 1529.71, 2121.32, 2893.96, 3728.61, 4906.12, 6500.0]
+default_energies() = vcat(dmsp_default_energy(), elfin_default_energy())

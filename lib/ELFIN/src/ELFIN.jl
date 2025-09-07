@@ -6,6 +6,7 @@ using DimensionalData
 using PySPEDAS: promote_cdf_attributes!
 
 export precipitating_flux, gei
+using Dates
 
 function standardize(x)
     return set(x, Dim{:time} => Ti, Dim{:v_dim} => Y)
@@ -13,7 +14,7 @@ end
 
 # About 1.4s time resolution
 function precipitating_flux(trange, probe; level = "l2")
-    epd_ds = elfin.epd(trange; probe, level)
+    epd_ds = elfin.epd(string.(trange); probe, level)
     @info "availabel tvar names: $(keys(epd_ds))"
     elx_para = DimArray(epd_ds[Symbol(:el, probe, :_pef_hs_nflux_para)]) |> standardize
     elx_anti = DimArray(epd_ds[Symbol(:el, probe, :_pef_hs_nflux_anti)]) |> standardize
@@ -31,7 +32,7 @@ function precipitating_flux(trange, probe; level = "l2")
 end
 
 function gei(trange, probe)
-    elx_state = elfin.state(trange; probe)
+    elx_state = elfin.state(string.(trange); probe)
     name = Symbol(:el, probe, :_pos_gei)
     return DimArray(elx_state[name]) |> standardize
 end

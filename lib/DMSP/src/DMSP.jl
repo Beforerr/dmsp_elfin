@@ -1,6 +1,7 @@
 module DMSP
 
 using Dates
+using Dates: AbstractTime
 using Madrigal
 using DimensionalData
 using GeoCotrans
@@ -11,7 +12,7 @@ export load
 
 include("hdf5.jl")
 
-function download(t::DateTime, id = 16; format = "hdf5")
+function download(t::AbstractTime, id = 16; format = "hdf5")
     # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
     prefix = "/opt/openmadrigal/madroot/experiments3/"
     _dayofmonth = lpad(dayofmonth(t), 2, '0')
@@ -51,4 +52,14 @@ end
 
 geod(timerange, id) = load(timerange, id, ("gdlat", "glon", "gdalt"))
 
+# use keV as the basic unit for energy dimension
+# set the flux unit to 1/cm²/s/sr/MeV
+# 2021-01-27T13:41:05 -  2021-01-27T13:41:09 for DMSP 16 there are some values way too low like around 1e-15
+function flux(timerange, id)
+    f = load(timerange, id, "el_d_flux")
+    f = set(f, Y => dims(f, Y).val .* 1.0e-3)
+    f[f .< 1.0e-8] .= 0
+    f .*= 1.0e6
+    return f
+end
 end

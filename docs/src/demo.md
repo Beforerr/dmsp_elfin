@@ -17,19 +17,9 @@ using Beforerr
 using SpacePhysicsMakie: set_if_valid!
 import DmspElfinConjunction.YLabel as 𝒀
 
-# Use CairoMakie in CI, GLMakie otherwise
-if haskey(ENV, "CI") && ENV["CI"] == "true"
-    using CairoMakie
-    CairoMakie.activate!()
-else
-    using GLMakie
-    GLMakie.activate!()
-end
 
 Beforerr.DEFAULT_FORMATS = ["png"]
-
-# Set better default colormap for wide dynamic range (10^3 to 10^11)
-set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
+includet("../src/plot.jl")
 ```
 
 ```@example demo
@@ -139,8 +129,7 @@ f
 # Fit all rows in the dataframe
 @info "Fitting $(nrow(join_df)) MLAT values..."
 
-flux_threshold = 200
-@rtransform! join_df $AsTable = fit_two_flux(:flux, :flux_1; flux_threshold)
+@rtransform! join_df $AsTable = fit_two_flux(:flux, :flux_1)
 successful_fits = filter(r -> r.success, join_df)
 ```
 
@@ -199,6 +188,8 @@ modeled_fluxes = @with successful_fits begin
 end
 ```
 
+
+`plot_flux_analysis`
 
 ```@example demo
 # Make MLAT as the x axis

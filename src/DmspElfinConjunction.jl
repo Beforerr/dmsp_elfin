@@ -9,19 +9,20 @@ export get_elfin_flux_by_mlat, integrate_diff_flux
 export get_flux_by_mlat  # re-export from this module
 
 using SPEDAS
-using SpacePhysicsMakie: set_if_valid!
 using GeoCotrans
 using Printf
 export energies
+export dist, mlt_dist
 export maxAE
+export extend
 
 include("utils.jl")
 include("AACGM.jl")
 include("fit.jl")
-include("plot.jl")
 include("makie.jl")
 
 ntime(x) = size(x, 1)
+extend(timerange, Δt) = (timerange[1] - Δt, timerange[2] + Δt)
 
 # use maxAE for three hours before the event
 function maxAE(trange, dt = Hour(3))
@@ -39,25 +40,26 @@ function integrate_diff_flux(flux)
     end
 end
 
-function get_flux_by_mlat(flux, mlat)
+function get_flux_by_mlat(flux, mlats; δmlat = 0.5, δt = Millisecond(1000))
     # TODO: Improve the MLAT resolution by interpolating to 1 second first
-    # Define MLAT bins (0.5° resolution)
-    mlat_min = floor(minimum(mlat) * 2) / 2  # Round down to nearest 0.5
-    mlat_max = ceil(maximum(mlat) * 2) / 2   # Round up to nearest 0.5
-    mlat_bins = mlat_min:0.5:(mlat_max - 0.5)
+    # left closed, right open
+    mlat_min = round(minimum(mlats) * 2, RoundNearestTiesUp) / 2  # Round down to nearest 0.5
+    mlat_max = round(maximum(mlats) * 2, RoundNearestTiesUp) / 2   # Round up to nearest 0.5
+    mlat_bins = mlat_min:δmlat:(mlat_max - δmlat)
 
-    times = mlat.dims[1]
+    times = mlats.dims[1].val
+    resolution(times) == δt || error("Time resolution does not match δt")
 
     res = map(mlat_bins) do bin
-        idxs = findall(x -> bin <= x < bin + 0.5, mlat)
+        idxs = findall(x -> bin - δmlat / 2 <= x < bin + δmlat / 2, mlats)
         if isempty(idxs)
             # Return missing or default values if no indices found
             return (missing, missing, missing, 0, 0)
         end
         min_idx = first(idxs)
-        max_idx = min(last(idxs) + 1, length(times))
-        mlat_t0 = times[min_idx]
-        mlat_t1 = times[max_idx]
+        max_idx = min(last(idxs), length(times))
+        mlat_t0 = times[min_idx] - δt / 2
+        mlat_t1 = times[max_idx] + δt / 2
         flux_by_mlat = tview(flux, mlat_t0, mlat_t1)
         mean_flux = tmean(flux_by_mlat)
         mlat_t0, mlat_t1, mean_flux, ntime(flux_by_mlat), count(!isnan, mean_flux)

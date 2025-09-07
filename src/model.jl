@@ -22,8 +22,29 @@ function Base.show(io::IO, m::T) where {T <: SpectralModel}
         fn != last(fieldnames(T)) && print(io, ", ")
     end
     print(io, ")")
-    return 
+    return
 end
+
+"""
+    T(u::AbstractVector) where {T <: SpectralModel}
+
+Construct a spectral model from a parameter vector without splatting for performance.
+"""
+@generated function (::Type{T})(u::AbstractVector) where {T <: SpectralModel}
+    n = fieldcount(T)
+    args = [:(u[$i]) for i in 1:n]
+    return quote
+        @assert length(u) == $n
+        @inbounds $(T)($(args...))
+    end
+end
+
+"""
+    raw_vec(m)
+
+Extract raw parameter vector from model object.
+"""
+raw_vec(m::SpectralModel) = [getfield(m, fn) for fn in fieldnames(typeof(m))]
 
 """
 Power-law model.
@@ -52,7 +73,9 @@ f(E) = A * E^(-γ) * exp(-E/E_c)
     E_c::T
 end
 
-(f::PowerLawExpCutoff)(E) = f.A * E^(-f.γ) * exp(-E / f.E_c)
+(m::PowerLawExpCutoff)(E) = m.A * E^(-m.γ) * exp(-E / m.E_c)
+
+log_eval(m::PowerLawExpCutoff, E) = nm.log(m.A) - m.γ * log(E) - E / m.E_c
 
 """
 Kappa distribution spectral model.
@@ -71,8 +94,21 @@ end
 
 (m::KappaDistribution)(E) = m.A * E * (1 + E / (m.κ * m.E_c))^(-m.κ - 1)
 
-log_eval(m::KappaDistribution, E) = nm.log(m.A) + nm.log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
+log_eval(m::KappaDistribution, E) = nm.log(m.A) + log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
 
+function log_jacobian(m::KappaDistribution, E)
+    A = m.A
+    κ = m.κ
+    E_c = m.E_c
+    u = E / (κ * E_c)           # u = E/(κ E_c)
+    g = nm.log(1 + u)
+
+    dA = 1 / A
+    dκ = -g + (κ + 1) * E / (κ * (κ * E_c + E))
+    dEc = (κ + 1) * E / (E_c * (κ * E_c + E))
+
+    return [dA, dκ, dEc]
+end
 
 """
     SmoothBrokenPowerlaw{T}
@@ -163,11 +199,5 @@ else
 end
 
 function (m::TwoStepModel)(E)
-    model1_flux = m.model1(E)
-    if E <= m.Emin
-        return model1_flux
-    else
-        model2_flux = m.model2(E)
-        return model1_flux + model2_flux
-    end
+    return m.model2(E) + m.model1(E)
 end

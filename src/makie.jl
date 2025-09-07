@@ -1,3 +1,4 @@
+import Makie
 import Makie: convert_arguments
 using Makie: PointBased
 
