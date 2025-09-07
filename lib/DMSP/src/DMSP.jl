@@ -43,6 +43,13 @@ end
 
 function load(timerange, id, param::String)
     files = download(timerange, id)
+
+    # Handle case when download returns nothing or empty array
+    if isnothing(files) || isempty(files) || any(isnothing, files)
+        @warn "DMSP data not available for ID $id, timerange $timerange"
+        return nothing
+    end
+
     return if length(files) == 1
         read2dimarray(only(files), param, timerange)
     else
@@ -55,8 +62,10 @@ geod(timerange, id) = load(timerange, id, ("gdlat", "glon", "gdalt"))
 # use keV as the basic unit for energy dimension
 # set the flux unit to 1/cm²/s/sr/MeV
 # 2021-01-27T13:41:05 -  2021-01-27T13:41:09 for DMSP 16 there are some values way too low like around 1e-15
-function flux(timerange, id)
-    f = load(timerange, id, "el_d_flux")
+function flux(timerange, id; kw...)
+    f = load(timerange, id, "el_d_flux"; kw...)
+    isnothing(f) && return nothing
+
     f = set(f, Y => dims(f, Y).val .* 1.0e-3)
     f[f .< 1.0e-8] .= 0
     f .*= 1.0e6

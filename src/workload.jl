@@ -33,21 +33,13 @@ gei2mlt_mlat(gei, timerange) = gei2mlt_mlat(tview(gei, timerange...))
 """
     get_mlt_mlat(timerange, id)
 
-Get MLT and MLAT data for a DMSP satellite from SSC.
-
-# Arguments
-- `timerange`: Tuple of start and end times
-- `id`: DMSP satellite ID (e.g., 16, 17, 18)
-
-# Returns
-- Tuple of (mlt, mlat) data interpolated to 1-second resolution
+Get MLT and MLAT data for DMSP `id` and `timerange` from SSC.
 
 # Notes
 - Data is fetched from SSC with 1-minute resolution and upsampled to 1-second
-- Time range is automatically floored/ceiled to minute boundaries
 """
 get_mlt_mlat(timerange, id) = begin
-    # the time resolution from SSC is 1 minute
+    # the time resolution from SSC is 1 minute, floored/ceiled to minute boundaries
     t0 = floor(timerange[1], Minute)
     t1 = ceil(timerange[2], Minute)
     _geo = Speasy.get_data("ssc/dmspf$id/geo", t0, t1 + Second(1)) |> DimArray
@@ -107,8 +99,13 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
     elfin = (; flux = elx_pflux, mlt = elx_mlt, mlat = elx_mlat)
 
     results = map(ids) do id
-        f = DMSP.flux(extend(trange, Δt), id)
-        mlt, mlat = get_mlt_mlat(extend(trange, Δt), id)
+        dmsp_range = extend(trange, Δt)
+        f = DMSP.flux(dmsp_range, id)
+        mlt, mlat = get_mlt_mlat(dmsp_range, id)
+        if isnothing(f)
+            @warn "Skipping DMSP ID $id due to missing flux data for range $dmsp_range"
+            return (; df = DataFrame(), dmsp = nothing)
+        end
         dmsp = (; id, flux = f, mlt, mlat)
         dmsp_df = get_flux_by_mlat(f, mlat)
 
@@ -126,10 +123,12 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
             # Notes: there is a subset of orbits with no working first channel. So we remove the first channel.
             @rtransform! :flux_elx = remove_first_channel(:flux_elx)
             # require at least having 3 lowest channels on elfin should have flux larger than 200
+            @aside @info "There are $(nrow(_)) elements before filtering"
             @rsubset! begin
                 :Δmlt < Δmlt_max
-                sum(:flux_elx[1:3] .> 200) >= 3
+                # sum(:flux_elx[1:3] .> 200) >= 3
             end
+            @aside @info "There are $(nrow(_)) elements after filtering"
             @rtransform! $AsTable = begin
                 elx_flux = :flux_elx
                 # remove all ELFIN measurements after the first (lowest energy) NaN
@@ -138,13 +137,21 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
                 fit_two_flux(:flux_dmsp, elx_flux; verbose, kw...)
             end
             @rsubset! :success
+            @aside @info "There are $(nrow(_)) successful fits"
         end
         (; df, dmsp)
     end
 
-    df = mapreduce(first, vcat $ (; cols = :union), results)
-    # dmsps = map(last, results)
-    dmsps = map(last, filter(x -> nrow(x.df) > 0, results))
+    # Filter out failed results and combine successful ones
+    successful_results = filter(x -> !isempty(x.df), results)
+
+    if isempty(successful_results)
+        @warn "No successful DMSP data processing for any ID in $ids"
+        return DataFrame(), elfin, []
+    end
+
+    df = mapreduce(first, vcat $ (; cols = :union), successful_results)
+    dmsps = map(last, successful_results)
     return df, elfin, dmsps
 end
 

@@ -49,29 +49,23 @@ Filter time ranges (t0, t1) so that Δmlt < 1 and Δmlat < 8 for at least one DM
 Δmlt_max = 1
 Δmlat_max = 8
 
-valid_ranges_with_ids = map(continuous_ranges) do ranges
-    elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, ranges))
+valid_ranges_with_ids = find_separate_conditions(
+    continuous_ranges, elx_gei; ids=dmsp_ids, Δt, Δmlt_max, Δmlat_max
+)
+```
 
-    # Check which DMSP satellites satisfy the conditions
-    valid_ids = Int[]
-    foreach(dmsp_ids) do id
-        dmsp_mlt, dmsp_mlat = get_mlt_mlat(extend(ranges, Δt), id)
-        # if any mlat and mlt difference is less than 8 and 1 respectively, push the id to valid_ids
-        # Note that dmsp_mlt and elx_mlt are of different sizes
-        if dist(mlt_dist, elx_mlt, dmsp_mlt) < Δmlt_max && dist(elx_mlat, dmsp_mlat) < Δmlat_max
-            push!(valid_ids, id)
-        end
-    end
-    !isempty(valid_ids) ? (range=ranges, ids=valid_ids) : nothing
-end
+Filter with simultaneous Δmlt < 1 and Δmlat < 8 conditions:
 
-valid_ranges_with_ids = filter(!isnothing, valid_ranges_with_ids)
+```{julia}
+valid_ranges_with_ids_simultaneous = find_simultaneous_conditions(
+    continuous_ranges, elx_gei
+)
 ```
 
 For each valid range, get the fluxes and MLATs and fit the fluxes by MLAT
 
 ```{julia}
-result = rand(valid_ranges_with_ids)
+result = rand(valid_ranges_with_ids_simultaneous)
 
 # result = valid_ranges_with_ids[13]
 # result = valid_ranges_with_ids[14]
