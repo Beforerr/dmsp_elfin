@@ -9,6 +9,8 @@ using TimeseriesUtilities
 using DimensionalData, DataFrames, DataFramesMeta
 using GeoCotrans, IRBEM
 using SPEDAS
+using Accessors
+
 includet("../src/plot.jl")
 includet("../src/workload.jl")
 includet("../src/conjugation.jl")
@@ -16,17 +18,17 @@ includet("../src/conjugation.jl")
 
 ```{julia}
 probe = "b"
-tr = ["2021-01-01", "2021-03-01"]
-dmsp_ids = 16:18
+tr = ["2021-01-08", "2021-01-18"]
+tr = Date("2021-08-01"), Date("2021-09-01")
+# tr = ["2021-01-08", "2021-01-09"]
+ids = 16:18
 elx_gei = ELFIN.gei(tr, probe)
-elx_flux = ELFIN.precipitating_flux(tr, probe)
+# elx_flux = ELFIN.precipitating_flux(tr, probe)
 ```
 
 ### Finding Continuous Time Ranges
 
 ```{julia}
-using TimeseriesUtilities: find_continuous_timeranges
-
 continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
 
 # Print the continuous time ranges
@@ -45,13 +47,8 @@ Filter time ranges (t0, t1) so that Δmlt < 1 and Δmlat < 8 for at least one DM
 
 ```{julia}
 Δt = Minute(10)
-# Δt = Minute(30)
 Δmlt_max = 1
 Δmlat_max = 8
-
-find_separate_conditions(
-    continuous_ranges, elx_gei; ids=dmsp_ids, Δt, Δmlt_max, Δmlat_max
-)
 ```
 
 Filter with simultaneous Δmlt < 1 and Δmlat < 8 conditions:
@@ -66,7 +63,7 @@ Find time ranges where corresponding MLT differences are also within threshold a
 
 ```{julia}
 valid_ranges_with_ids = find_matched_mlat_conditions(
-    continuous_ranges, elx_gei; ids=dmsp_ids, Δt, Δmlt_max
+    continuous_ranges, elx_gei; ids, Δt, Δmlt_max
 )
 ```
 
@@ -79,12 +76,11 @@ result = rand(valid_ranges_with_ids)
 
 # result = valid_ranges_with_ids[13]
 # result = valid_ranges_with_ids[14]
-df, elfin, dmsp = workload(result...; elx_gei, elx_flux)
+df, elfin, dmsp = workload(result...; elx_gei, elx_flux.prec)
 ```
 
 ```{julia}
 using StatsBase
-using Accessors
 
 if nrow(df) > 0
     # random select three mlats
@@ -100,31 +96,6 @@ end
 plot_elfin_dmsp(result...; elx_flux=elx_flux.prec, elx_gei)
 # plot_elfin_dmsp(valid_ranges_with_ids[4]...; elx_flux = elx_flux.prec, elx_gei)
 ```
-
-### Bulk processing and statistics
-
-```{julia}
-dfs = map(valid_ranges_with_ids) do (trange, ids)
-    df = try
-        produce(trange, ids; elx_gei, elx_flux)[1]["df"]
-    catch
-        @warn "Failed to process $trange with $ids"
-        rethrow()
-    end
-end
-#  (2021-02-19T12:43:00.996538880, 2021-02-19T12:49:01.571536128) with [18]
-df = reduce(vcat, filter(!isempty, dfs))
-```
-
-Probability distributions of observations in (Mlat, Ec) and (Mlat, gamma) spaces?
-
-```{julia}
-m1_len = @optic _.model1
-m2_len = @optic _.model2
-γ_len = @optic _.model1.γ
-κ_len = @optic _.model2.κ
-```
-
 
 
 ### Fit Fluxes
@@ -212,76 +183,6 @@ axislegend(ax; merge=true)
 f
 ```
 
-## Parameter Statistics and Correlations
-
-```julia
-#TODO: update this part
-# Calculate parameter statistics and correlations
-using Statistics
-
-# Create summary statistics
-param_stats = (
-    plec_A_mean=mean([p.plec_A for p in param_analysis]),
-    plec_A_std=std([p.plec_A for p in param_analysis]),
-    plec_γ_mean=mean([p.plec_γ for p in param_analysis]),
-    plec_γ_std=std([p.plec_γ for p in param_analysis]),
-    plec_E_c_mean=mean([p.plec_E_c for p in param_analysis]),
-    plec_E_c_std=std([p.plec_E_c for p in param_analysis]),
-    sbpl_A_mean=mean([p.sbpl_A for p in param_analysis]),
-    sbpl_A_std=std([p.sbpl_A for p in param_analysis]),
-    sbpl_γ1_mean=mean([p.sbpl_γ1 for p in param_analysis]),
-    sbpl_γ1_std=std([p.sbpl_γ1 for p in param_analysis]),
-    sbpl_γ2_mean=mean([p.sbpl_γ2 for p in param_analysis]),
-    sbpl_γ2_std=std([p.sbpl_γ2 for p in param_analysis]),
-    sbpl_Eb_mean=mean([p.sbpl_Eb for p in param_analysis]),
-    sbpl_Eb_std=std([p.sbpl_Eb for p in param_analysis])
-)
-
-@info "Parameter Statistics:" param_stats
-
-# Create correlation plot between key parameters
-f_corr = Figure(size=(1200, 900))
-
-# PowerLawExpCutoff γ vs E_c
-ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExpCutoff)",
-    ylabel="Cutoff Energy E_c (keV)", yscale=log10,
-    title="PowerLawExpCutoff: γ vs E_c")
-scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
-    [p.plec_E_c for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# PowerLawExpCutoff A vs γ  
-ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExpCutoff)",
-    ylabel="Power Index γ", xscale=log10,
-    title="PowerLawExpCutoff: A vs γ")
-scatter!(ax_corr2, [p.plec_A for p in param_analysis],
-    [p.plec_γ for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# SmoothBrokenPowerlaw γ1 vs γ2
-ax_corr3 = Axis(f_corr[2, 1], xlabel="Power Index γ₁ (SBPL)",
-    ylabel="Power Index γ₂ (SBPL)",
-    title="SmoothBrokenPowerlaw: γ₁ vs γ₂")
-scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
-    [p.sbpl_γ2 for p in param_analysis],
-    color=mlats_all, colormap=:viridis, markersize=8)
-
-# Break energy vs MLAT colored by PowerLawExpCutoff cutoff
-ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
-    yscale=log10, title="Break Energy vs MLAT")
-scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],
-    color=[p.plec_E_c for p in param_analysis], colormap=:plasma, markersize=8)
-
-# Add colorbars
-Colorbar(f_corr[1:2, 3], colormap=:viridis, colorrange=extrema(mlats_all),
-    label="MLAT")
-
-f_corr
-```
-
-
-
-
 ### Plot distance metrics
 
 
@@ -336,65 +237,4 @@ linkxaxes!(ax1, ax2, ax3, ax4)
 f
 ```
 
-## Check
-
-Compare the MLAT of DMSP from our calculation and the one in the file
-
-```{julia}
-using SpaceDataModel: set!
-
-dmsp_calc_aacgm = dmsp_get_aacgm(timerange, id)
-dmsp_calc_mlat = getindex.(dmsp_calc_aacgm, 1)
-set!(dmsp_calc_mlat.metadata, :label => "AACGM", :ylabel => "MLAT")
-dmsp_file_mlat = DMSP.load(timerange, id, "mlat")
-set!(dmsp_file_mlat.metadata, :label => "File", :ylabel => "MLAT")
-
-tplot(([dmsp_calc_mlat, dmsp_file_mlat],))
-```
-
-```{julia}
-norm_times(ts) = (ts .- ts[1]) ./ (ts[end] - ts[1])
-
-f = Figure()
-ax1 = Axis3(f[1, 1], aspect=(2, 1, 1), xlabel="Time", ylabel="MLat", zlabel="MLT")
-
-lines!(ax1, norm_times(times(elfin_x_geo)), parent(elx_aacgm.mlat), parent(elx_mlt), linewidth=4)
-
-for i in 1:length(dmsp_xs_geo)
-    lines!(ax1, norm_times(times(dmsp_xs_geo[i])), parent(dmsp_xs_aacgm[i].mlat), parent(dmsp_xs_mlt[i]))
-end
-
-f
-```
-
-```{julia}
-using SPEDAS: tplot
-
-f = Figure()
-dmsp_tvars = (dms_ds.el_d_flux, dms_ds.ion_d_flux, (dmspf16_aacgm.mlat, dms_ds.mlat), (dmspf16_mlt, dms_ds.mlt))
-elx_tvars = (elx_aacgm.mlat, elx_mlt)
-tplot(f[1, 1], dmsp_tvars)
-tplot(f[1, 2], elx_tvars)
-f
-```
-
-## Validation of DMSP Fluxes
-
-@redmonNewDMSPDatabase2017
-
-> The total number (energy) flux is calculated in the following manner (adapted from Hardy et al. [2008]) by “integrating” differential number (energy) fluxes (equation (2)) over energy:
-
-$$
-J_{N, \text { Total }}(\Omega)=j_N\left(E_1, \Omega\right)\left(E_2-E_1\right)+\left[\sum_{i=2}^{18} j_N\left(E_i, \Omega\right) \frac{\left(E_{i+1}-E_{i-1}\right)}{2}\right]+j_N\left(E_{19}, \Omega\right)\left(E_{19}-E_{18}\right) .
-$$
-
-```{julia}
-dmsp_flux = DMSP.load(["2010-01-10T00:05", "2010-01-10T00:35"], 16, "el_d_ener")
-dmsp_J = integrate_diff_flux(dmsp_flux)
-
-dmsp_J = SPEDAS.set_meta(dmsp_J, :scale => log10)
-tplot([dmsp_flux, dmsp_J])
-ylims!(current_axis(), 1e9, 1e13)
-current_figure()
-```
 

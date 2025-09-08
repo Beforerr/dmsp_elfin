@@ -2,6 +2,7 @@
 import Base: iterate, show
 
 export SpectralModel, TwoStepModel, PowerLaw, PowerLawExpCutoff, SmoothBrokenPowerlaw, KappaDistribution
+export E_c
 
 abstract type SpectralModel{T} end
 
@@ -115,6 +116,8 @@ end
 (m::KappaDistribution)(E) = m.A * E * (1 + E / (m.κ * m.E_c))^(-m.κ - 1)
 
 log_eval(m::KappaDistribution, E) = nm.log(m.A) + log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
+
+E_c(m::KappaDistribution) = m.E_c
 
 function log_jacobian(m::KappaDistribution, E)
     A = m.A

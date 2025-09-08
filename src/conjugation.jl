@@ -55,7 +55,7 @@ function check_range_conditions(ranges, elx_gei; ids = 16:18, Δt = Minute(10), 
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, ranges))
     valid_ids = Int[]
     foreach(ids) do id
-        dmsp_mlt, dmsp_mlat = get_mlt_mlat(extend(ranges, Δt), id)
+        dmsp_mlt, dmsp_mlat = get_mlt_mlat(id, extend(ranges, Δt))
         if has_simultaneous_match(elx_mlt, elx_mlat, dmsp_mlt, dmsp_mlat; kw...)
             push!(valid_ids, id)
         end
@@ -72,7 +72,7 @@ function check_range_separate_conditions(ranges, elx_gei; ids = 16:18, Δt = Min
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, ranges))
     valid_ids = Int[]
     foreach(ids) do id
-        dmsp_mlt, dmsp_mlat = get_mlt_mlat(extend(ranges, Δt), id)
+        dmsp_mlt, dmsp_mlat = get_mlt_mlat(id, extend(ranges, Δt))
         if dist(mlt_dist, elx_mlt, dmsp_mlt) < Δmlt_max && dist(elx_mlat, dmsp_mlat) < Δmlat_max
             push!(valid_ids, id)
         end
@@ -107,12 +107,21 @@ function check_matched_mlat_Δmlt(elx_mlt, elx_mlat, dmsp_mlt, dmsp_mlat; δmlat
 end
 
 function check_matched_mlat_Δmlt(ranges, elx_gei; ids = 16:18, Δt = Minute(10), Δmlt_max = 1)
-    elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, ranges))
+    _elx_gei = tview(elx_gei, ranges)
+    isempty(_elx_gei) && return nothing
+    elx_mlt, elx_mlat = gei2mlt_mlat(_elx_gei)
+    all(isnan, elx_mlat) && return nothing
     valid_ids = Int[]
     foreach(ids) do id
-        dmsp_mlt, dmsp_mlat = get_mlt_mlat(extend(ranges, Δt), id)
-        if check_matched_mlat_Δmlt(elx_mlt, elx_mlat, dmsp_mlt, dmsp_mlat; Δmlt_max)
-            push!(valid_ids, id)
+        dmsp_mlt, dmsp_mlat = get_mlt_mlat(id, extend(ranges, Δt))
+        try
+            if check_matched_mlat_Δmlt(elx_mlt, elx_mlat, dmsp_mlt, dmsp_mlat; Δmlt_max)
+                push!(valid_ids, id)
+            end
+        catch
+            @warn "Failed to check matched MLAT conditions for $id with ranges $(ranges)"
+            Main.@autoinfiltrate
+            rethrow()
         end
     end
     return !isempty(valid_ids) ? (range = ranges, ids = valid_ids) : nothing

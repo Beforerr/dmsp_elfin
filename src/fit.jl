@@ -109,7 +109,6 @@ function fit(M::Type{<:PowerLawExpCutoff}, E, y)
     lower = SA[0, -Inf, 0]
     method = :sciml
     if method == :sciml
-        # TODO: add lower bound for NonlinearSolve
         alg = NonlinearSolve.TrustRegion()
         return sciml_log_fit(M, E, y; alg)
     elseif method == :lsqfit

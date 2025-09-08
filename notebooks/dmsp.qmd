@@ -23,9 +23,15 @@ globalDownload.py --verbose --url=https://cedar.openmadrigal.org/ --outputDir=./
 
 
 ```{julia}
-using MadrigalWeb
+import Pkg
+Pkg.activate("docs")
+
+using DMSP.Madrigal
 ```
 
+```{julia}
+get_experiments(8100)
+```
 
 Download data from Madrigal for each continuous time range
 
@@ -48,6 +54,68 @@ tplot([[dmsp_geo_file.x, dmsp_geo[:,1]], [dmsp_geo_file.y, dmsp_geo[:,2]], [dmsp
 ```
 
 
+## Check
+
+Compare the MLAT of DMSP from our calculation and the one in the file
+
+```{julia}
+using SpaceDataModel: set!
+
+dmsp_calc_aacgm = dmsp_get_aacgm(timerange, id)
+dmsp_calc_mlat = getindex.(dmsp_calc_aacgm, 1)
+set!(dmsp_calc_mlat.metadata, :label => "AACGM", :ylabel => "MLAT")
+dmsp_file_mlat = DMSP.load(timerange, id, "mlat")
+set!(dmsp_file_mlat.metadata, :label => "File", :ylabel => "MLAT")
+
+tplot(([dmsp_calc_mlat, dmsp_file_mlat],))
+```
+
+```{julia}
+norm_times(ts) = (ts .- ts[1]) ./ (ts[end] - ts[1])
+
+f = Figure()
+ax1 = Axis3(f[1, 1], aspect=(2, 1, 1), xlabel="Time", ylabel="MLat", zlabel="MLT")
+
+lines!(ax1, norm_times(times(elfin_x_geo)), parent(elx_aacgm.mlat), parent(elx_mlt), linewidth=4)
+
+for i in 1:length(dmsp_xs_geo)
+    lines!(ax1, norm_times(times(dmsp_xs_geo[i])), parent(dmsp_xs_aacgm[i].mlat), parent(dmsp_xs_mlt[i]))
+end
+
+f
+```
+
+```{julia}
+using SPEDAS: tplot
+
+f = Figure()
+dmsp_tvars = (dms_ds.el_d_flux, dms_ds.ion_d_flux, (dmspf16_aacgm.mlat, dms_ds.mlat), (dmspf16_mlt, dms_ds.mlt))
+elx_tvars = (elx_aacgm.mlat, elx_mlt)
+tplot(f[1, 1], dmsp_tvars)
+tplot(f[1, 2], elx_tvars)
+f
+```
+
+## Validation of DMSP Fluxes
+
+@redmonNewDMSPDatabase2017
+
+> The total number (energy) flux is calculated in the following manner (adapted from Hardy et al. [2008]) by “integrating” differential number (energy) fluxes (equation (2)) over energy:
+
+$$
+J_{N, \text { Total }}(\Omega)=j_N\left(E_1, \Omega\right)\left(E_2-E_1\right)+\left[\sum_{i=2}^{18} j_N\left(E_i, \Omega\right) \frac{\left(E_{i+1}-E_{i-1}\right)}{2}\right]+j_N\left(E_{19}, \Omega\right)\left(E_{19}-E_{18}\right) .
+$$
+
+```{julia}
+dmsp_flux = DMSP.load(["2010-01-10T00:05", "2010-01-10T00:35"], 16, "el_d_ener")
+dmsp_J = integrate_diff_flux(dmsp_flux)
+
+dmsp_J = SPEDAS.set_meta(dmsp_J, :scale => log10)
+tplot([dmsp_flux, dmsp_J])
+ylims!(current_axis(), 1e9, 1e13)
+current_figure()
+```
+
 
 TODO: Investigate the error below
 
@@ -64,6 +132,18 @@ TODO: Investigate the error below
 │ """)
 ```
 
+┌ Warning: Failed to download file: HTTP.Exceptions.StatusError(500, "GET", "/getMadfile.cgi?user_affiliation=Madrigal.jl&fileName=%2Fopt%2Fopenmadrigal%2Fmadroot%2Fexperiments3%2F2021%2Fdms%2F12aug21%2Fdms_20210812_18e.001.hdf5&fileType=-2&user_email=zijin%40ucla.edu&user_fullname=Zijin%2BZhang", HTTP.Messages.Response:
+│ """
+│ HTTP/1.1 500 Internal Server Error
+│ Date: Mon, 08 Sep 2025 16:23:54 GMT
+│ Server: Apache/2.4.58
+│ Connection: close
+│ Transfer-Encoding: chunked
+│ Content-Type: text/html; charset=utf-8
+│ 
+│ """)
+
+## References
 
 [Defense Meteorological Satellite Program > United States Space Force > Fact Sheets](https://www.spaceforce.mil/About-Us/Fact-Sheets/Article/2197779/defense-meteorological-satellite-program/)
 
@@ -96,7 +176,7 @@ Instruments
 
 <a href="https://space.oscar.wmo.int/instruments/view/sess_ssusi">WMO OSCAR | Details for Instrument SESS/SSUSI</a>
 
-
+### Metadata
 
 ```julia
  (mnemonic = "YEAR", description = "Year (universal time)", isError = 0, units = "y", category = "Madrigal Hdf5 Prolog Parameters")
@@ -272,7 +352,7 @@ Independent Spatial Parameters:
 mnemonic: ch_energy: description: Channel central energy
 ```
 
-
+#### SSJ data files
 
 Table: File format description for the SSJ data files
 

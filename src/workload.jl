@@ -1,7 +1,7 @@
 using Statistics: mean
 using Speasy
 import TimeseriesUtilities
-using TimeseriesUtilities: tresample, tview, tsort
+using TimeseriesUtilities: tresample, tview, tsort, find_continuous_timeranges
 using PartialFunctions
 using DrWatson
 
@@ -31,19 +31,21 @@ end
 
 gei2mlt_mlat(gei, timerange) = gei2mlt_mlat(tview(gei, timerange...))
 
+get_geo(id, t0, t1) = DimArray(Speasy.get_data("ssc/dmspf$id/geo", t0, t1))
+
 """
-    get_mlt_mlat(timerange, id)
+    get_mlt_mlat(id, timerange)
 
 Get MLT and MLAT data for DMSP `id` and `timerange` from SSC.
 
 # Notes
 - Data is fetched from SSC with 1-minute resolution and upsampled to 1-second
 """
-get_mlt_mlat(timerange, id) = begin
+get_mlt_mlat(id, t0, t1) = begin
     # the time resolution from SSC is 1 minute, floored/ceiled to minute boundaries
-    t0 = floor(timerange[1], Minute)
-    t1 = ceil(timerange[2], Minute)
-    _geo = Speasy.get_data("ssc/dmspf$id/geo", t0, t1 + Second(1)) |> DimArray
+    t0 = floor(DateTime(t0), Minute)
+    t1 = ceil(DateTime(t1), Minute)
+    _geo = get_geo(id, t0, t1 + Second(1))
     # Upsample to 1 second
     geo = tinterp(_geo, time_grid((t0, t1), Second(1)))
     mlt = get_mlt(geo)
@@ -52,8 +54,10 @@ get_mlt_mlat(timerange, id) = begin
     return mlt, mlat
 end
 
-# Remove the first channel of the flux if it is NaN
-remove_first_channel(flux) = isnan(flux[1]) ? flux[2:end] : flux
+get_mlt_mlat(id, trange) = get_mlt_mlat(id, trange[1], trange[2])
+
+# Remove the first channel of the flux if it is NaN or lower than second channel (this is a problem with the first channel only for some events)
+remove_first_channel(flux) = (isnan(flux[1]) || flux[1] < flux[2]) ? flux[2:end] : flux
 
 """
     workload(trange, ids; Δt=Minute(10), elx_flux=nothing, elx_gei=nothing, elx_probe="b", Δmlt_max=1, flux_threshold=200)
@@ -90,10 +94,10 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
 
     elx_mlt_trange = extend(trange, Second(1)) # Extend a bit to cover flux time range
 
-    elx_flux = @something elx_flux ELFIN.precipitating_flux(trange, elx_probe)
+    elx_flux = @something elx_flux ELFIN.precipitating_flux(trange, elx_probe).prec
     elx_gei = @something elx_gei ELFIN.gei(elx_mlt_trange, elx_probe)
 
-    elx_pflux = tview(elx_flux.prec, trange)
+    elx_pflux = tview(elx_flux, trange)
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, elx_mlt_trange))
     elx_df = get_flux_by_mlat(elx_pflux, elx_mlat)
 
@@ -102,7 +106,7 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
     results = map(ids) do id
         dmsp_range = extend(trange, Δt)
         f = DMSP.flux(dmsp_range, id)
-        mlt, mlat = get_mlt_mlat(dmsp_range, id)
+        mlt, mlat = get_mlt_mlat(id, dmsp_range)
         if isnothing(f) || isempty(f)
             @warn "Skipping DMSP ID $id due to missing or empty flux data for range $dmsp_range"
             return (; df = DataFrame(), dmsp = nothing)
@@ -168,6 +172,33 @@ function produce(trange, ids; kw...)
         conf["df"] = df
         return conf
     end
+end
+
+function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
+    conf = @strdict trange probe ids
+    filename = "ELFIN=$(probe)_t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"
+    return produce_or_load(conf, datadir(); filename) do c
+        trange, probe = c["trange"], c["probe"]
+        elx_gei = ELFIN.gei(trange, probe)
+        elx_flux = tsort(ELFIN.precipitating_flux(trange, probe; collect = true).prec)
+        continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
+        valid_ranges_with_ids = find_matched_mlat_conditions(
+            continuous_ranges, elx_gei; ids, Δt, Δmlt_max
+        )
+
+        dfs = map(valid_ranges_with_ids) do (trange, ids)
+            produce(trange, ids; elx_gei, elx_flux)[1]["df"]
+        end
+        conf["df"] = reduce(vcat, filter(!isempty, dfs))
+        return conf
+    end
+end
+
+function produce(tranges::AbstractVector, probe, ids; kw...)
+    dfs = map(tranges) do trange
+        produce(trange, probe, ids; kw...)[1]["df"]
+    end
+    return reduce(vcat, filter(!isempty, dfs))
 end
 
 
@@ -306,7 +337,7 @@ function plot_elfin_dmsp(timerange, ids; elx_flux, elx_gei, Δt = Minute(10))
             flux.metadata,
             :yscale => log10, :colorscale => log10, :colorrange => COLORRANGE[]
         )
-        replace!(flux, 0 => NaN)
+        # replace!(flux, 0 => NaN)
     end
 
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, extend(timerange, Second(1)))) # extend so that interpolation works
@@ -314,7 +345,7 @@ function plot_elfin_dmsp(timerange, ids; elx_flux, elx_gei, Δt = Minute(10))
     xlims = extrema(elx_mlat)
 
     dmsp_mlt_mlats = map(ids) do id
-        mlt, mlat = get_mlt_mlat(extend(timerange, Δt + Second(2)), id)
+        mlt, mlat = get_mlt_mlat(id, extend(timerange, Δt + Second(2)))
         setmeta(mlt, :label => "DMSP $id", :ylabel => "MLT"), setmeta(mlat, :label => "DMSP $id", :ylabel => "MLAT")
     end
     mlts = [elx_mlt, first.(dmsp_mlt_mlats)...]

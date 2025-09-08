@@ -1,5 +1,6 @@
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
 Beforerr = "49aed396-608e-4c3f-b6d6-a749216c9ea7"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
@@ -11,10 +12,13 @@ DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 DmspElfinConjunction = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 ELFIN = "7c5b9e3d-4f2a-5b1c-a8d6-2e7f8a9b3c4d"
+FHist = "68837c9b-b678-4cd5-9925-8a54edc8f695"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoAACGM = "7d0bd8ea-8a67-4204-9dfc-7af11c683dec"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
 IRBEM = "d0b46c7b-8a8f-4d20-a1b4-6e9a4a1e4e5f"
+Madrigal = "30ac0af5-7056-44d2-a45c-266d747295e6"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 PartialFunctions = "570af359-4316-4cb7-8c74-252c00c2016b"
 PySPEDAS = "668d2cef-03a7-4c36-a521-7d1c6ddc8846"
 SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
@@ -32,6 +36,7 @@ DmspElfinConjunction = {path = ".."}
 ELFIN = {path = "../lib/ELFIN"}
 GeoAACGM = {path = "/Users/zijin/.julia/dev/GeoAACGM"}
 IRBEM = {path = "/Users/zijin/.julia/dev/IRBEM"}
+Madrigal = {path = "/Users/zijin/.julia/dev/Madrigal"}
 PySPEDAS = {path = "/Users/zijin/.julia/dev/PySPEDAS"}
 SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
 Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}

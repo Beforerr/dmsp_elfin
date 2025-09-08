@@ -160,11 +160,13 @@ function plot_spectra!(ax, energies, model::TwoStepModel)
     return plot_spectra!(ax, energies, model.model2)
 end
 
-function plot_spectra!(ax, flux, flux_1, model)
+function plot_spectra!(ax, flux, flux_1, model; plot_model = true)
     scatterlines!(ax, flux)
     scatterlines!(ax, flux_1)
-    energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
-    plot_spectra!(ax, energies, model)
+    plot_model && begin
+        energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
+        plot_spectra!(ax, energies, model)
+    end
     return ax
 end
 
@@ -174,9 +176,9 @@ function plot_spectra(f, args...; kw...)
     return ax
 end
 
-function plot_spectra(f, df::DataFrame)
+function plot_spectra(f, df::DataFrame; kw...)
     axs = map(enumerate(eachrow(df))) do (i, row)
-        ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model)
+        ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model; kw...)
         i == 1 || hideydecorations!(ax; grid = false)
         ax
     end

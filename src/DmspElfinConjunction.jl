@@ -5,6 +5,7 @@ using DataFrames, DataFramesMeta
 using DimensionalData
 using Dictionaries
 import Speasy
+using NaNStatistics
 
 export integrate_diff_flux
 export get_flux_by_mlat
@@ -50,8 +51,8 @@ Returns a dictionary mapping `mlat_bin => (t0, t1)` where t0 and t1 are the time
 """
 function bin_mlat_times(mlats; δmlat = 0.5, δt = Millisecond(1000))
     # Create MLAT bins - left closed, right open
-    mlat_min = round(minimum(mlats) * 2, RoundNearestTiesUp) / 2
-    mlat_max = round(maximum(mlats) * 2, RoundNearestTiesUp) / 2
+    mlat_min = round(nanminimum(mlats) * 2, RoundNearestTiesUp) / 2
+    mlat_max = round(nanmaximum(mlats) * 2, RoundNearestTiesUp) / 2
     mlat_bins = mlat_min:δmlat:(mlat_max - δmlat)
 
     times = mlats.dims[1].val.data

@@ -1,0 +1,352 @@
+# Statistics analysis
+
+```{julia}
+import Pkg
+Pkg.activate("docs")
+using DmspElfinConjunction, DMSP, ELFIN
+using Dates
+using TimeseriesUtilities
+using DimensionalData, DataFrames, DataFramesMeta
+using GeoCotrans, IRBEM
+using SPEDAS
+using Accessors
+
+includet("../src/plot.jl")
+includet("../src/workload.jl")
+includet("../src/conjugation.jl")
+includet("../src/fhist.jl")
+
+using .FHistAog
+```
+
+
+```{julia}
+probe = "b"
+tr = Date("2021-01-01"), Date("2022-01-01")
+ids = 16:18
+
+df = produce(tsplit(tr, Month)[1:8], probe, ids)
+```
+
+
+```{julia}
+m1_len = @optic _.model1
+m2_len = @optic _.model2
+γ_len = @optic _.γ
+κ_len = @optic _.κ
+```
+
+TODO: investigate why some E_c are so large
+
+
+```{julia}
+f = Figure()
+sdf = @chain df begin
+    @rtransform(:E_c = E_c(m1_len(:model)))
+    sort(:E_c; rev=true)
+end
+ax = plot_spectra(f[1, 1], sdf[1:3, :])
+# ylims!(ax, 1.0e1, 1.0e12)
+# axislegend(ax; position=:lb)
+f
+```
+
+### Probability distributions
+
+Probability distributions of observations in (Mlat, Ec) and (Mlat, gamma) spaces?
+
+```{julia}
+using PairPlots, AlgebraOfGraphics
+using StatsBase
+const AoG = AlgebraOfGraphics
+
+E_c1(model) = E_c(m1_len(model))
+E_c2(model) = E_c(m2_len(model))
+
+function plot_parameter_distributions_aog(df; bins=60, normalization=:column)
+    plot_df = @chain df begin
+        @rtransform @astable begin
+            :where = :mlat > 0 ? "North" : "South"
+            :E_c = E_c(m1_len(:model))
+            :γ = γ_len(m1_len(:model))
+            :κ = κ_len(m2_len(:model))
+            :E_c2 = E_c(m2_len(:model))
+            :log10_E_c2 = log10(:E_c2)
+        end
+        @rsubset(isfinite(:E_c) & isfinite(:γ) && :E_c < 100, -10 < :κ < 15)
+    end
+
+    facet = mapping(layout=:where)
+    base = data(plot_df) * facet
+
+    x = :mlat => abs => "|MLAT| (degrees)"
+    vis = visual(colormap=:plasma, alpha=0.8)
+
+    # MLAT vs E_c density plot
+    mlat_binedges = (50:0.5:80)
+
+    plot_density = normalization != :column
+
+    ec_plot = base * mapping(x, :E_c => log10 => "Log E_c (keV)")
+    ec_plot *= if plot_density
+        AoG.density(npoints=bins, datalimits=((50, 80), (-4, 2))) * vis
+    else
+        fhist(; npoints=bins, binedges=(mlat_binedges, -4:0.2:2), normalization) * vis
+    end
+
+    # MLAT vs γ density plot  
+    gamma_plot = base * mapping(x, :γ => "γ")
+    gamma_plot *= if plot_density
+        AoG.density(npoints=bins, datalimits=((50, 80), (5, -10))) * vis
+    else
+        fhist(; npoints=bins, binedges=(mlat_binedges, -10:0.5:5), normalization) * vis
+    end
+
+    # MLAT vs κ density plot
+    κ_plot = base * mapping(x, :κ => "κ")
+    κ_plot *= if plot_density
+        AoG.density(npoints=bins, datalimits=((50, 80), (0, 12))) * vis
+    else
+        fhist(; npoints=bins, binedges=(mlat_binedges, 0:0.5:12), normalization) * vis
+    end
+
+    # MLAT vs E_c2 density plot
+    ec2_plot = base * mapping(x, :log10_E_c2 => "Log E_c2 (keV)")
+    ec2_plot *= if plot_density
+        AoG.density(npoints=bins, datalimits=((50, 80), (-1, 2))) * vis
+    else
+        fhist(; npoints=bins, binedges=(mlat_binedges, -1:0.1:2), normalization) * vis
+    end
+
+    # Create figure with subplots
+    f = Figure(size=(1200, 800))
+
+    # Draw plots
+    draw!(f[1, 1], ec_plot; facet=(; linkxaxes=:none))
+    draw!(f[2, 1], gamma_plot; facet=(; linkxaxes=:none))
+    draw!(f[3, 1], κ_plot; facet=(; linkxaxes=:none))
+    draw!(f[4, 1], ec2_plot; facet=(; linkxaxes=:none))
+
+    return f
+end
+
+# plot_parameter_distributions_aog(df; normalization=:pdf)
+plot_parameter_distributions_aog(df; normalization=:column)
+```
+
+```{julia}
+# Use PairPlots for comprehensive parameter analysis
+function plot_parameter_pairplots(df)
+    # Create analysis DataFrame with all relevant parameters
+    plot_df = DataFrame(
+        mlat=df.mlat,
+        E_c=E_c.(m1_len.(df.model)),
+        γ=γ_len.(m1_len.(df.model)),
+        κ=κ_len.(m2_len.(df.model)),
+        success=df.success,
+        Δmlt=df.Δmlt
+    )
+
+    # Filter for successful fits
+    successful_df = @subset(plot_df, :success)
+
+    if nrow(successful_df) == 0
+        println("No successful fits found for plotting")
+        return nothing
+    end
+
+    # Create comprehensive pair plot with all parameters
+    return pairplot(successful_df[:, [:mlat, :E_c, :γ, :κ, :Δmlt]])
+end
+
+# Plot comprehensive pairwise analysis
+plot_parameter_pairplots(df)
+```
+
+```{julia}
+# Advanced AlgebraOfGraphics visualization with faceting and grouping
+function plot_advanced_parameter_analysis(df)
+    # Create comprehensive analysis DataFrame
+    plot_df = DataFrame(
+        mlat=df.mlat,
+        E_c=E_c.(m1_len.(df.model)),
+        γ=γ_len.(m1_len.(df.model)),
+        κ=κ_len.(m2_len.(df.model)),
+        success=df.success,
+        Δmlt=df.Δmlt,
+        id=df.id,
+        # Create MLAT bins for grouping
+        mlat_bin=cut(df.mlat, 5, labels=["High", "Mid-High", "Mid", "Mid-Low", "Low"])
+    )
+
+    # Filter for successful fits
+    successful_df = @subset(plot_df, :success)
+
+    if nrow(successful_df) == 0
+        println("No successful fits found for plotting")
+        return nothing
+    end
+
+    # Create multi-faceted analysis
+    base = data(successful_df)
+
+    # Density plots with grouping by DMSP satellite ID
+    density_analysis = base *
+                       mapping(:mlat => "MLAT (degrees)", :E_c => "E_c (keV)",
+                           color=:id => nonnumeric, layout=:id => nonnumeric) *
+                       (density() * visual(alpha=0.7) +
+                        smooth() * visual(linewidth=2))
+
+    # Scatter plot with trend analysis
+    scatter_analysis = base *
+                       mapping(:γ => "γ", :E_c => "E_c (keV)",
+                           color=:mlat_bin => "MLAT Region",
+                           markersize=:Δmlt => "ΔMLT") *
+                       (visual(Scatter, alpha=0.7) +
+                        smooth() * visual(linewidth=1.5))
+
+    # Create figure with multiple panels
+    f = Figure(size=(1600, 1000))
+
+    # Panel 1: Density analysis by satellite
+    draw!(f[1, :], density_analysis;
+        axis=(title="E_c vs MLAT by DMSP Satellite",
+            subtitle="Density distributions with trend lines"))
+
+    # Panel 2: Parameter correlation analysis  
+    draw!(f[2, 1], scatter_analysis;
+        axis=(title="Parameter Correlations",
+            subtitle="E_c vs γ colored by MLAT region, sized by ΔMLT"))
+
+    # Panel 3: Distribution summary
+    hist_plot = base *
+                mapping(:E_c => "E_c (keV)", layout=:mlat_bin => nonnumeric) *
+                histogram(bins=15) * visual(alpha=0.8, color=:steelblue)
+
+    draw!(f[2, 2], hist_plot;
+        axis=(title="E_c Distribution by MLAT Region",))
+
+    return f
+end
+
+# Create advanced multi-panel analysis
+plot_advanced_parameter_analysis(df)
+```
+
+```{julia}
+# Statistical summary of the distributions
+function summarize_parameter_distributions(df)
+    successful_df = @subset(df, :success)
+
+    println("=== Parameter Distribution Summary ===")
+    println("Total successful fits: $(nrow(successful_df))")
+    println("Total observations: $(nrow(df))")
+    println("Success rate: $(round(nrow(successful_df)/nrow(df)*100, digits=2))%")
+    println()
+
+    # MLAT statistics
+    println("MLAT Statistics:")
+    println("  Range: $(round(minimum(successful_df.mlat), digits=2))° to $(round(maximum(successful_df.mlat), digits=2))°")
+    println("  Mean: $(round(mean(successful_df.mlat), digits=2))°")
+    println("  Std: $(round(std(successful_df.mlat), digits=2))°")
+    println()
+
+    # E_c statistics
+    E_c_values = [row.model2.E_c for row in eachrow(successful_df) if haskey(row.model2, :E_c)]
+    if !isempty(E_c_values)
+        println("E_c Statistics:")
+        println("  Range: $(round(minimum(E_c_values), digits=2)) to $(round(maximum(E_c_values), digits=2)) keV")
+        println("  Mean: $(round(mean(E_c_values), digits=2)) keV")
+        println("  Std: $(round(std(E_c_values), digits=2)) keV")
+        println("  Median: $(round(median(E_c_values), digits=2)) keV")
+        println()
+    end
+
+    # γ statistics
+    gamma_values = [row.model1.γ for row in eachrow(successful_df) if haskey(row.model1, :γ)]
+    if !isempty(gamma_values)
+        println("γ Statistics:")
+        println("  Range: $(round(minimum(gamma_values), digits=2)) to $(round(maximum(gamma_values), digits=2))")
+        println("  Mean: $(round(mean(gamma_values), digits=2))")
+        println("  Std: $(round(std(gamma_values), digits=2))")
+        println("  Median: $(round(median(gamma_values), digits=2))")
+    end
+end
+
+# Print statistical summary
+summarize_parameter_distributions(df)
+```
+
+
+
+
+
+
+
+
+## Parameter Statistics and Correlations
+
+```julia
+#TODO: update this part
+# Calculate parameter statistics and correlations
+using Statistics
+
+# Create summary statistics
+param_stats = (
+    plec_A_mean=mean([p.plec_A for p in param_analysis]),
+    plec_A_std=std([p.plec_A for p in param_analysis]),
+    plec_γ_mean=mean([p.plec_γ for p in param_analysis]),
+    plec_γ_std=std([p.plec_γ for p in param_analysis]),
+    plec_E_c_mean=mean([p.plec_E_c for p in param_analysis]),
+    plec_E_c_std=std([p.plec_E_c for p in param_analysis]),
+    sbpl_A_mean=mean([p.sbpl_A for p in param_analysis]),
+    sbpl_A_std=std([p.sbpl_A for p in param_analysis]),
+    sbpl_γ1_mean=mean([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ1_std=std([p.sbpl_γ1 for p in param_analysis]),
+    sbpl_γ2_mean=mean([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_γ2_std=std([p.sbpl_γ2 for p in param_analysis]),
+    sbpl_Eb_mean=mean([p.sbpl_Eb for p in param_analysis]),
+    sbpl_Eb_std=std([p.sbpl_Eb for p in param_analysis])
+)
+
+@info "Parameter Statistics:" param_stats
+
+# Create correlation plot between key parameters
+f_corr = Figure(size=(1200, 900))
+
+# PowerLawExpCutoff γ vs E_c
+ax_corr1 = Axis(f_corr[1, 1], xlabel="Power Index γ (PowerLawExpCutoff)",
+    ylabel="Cutoff Energy E_c (keV)", yscale=log10,
+    title="PowerLawExpCutoff: γ vs E_c")
+scatter!(ax_corr1, [p.plec_γ for p in param_analysis],
+    [p.plec_E_c for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# PowerLawExpCutoff A vs γ  
+ax_corr2 = Axis(f_corr[1, 2], xlabel="Amplitude A (PowerLawExpCutoff)",
+    ylabel="Power Index γ", xscale=log10,
+    title="PowerLawExpCutoff: A vs γ")
+scatter!(ax_corr2, [p.plec_A for p in param_analysis],
+    [p.plec_γ for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# SmoothBrokenPowerlaw γ1 vs γ2
+ax_corr3 = Axis(f_corr[2, 1], xlabel="Power Index γ₁ (SBPL)",
+    ylabel="Power Index γ₂ (SBPL)",
+    title="SmoothBrokenPowerlaw: γ₁ vs γ₂")
+scatter!(ax_corr3, [p.sbpl_γ1 for p in param_analysis],
+    [p.sbpl_γ2 for p in param_analysis],
+    color=mlats_all, colormap=:viridis, markersize=8)
+
+# Break energy vs MLAT colored by PowerLawExpCutoff cutoff
+ax_corr4 = Axis(f_corr[2, 2], xlabel="MLAT", ylabel="Break Energy Eb (keV)",
+    yscale=log10, title="Break Energy vs MLAT")
+scatter!(ax_corr4, mlats_all, [p.sbpl_Eb for p in param_analysis],
+    color=[p.plec_E_c for p in param_analysis], colormap=:plasma, markersize=8)
+
+# Add colorbars
+Colorbar(f_corr[1:2, 3], colormap=:viridis, colorrange=extrema(mlats_all),
+    label="MLAT")
+
+f_corr
+```
