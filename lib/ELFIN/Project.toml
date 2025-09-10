@@ -4,16 +4,25 @@ version = "1.0.0-DEV"
 authors = ["Zijin Zhang <zijin@ucla.edu> and contributors"]
 
 [deps]
+Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
+CDFDatasets = "075ae62b-f872-4368-b383-31e3aa6c3154"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 PySPEDAS = "668d2cef-03a7-4c36-a521-7d1c6ddc8846"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
+Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 
 [compat]
+Bumper = "0.7.1"
 DimensionalData = "0.29.16"
+LoopVectorization = "0.12.172"
 Memoization = "0.2.2"
 Printf = "1.11.0"
 PySPEDAS = "0.1.4"
+Tullio = "0.3.8"
+URIs = "1.6.1"
 julia = "1.10"

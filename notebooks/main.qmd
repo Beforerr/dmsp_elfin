@@ -22,7 +22,8 @@ tr = ["2021-01-08", "2021-01-18"]
 tr = Date("2021-08-01"), Date("2021-09-01")
 # tr = ["2021-01-08", "2021-01-09"]
 ids = 16:18
-elx_gei = ELFIN.gei(tr, probe)
+# elx_gei = ELFIN.gei(tr, probe)
+ELFIN.epd(tr, probe)
 # elx_flux = ELFIN.precipitating_flux(tr, probe)
 ```
 
