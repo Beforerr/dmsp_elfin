@@ -24,26 +24,41 @@ unwrap(x) = parent(x)
 
 Load ELFIN EPD CDF data and process ELFIN EPD data to extract flux products (para, anti, precipitating).
 """
-function epd(trange, probe; type = "nflux", datatype = "pef", fullspin = false, Espectra = (;), no_update = false, kw...)
-    cdf = load(trange, probe; no_update)
+function epd(trange, probe; type = "nflux", datatype = "pef", fullspin = false, Espectra = (;), update = false, PAspectra = nothing, kw...)
+    cdf = load(trange, probe; update)
     res = fullspin ? :fs : :hs
     base_var = "el$(probe)_$(datatype)_$(res)"
     spec_tvar = "$(base_var)_Epat_$(type)"
     spec_data = cdf[spec_tvar]
-    # Get time, pitch angles, and loss cone data
-    # time_var = pyconvert(String, cdf.data[spec_tvar].attributes["DEPEND_0"].value)
-    # time = cdf[time_var]
-    pitch_angles = CDF.dim(spec_data, 2)
-    loss_cone = cdf["$(base_var)_LCdeg"]
+    pitch_angles = CDF.dim(spec_data, 1; lazy = false)
+    loss_cone = Array(cdf["$(base_var)_LCdeg"])
+    S = Array(spec_data)
+    energies = CDF.dim(spec_data, 2; lazy = false)
+    times = DateTime.(CDF.dim(spec_data, ndims(spec_data); lazy = false))
+    Espectras = epd_l2_Espectra(S, pitch_angles, loss_cone; fullspin, Espectra...)
+    metadata = Dict(spec_data.attrib)
 
-    S = copy(spec_data)
-    PA = copy(pitch_angles)
-    sort_flux_by_pitch_angle!(S, PA)
-    return merge(
-        epd_l2_Espectra(S, PA, loss_cone; fullspin, Espectra...),
-        epd_l2_PAspectra(S; kw...)
-    )
+    return if isnothing(PAspectra)
+        tdim = Ti(times)
+        edim = Energy(vec(energies))
+        prec = abs.(Espectras.para .- Espectras.anti)
+        ds = DimStack((; Espectras..., prec), (edim, tdim); metadata)
+        return maplayers(ds) do da
+            rebuild(da, metadata = copy(metadata))
+        end
+    else
+        sort_flux_by_pitch_angle!(S, pitch_angles)
+        PAspectras = epd_l2_PAspectra(S; PAspectra..., kw...)
+        merge(
+            Espectras,
+            PAspectras,
+            (; energies, times, pitch_angles)
+        )
+    end
 end
+
+using DimensionalData: YDim, @dim
+@dim Energy YDim "Energy"
 
 """
     epd_spectra(flux, pitch_angles, loss_cone; flux_type="nflux", res="hs", para_tol=22.25, anti_tol=22.25)
@@ -55,14 +70,13 @@ Process EPD L2 CDF data to create energy spectra for different flux directions f
 
 # Example
 ```julia
-cdf_data = pycdfpp.load(file_path)
 spectra = epd_spectra(cdf_data, "a"; flux_type="nflux")
 ```
 """
 function epd_l2_Espectra(flux, pitch_angles, loss_cone; fullspin = false, kw...)
     # Determine nspinsectors based on resolution
     res = fullspin ? :fs : :hs
-    n_pa = size(pitch_angles, 2)
+    n_pa = size(pitch_angles, 1)
     nspinsectors = res == :hs ? (n_pa - 2) * 2 : n_pa - 2
 
     # Calculate tolerances
@@ -86,7 +100,7 @@ end
 Sort flux by pitch angle into ascending order. Set `sort_on_reverse` to true to sort only if the pitch angle is in reverse order.
 """
 function sort_flux_by_pitch_angle!(flux, pitch_angle; sort_on_reverse = true)
-    pa_dim = 2
+    pa_dim = 1
     n_pa = size(pitch_angle, pa_dim)
     N_flux = ndims(flux)
     N_pa = ndims(pitch_angle)
@@ -98,7 +112,7 @@ function sort_flux_by_pitch_angle!(flux, pitch_angle; sort_on_reverse = true)
     perm = zeros(Int, n_pa)
     T = promote_type(eltype(flux), eltype(pitch_angle))
     cache = zeros(T, n_pa)
-    @inbounds for (flux_slice, pa_slice) in zip(eachslice(flux, dims = 1), eachslice(pitch_angle, dims = 1))
+    @inbounds for (flux_slice, pa_slice) in zip(eachslice(flux, dims = N_flux), eachslice(pitch_angle, dims = N_pa))
         sortperm!(perm, pa_slice)
         sort_on_reverse && perm != n_pa:-1:1 && continue
         _sort_by_perm!(pa_slice, cache, perm)

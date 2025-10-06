@@ -82,7 +82,7 @@ log_eval(m::PowerLawExpCutoff, E) = nm.log(m.A) - m.γ * log(E) - E / m.E_c
 Power-law model with exponential cutoff
 
 ```math
-f(x) = A * E^(-γ) * exp(-E/E_c) = exp(log(A) - E/exp(log(E_c))) * E^(-γ)
+f(E) = A ⋅ E^(-γ) ⋅ exp(-E/E_c) = exp(log(A) - E/exp(log(E_c))) ⋅ E^(-γ)
 ```
 
 This is the same as PowerLawExpCutoff but with log-transformed parameters (so that A>0 and E_c>0 when optimising over ℝ).
@@ -102,7 +102,7 @@ E_c(m::PowerLawExpCutoff2) = exp(m.logE_c)
 Kappa distribution spectral model.
 
 ```math
-f(E) = A * E * (1 + E/(κ*E_c))^(-κ-1)
+f(E) = A ⋅ E ⋅ (1 + E/(κ⋅E_c))^(-κ-1)
 ```
 
 Where κ is the kappa parameter controlling the suprathermal tail.

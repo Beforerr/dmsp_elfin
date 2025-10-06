@@ -10,16 +10,11 @@ Electron Losses and Fields Investigation (ELFIN)
 - Engineering data (ENG)
 """
 module ELFIN
-
-import PySPEDAS
-using PySPEDAS.Projects: elfin
 using DimensionalData
-using Speasy.PythonCall
 using Speasy: get_product
 using Memoization
-using Speasy: pycdfpp
-import Speasy.speasy as spz
 using CDFDatasets
+using CDFDatasets: CDFDataset
 import CDFDatasets as CDF
 
 export precipitating_flux, gei, epd
@@ -30,8 +25,6 @@ const BASE_URL = "https://data.elfin.ucla.edu"
 include("utils.jl")
 include("state.jl")
 include("epd.jl")
-include("pyspedas.jl")
-
 
 function build_url(; probe = "a", level = "l2", instrument = "epd", datatype = "pef", version = "v01")
     # Build URL pattern for ELFIN EPD data files
@@ -47,38 +40,12 @@ function build_url(; probe = "a", level = "l2", instrument = "epd", datatype = "
 end
 
 
-function load(trange, probe = "a"; no_update::Bool = false, kw...)
+function load(trange, probe = "a"; update::Bool = false, kw...)
     trange = DateTime.(trange)
     url = apply_date_format(build_url(; probe, kw...), trange[1])
     file = RemoteFile(url; dir = "elfin_data")
-    if !isfile(file.path)
-        download(file.uri, file.path)
-    end
-    if no_update
-    end
+    (!isfile(file.path) || update) && download(file.uri, file.path)
     return CDFDataset(file.path)
-end
-
-# About 1.4s time resolution
-function precipitating_flux(trange, probe; level = "l2", kwargs...)
-    ds = py_epd(trange, probe; level, kwargs...)
-
-    elx_flux = abs.(elx_para .- elx_anti)
-    ds = DimStack((; omni = elx_omni, para = elx_para, anti = elx_anti, prec = elx_flux))
-
-    for da in layers(ds)
-        meta = da.metadata
-        # replace!(da, get(meta, "VALIDMIN", 0) => NaN)
-        "CDF" in keys(meta) && promote_cdf_attributes!(meta)
-        # remove any metadata that is a Python object (avoid save and load errors)
-        for (k, v) in pairs(meta)
-            ispy(v) && delete!(meta, k)
-        end
-
-        # disable it since inconsistent with the size
-        # PySPEDAS.resolve_metadata_dependencies!(da)
-    end
-    return ds
 end
 
 end

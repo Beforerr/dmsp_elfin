@@ -20,7 +20,6 @@ IRBEM = "d0b46c7b-8a8f-4d20-a1b4-6e9a4a1e4e5f"
 Madrigal = "30ac0af5-7056-44d2-a45c-266d747295e6"
 PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
 PartialFunctions = "570af359-4316-4cb7-8c74-252c00c2016b"
-PySPEDAS = "668d2cef-03a7-4c36-a521-7d1c6ddc8846"
 SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
 SpacePhysicsMakie = "0c28ffd8-ae30-4a56-b2e4-f8332c621ad2"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
@@ -37,7 +36,6 @@ ELFIN = {path = "../lib/ELFIN"}
 GeoAACGM = {path = "/Users/zijin/.julia/dev/GeoAACGM"}
 IRBEM = {path = "/Users/zijin/.julia/dev/IRBEM"}
 Madrigal = {path = "/Users/zijin/.julia/dev/Madrigal"}
-PySPEDAS = {path = "/Users/zijin/.julia/dev/PySPEDAS"}
 SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
 Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}
 TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}

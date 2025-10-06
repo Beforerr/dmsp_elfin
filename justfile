@@ -7,7 +7,6 @@ install-julia-deps:
     # Pkg.update()
     Pkg.develop([
         PackageSpec("Madrigal"),
-        PackageSpec("PySPEDAS"),
         PackageSpec("TimeseriesUtilities"),
         PackageSpec(url="https://github.com/jishnub/SphericalHarmonics.jl"),
         PackageSpec(url="https://github.com/SciML/CurveFit.jl"),

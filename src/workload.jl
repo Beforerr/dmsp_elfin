@@ -68,11 +68,10 @@ Process ELFIN and DMSP data for conjunction analysis and spectral fitting.
 - `trange`: Time range tuple (start, end)
 - `ids`: Vector of DMSP satellite IDs to process
 - `Δt`: Time extension for DMSP data around the time range (default: 10 minutes)
-- `elx_flux`: Pre-loaded ELFIN flux data (optional)
-- `elx_gei`: Pre-loaded ELFIN GEI data (optional)
-- `elx_probe`: ELFIN probe ("a" or "b", default: "b")
 - `Δmlt_max`: Maximum MLT difference for conjunction (default: 1 hour)
 - `flux_threshold`: Minimum flux threshold for quality filtering (default: 200)
+
+`elx_flux` and `elx_gei` are optional arguments for pre-loaded ELFIN data. If not provided, they will be loaded automatically for ELFIN probe `elx_probe` ("a" or "b").
 
 # Returns
 - `df`: Combined DataFrame with fitted spectral parameters for all valid conjunctions
@@ -89,6 +88,8 @@ Process ELFIN and DMSP data for conjunction analysis and spectral fitting.
    - Filter by MLT difference and flux quality (≥3 channels > flux_threshold)
    - Fit two-step spectral models
 3. Return combined results for analysis
+
+See also: [`fit_two_flux`](@ref)
 """
 function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = nothing, elx_probe = "b", Δmlt_max = 1, flux_threshold = 200, verbose = false, kw...)
 
@@ -174,6 +175,13 @@ function produce(trange, ids; kw...)
     end
 end
 
+"""
+    produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
+
+Process ELFIN and DMSP statistic results for analysis.
+
+See also: [`workload`](@ref)
+"""
 function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
     conf = @strdict trange probe ids
     filename = "ELFIN=$(probe)_t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"

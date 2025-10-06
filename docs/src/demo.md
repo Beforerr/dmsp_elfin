@@ -15,11 +15,9 @@ using IRBEM
 using Beforerr
 
 using SpacePhysicsMakie: set_if_valid!
-import DmspElfinConjunction.YLabel as 𝒀
-
 
 Beforerr.DEFAULT_FORMATS = ["png"]
-includet("../src/plot.jl")
+includet("../../src/plot.jl")
 ```
 
 ```@example demo
@@ -28,14 +26,18 @@ trange = ["2022-07-02", "2022-07-03"]
 id = 16
 
 # Load ELFIN EPD data
-elx_flux = ELFIN.precipitating_flux(trange, probe)
-elx_gei = ELFIN.gei(trange, probe)
-elx_gei = tinterp(elx_gei, elx_flux.anti)
-elx_aacgm = gei2aacgm(elx_gei)
-elx_mlat = elx_aacgm.mlat
-elx_geo = gei2geo(elx_gei)
-elx_mlt = get_mlt(elx_geo)
-ae_max, ae = DE.maxAE(trange)
+begin
+    elx_flux = ELFIN.epd(trange, probe) |> permutedims
+    # julia> @b ELFIN.epd(trange, probe)
+    # 1.320 ms (1334 allocs: 2.731 MiB)
+    elx_gei = ELFIN.gei(trange, probe)
+    elx_gei = tinterp(elx_gei, elx_flux.anti)
+    elx_aacgm = gei2aacgm(elx_gei)
+    elx_mlat = elx_aacgm.mlat
+    elx_geo = gei2geo(elx_gei)
+    elx_mlt = get_mlt(elx_geo)
+    ae_max, ae = DE.maxAE(trange)
+end
 
 dmsp_flux = DMSP.load(trange, id, "el_d_flux")
 dmsp_geod = DMSP.geod(trange, id)
@@ -51,11 +53,13 @@ dmsp_mlt_2 = get_mlt(dmsp_geo_2)
 dmsp_mlt_file = DMSP.load(trange, id, "mlt")
 
 # use keV as the basic unit for energy dimension
-dmsp_flux = set(dmsp_flux, Y => dims(dmsp_flux, Y).val .* 1e-3)
-# set the flux unit to 1/cm²/s/sr/MeV
-dmsp_flux *= 1e6
-set_if_valid!(dmsp_flux.metadata, :yunit => "keV", :description => "Diff electron num flux (1/cm^2/s/sr/MeV)")
-replace!(dmsp_flux, 0 => NaN)
+begin
+    dmsp_flux = set(dmsp_flux, Y => dims(dmsp_flux, Y).val .* 1e-3)
+    # set the flux unit to 1/cm²/s/sr/MeV
+    dmsp_flux *= 1e6
+    set_if_valid!(dmsp_flux.metadata, :yunit => "keV", :description => "Diff electron num flux (1/cm^2/s/sr/MeV)")
+    replace!(dmsp_flux, 0 => NaN)
+end
 ```
 
 ```@example demo
