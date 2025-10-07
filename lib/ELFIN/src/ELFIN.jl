@@ -15,7 +15,9 @@ using Speasy: get_product
 using Memoization
 using CDFDatasets
 using CDFDatasets: CDFDataset
+import CDFDatasets.CommonDataModel as CDM
 import CDFDatasets as CDF
+using Downloads: request
 
 export precipitating_flux, gei, epd
 using Dates
@@ -36,16 +38,37 @@ function build_url(; probe = "a", level = "l2", instrument = "epd", datatype = "
         datatype = "epdif"
         path1 = "ion"
     end
-    return lazy"$BASE_URL/$probe/$level/$instrument/fast/$path1/{Y}/$(probe)_$(level)_$(datatype)_{Y}{M:02d}{D:02d}_$version.cdf"
+    return "$BASE_URL/$probe/$level/$instrument/fast/$path1/{Y}/$(probe)_$(level)_$(datatype)_{Y}{M:02d}{D:02d}_$version.cdf"
 end
 
 
-function load(trange, probe = "a"; update::Bool = false, kw...)
-    trange = DateTime.(trange)
-    url = apply_date_format(build_url(; probe, kw...), trange[1])
-    file = RemoteFile(url; dir = "elfin_data")
-    (!isfile(file.path) || update) && download(file.uri, file.path)
-    return CDFDataset(file.path)
+function _download(url, output)
+    mkpath(dirname(output))
+    response = request(url; output)
+    return if response.status == 200
+        output
+    else
+        rm(output)
+        @info "Remote file not available" url = url message = response.message
+        nothing
+    end
+end
+
+_download(file::RemoteFile) = _download(file.uri.uri, file.path)
+
+function epd_download(trange, probe = "a"; update::Bool = false, dir = "elfin_data", kw...)
+    dt = Day(1)
+    t0 = floor(DateTime(trange[1]), dt)
+    t1 = ceil(DateTime(trange[2]), dt)
+    tranges = t0:dt:t1
+    pattern = build_url(; probe, kw...)
+    outputs = map(tranges) do ti
+        url = format_date(pattern, ti)
+        file = RemoteFile(url; dir)
+        output = file.path
+        (!isfile(output) || update) ? _download(file) : output
+    end
+    return filter!(!isnothing, outputs)
 end
 
 end

@@ -33,24 +33,12 @@ using DMSP.Madrigal
 get_experiments(8100)
 ```
 
-Download data from Madrigal for each continuous time range
-
-```{julia}
-using Dates
-using DmspElfinConjunction: dmsp_download
-
-files = map(valid_ranges_with_ids) do (timerange, ids)
-    dmsp_download.(Ref(timerange), ids)
-end
-# dmsp_download(dt, id)
-```
-
 There are strange spikes for GLON (Geographic longitude) from files downloaded from Madrigal. Also, there's inconsistency between the MLT from the file downloaded and the MLT calculated.
 
 ```{julia}
 # Compare this geo with the one from SSCWeb
 dmsp_geo_file = geod2geo(dmsp_geod)
-tplot([[dmsp_geo_file.x, dmsp_geo[:,1]], [dmsp_geo_file.y, dmsp_geo[:,2]], [dmsp_geo_file.z, dmsp_geo[:,3]], [dmsp_mlt_file, dmsp_mlt], dmsp_geod.glon, dmsp_geod.gdlat])
+tplot([[dmsp_geo_file.x, dmsp_geo[:, 1]], [dmsp_geo_file.y, dmsp_geo[:, 2]], [dmsp_geo_file.z, dmsp_geo[:, 3]], [dmsp_mlt_file, dmsp_mlt], dmsp_geod.glon, dmsp_geod.gdlat])
 ```
 
 
@@ -116,43 +104,14 @@ ylims!(current_axis(), 1e9, 1e13)
 current_figure()
 ```
 
-
-TODO: Investigate the error below
-
-```{julia}
-┌ Warning: Failed to download file: HTTP.Exceptions.StatusError(500, "GET", "/getMadfile.cgi?user_affiliation=Madrigal.jl&fileName=%2Fopt%2Fopenmadrigal%2Fmadroot%2Fexperiments3%2F2021%2Fdms%2F21feb21%2Fdms_20210221_18e.001.hdf5&fileType=-2&user_email=zijin%40ucla.edu&user_fullname=Zijin%2BZhang", HTTP.Messages.Response:
-│ """
-│ HTTP/1.1 500 Internal Server Error
-│ Date: Sun, 07 Sep 2025 19:33:42 GMT
-│ Server: Apache/2.4.58
-│ Connection: close
-│ Transfer-Encoding: chunked
-│ Content-Type: text/html; charset=utf-8
-│ 
-│ """)
-```
-
-┌ Warning: Failed to download file: HTTP.Exceptions.StatusError(500, "GET", "/getMadfile.cgi?user_affiliation=Madrigal.jl&fileName=%2Fopt%2Fopenmadrigal%2Fmadroot%2Fexperiments3%2F2021%2Fdms%2F12aug21%2Fdms_20210812_18e.001.hdf5&fileType=-2&user_email=zijin%40ucla.edu&user_fullname=Zijin%2BZhang", HTTP.Messages.Response:
-│ """
-│ HTTP/1.1 500 Internal Server Error
-│ Date: Mon, 08 Sep 2025 16:23:54 GMT
-│ Server: Apache/2.4.58
-│ Connection: close
-│ Transfer-Encoding: chunked
-│ Content-Type: text/html; charset=utf-8
-│ 
-│ """)
-
 ## References
 
-[Defense Meteorological Satellite Program > United States Space Force > Fact Sheets](https://www.spaceforce.mil/About-Us/Fact-Sheets/Article/2197779/defense-meteorological-satellite-program/)
-
-
+- [Defense Meteorological Satellite Program (DMSP) | National Centers for Environmental Information (NCEI)](https://www.ncei.noaa.gov/products/satellite/defense-meteorological-satellite-program)
+- [Defense Meteorological Satellite Program > United States Space Force > Fact Sheets](https://www.spaceforce.mil/About-Us/Fact-Sheets/Article/2197779/defense-meteorological-satellite-program/)
 - [MITHaystack/madrigalWeb](https://github.com/MITHaystack/madrigalWeb): a pure python module to access data from any Madrigal database
 - [lkilcommons/ssj_auroral_boundary](https://github.com/lkilcommons/ssj_auroral_boundary): Identify boundaries of the aurora with Defense Meteorology Satellite Program (DMSP) electron precipitation
 
 
-[Defense Meteorological Satellite Program (DMSP) | National Centers for Environmental Information (NCEI)](https://www.ncei.noaa.gov/products/satellite/defense-meteorological-satellite-program)
 
 > Each DMSP satellite has a 101 minute, sun-synchronous near-polar orbit at an altitude of 830km above the surface of the earth. The visible and infrared Operational Linescan System (OLS) sensors collect images across a 3000km swath, providing global coverage twice per day. The combination of day/night and dawn/dusk satellites monitors global information such as clouds every six hours. The microwave imager (MI) and sounders (T1, T2) cover one half the width of the visible and infrared swath. These instruments cover polar regions at least twice and the equatorial region once per day. The space environment sensors (J4, M, IES) record along-track plasma densities, velocities, composition and drifts.
 
@@ -179,6 +138,36 @@ Instruments
 ### Metadata
 
 ```julia
+
+📂 HDF5.Group: /Data (file: data/dms_20220326_16e.001.hdf5)
+├─ 📂 Array Layout
+│  ├─ 📂 1D Parameters
+│  │  ├─ 🔢 Data Parameters
+│  │  ├─ 🔢 el_i_ener
+│  │  ├─ 🔢 el_i_flux
+│  │  ├─ 🔢 el_m_ener
+│  │  ├─ 🔢 gdalt
+│  │  ├─ 🔢 gdlat
+│  │  ├─ 🔢 glon
+│  │  ├─ 🔢 ion_i_ener
+│  │  ├─ 🔢 ion_i_flux
+│  │  ├─ 🔢 ion_m_ener
+│  │  ├─ 🔢 mlat
+│  │  ├─ 🔢 mlong
+│  │  ├─ 🔢 mlt
+│  │  └─ 🔢 sat_id
+│  ├─ 📂 2D Parameters
+│  │  ├─ 🔢 Data Parameters
+│  │  ├─ 🔢 ch_ctrl_ener
+│  │  ├─ 🔢 el_d_ener
+│  │  ├─ 🔢 el_d_flux
+│  │  ├─ 🔢 ion_d_ener
+│  │  └─ 🔢 ion_d_flux
+│  ├─ 🔢 Layout Description
+│  ├─ 🔢 ch_energy
+│  └─ 🔢 timestamps
+└─ 🔢 Table Layout
+
  (mnemonic = "YEAR", description = "Year (universal time)", isError = 0, units = "y", category = "Madrigal Hdf5 Prolog Parameters")
  (mnemonic = "MONTH", description = "Month (universal time)", isError = 0, units = "m", category = "Madrigal Hdf5 Prolog Parameters")
  (mnemonic = "DAY", description = "Day (universal time)", isError = 0, units = "d", category = "Madrigal Hdf5 Prolog Parameters")

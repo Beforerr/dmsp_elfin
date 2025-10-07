@@ -25,16 +25,17 @@ unwrap(x) = parent(x)
 Load ELFIN EPD CDF data and process ELFIN EPD data to extract flux products (para, anti, precipitating).
 """
 function epd(trange, probe; type = "nflux", datatype = "pef", fullspin = false, Espectra = (;), update = false, PAspectra = nothing, kw...)
-    cdf = load(trange, probe; update)
     res = fullspin ? :fs : :hs
     base_var = "el$(probe)_$(datatype)_$(res)"
     spec_tvar = "$(base_var)_Epat_$(type)"
-    spec_data = cdf[spec_tvar]
-    pitch_angles = CDF.dim(spec_data, 1; lazy = false)
-    loss_cone = Array(cdf["$(base_var)_LCdeg"])
+    cdfs = epd_download(trange, probe; update)
+    spec_data = ConcatCDFVariable(map(cdf -> CDFDataset(cdf)[spec_tvar], cdfs))
+
+    pitch_angles = Array(CDF.dim(spec_data, 1))
+    loss_cone = Array(CDM.variable(spec_data, "$(base_var)_LCdeg"))
     S = Array(spec_data)
-    energies = CDF.dim(spec_data, 2; lazy = false)
-    times = DateTime.(CDF.dim(spec_data, ndims(spec_data); lazy = false))
+    energies = Array(CDF.dim(spec_data, 2))
+    times = Array(CDF.dim(spec_data, ndims(spec_data))) .|> DateTime
     Espectras = epd_l2_Espectra(S, pitch_angles, loss_cone; fullspin, Espectra...)
     metadata = Dict(spec_data.attrib)
 

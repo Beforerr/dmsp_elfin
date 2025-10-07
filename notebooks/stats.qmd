@@ -13,27 +13,28 @@ using Accessors
 
 includet("../src/plot.jl")
 includet("../src/workload.jl")
-includet("../src/conjugation.jl")
 ```
 
 
 ```{julia}
 probe = "b"
-tr = Date("2021-01-01"), Date("2022-01-01")
+tr = Date("2021-01-01"), Date("2022-08-01")
 ids = 16:18
 
-df = produce(tsplit(tr, Month)[1:8], probe, ids)
+df = produce(tsplit(tr, Month), probe, ids)
 ```
 
 
 ```{julia}
-m1_len = @optic _.model1
-m2_len = @optic _.model2
+using DmspElfinConjunction: A
+
 γ_len = @optic _.γ
 κ_len = @optic _.κ
+const m1 = @optic _.model1
+const m2 = @optic _.model2
 ```
 
-TODO: investigate why some E_c are so large
+TODO: investigate 1. why some E_c are so large 2. why some κ are so large and some are negative
 
 
 ```{julia}
@@ -50,7 +51,129 @@ f
 
 ## Dependence analysis
 
+```{julia}
+using Statistics
 
+
+sdf = @rsubset(df, 0 < κ_len(m2(:model)) < 20, E_c(m1(:model)) < 100, E_c(m2(:model)) < 100)
+# Generate the plot
+plot_all_means_by_ae_bin(sdf; binedges=5:15:200)
+```
+
+
+```{julia}
+using CategoricalArrays
+using Measurements
+
+# Fix for AlgebraOfGraphics
+# Base.typemin(x::Type{Measurement{Float64}}) = -Inf
+# Base.typemax(x::Type{Measurement{Float64}}) = Inf
+
+mean_std(x) = mean(x) ± std(x)
+
+function plot_bin_stats!(ax, x, y)
+    scatter!(ax, x, y)
+    errorbars!(ax, x, y, whiskerwidth=8)
+end
+
+let binedges = 5:15:200
+    tdf = @chain df begin
+        @transform(
+            :maxAE_bin = cut(:maxAE, binedges; extend=missing),
+            :log_A1 = (log10 ∘ A ∘ m1).(:model),
+            :E_c1 = (E_c ∘ m1).(:model),
+            :γ = (γ_len ∘ m1).(:model),
+            :log_A2 = (log10 ∘ A ∘ m2).(:model),
+            :E_c2 = (E_c ∘ m2).(:model),
+            :κ = (κ_len ∘ m2).(:model),
+        )
+        @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100)
+        @groupby(:maxAE_bin)
+        combine(
+            [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ] .=> mean_std,
+            :maxAE => mean; renamecols=false)
+    end
+
+    # https://github.com/MakieOrg/AlgebraOfGraphics.jl/issues/688
+    # AoG does not support Errorbars
+    # plt = data(tdf) * mapping(:maxAE, [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ]) *
+    #   (visual(Scatter) + visual(Errorbars, whiskerwidth=8)) * mapping(layout=AoG.dims(1))
+    # draw(plt)
+
+    f = Figure()
+    x = tdf.maxAE
+    ax = Axis(f[1, 1], ylabel="Mean log A1")
+    plot_bin_stats!(ax, x, tdf.log_A1)
+    # ylims!(ax, 0, 5)
+
+    ax2 = Axis(f[2, 1], ylabel="Mean E_c (keV)")
+    plot_bin_stats!(ax2, x, tdf.E_c1)
+    ylims!(ax2, 0, 10)
+
+    ax3 = Axis(f[3, 1], xlabel="AE (nT)", ylabel="Mean γ")
+    plot_bin_stats!(ax3, x, tdf.γ)
+    ylims!(ax3, -10, 5)
+
+    ax4 = Axis(f[1, 2], ylabel="Mean log A2")
+    plot_bin_stats!(ax4, x, tdf.log_A2)
+    # ylims!(ax4, -10, 5)
+
+    ax5 = Axis(f[2, 2], ylabel="Mean E_c2 (keV)")
+    plot_bin_stats!(ax5, x, tdf.E_c2)
+    ylims!(ax5, 0, 10)
+
+    ax6 = Axis(f[3, 2], xlabel="AE (nT)", ylabel="Mean κ")
+    plot_bin_stats!(ax6, x, tdf.κ)
+    ylims!(ax6, 2, 6)
+    f
+end
+```
+
+### MLT, maxAE space
+
+```{julia}
+vars = [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ]
+
+tdf = let binedges_ae = [0, 100, 300], binedges_mlt = 0:2:24
+    @chain df begin
+        @transform(
+            :maxAE_bin = cut(:maxAE, binedges_ae; extend=true),
+            :mlt_bin = cut(:elfin_mlt, binedges_mlt; extend=missing),
+            :log_A1 = (log10 ∘ A ∘ m1).(:model),
+            :E_c1 = (E_c ∘ m1).(:model),
+            :γ = (γ_len ∘ m1).(:model),
+            :log_A2 = (log10 ∘ A ∘ m2).(:model),
+            :E_c2 = (E_c ∘ m2).(:model),
+            :κ = (κ_len ∘ m2).(:model),
+        )
+        @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100)
+        @groupby(:mlt_bin, :maxAE_bin)
+        combine(vars .=> mean, renamecols=false)
+        dropmissing!
+    end
+end
+levels!(tdf.mlt_bin, ["[12, 14)", "[14, 16)", "[16, 18)", "[18, 20)", "[20, 22)", "[22, 24]", "[0, 2)", "[2, 4)", "[4, 6)", "[6, 8)", "[8, 10)", "[10, 12)"])
+
+#  plot in such a way, that it will be MLT from 12 to 24, and then from 0 to 12, so 24=0 will be in the middle of figure
+f = Figure(; size=(600, 900))
+
+base_plt = data(tdf) * mapping(:mlt_bin, :maxAE_bin) * visual(Heatmap)
+fpos = (f[1, 1], f[2, 1], f[3, 1], f[1, 2], f[2, 2], f[3, 2])
+fgrids = map(fpos, vars) do fp, var
+    sf = draw!(fp, base_plt * mapping(var))
+    colorbar!(fp[0, 1], sf; vertical=:false)
+    return sf
+end
+f11, f21, f31, f12, f22, f32 = fgrids
+for sf in (f11, f21, f12, f22)
+    hidexdecorations!(sf[1].axis)
+end
+for sf in (f12, f22, f32)
+    hideydecorations!(sf[1].axis)
+end
+
+f
+```
 
 ### Probability distributions
 
@@ -69,8 +192,8 @@ E_c2(model) = E_c(m2_len(model))
 # plot_parameter_distributions_aog(df; normalization=:column)
 
 # plot_parameter_distributions_aog(df, :mlat; normalization=:column)
-# plot_parameter_distributions_aog(df, :maxAE; normalization=:pdf)
-plot_parameter_distributions_aog(df, :maxAE; normalization=:column, x_binedges=(0:20:1000))
+plot_parameter_distributions_aog(dropmissing(df), :maxAE; normalization=:pdf, x_binedges=(0:20:400))
+# plot_parameter_distributions_aog(dropmissing(df), :maxAE; normalization=:column, x_binedges=(0:20:1000))
 
 ```
 

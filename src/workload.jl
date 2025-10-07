@@ -4,6 +4,10 @@ import TimeseriesUtilities
 using TimeseriesUtilities: tresample, tview, tsort, find_continuous_timeranges
 using PartialFunctions
 using DrWatson
+using Logging
+using LoggingExtras: TeeLogger
+
+include("./conjugation.jl")
 
 """
     gei2mlt_mlat(gei)
@@ -45,9 +49,10 @@ get_mlt_mlat(id, t0, t1) = begin
     # the time resolution from SSC is 1 minute, floored/ceiled to minute boundaries
     t0 = floor(DateTime(t0), Minute)
     t1 = ceil(DateTime(t1), Minute)
-    _geo = get_geo(id, t0, t1 + Second(1))
+    dt = Second(1)
+    _geo = get_geo(id, t0, t1 + dt)
     # Upsample to 1 second
-    geo = tinterp(_geo, time_grid((t0, t1), Second(1)))
+    geo = tinterp(_geo, t0:dt:t1)
     mlt = get_mlt(geo)
     aacgm = geo2aacgm(geo)
     mlat = aacgm.mlat
@@ -175,6 +180,8 @@ function produce(trange, ids; kw...)
     end
 end
 
+tspan(timerange) = timerange[2] - timerange[1]
+
 """
     produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
 
@@ -188,25 +195,35 @@ function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
     return produce_or_load(conf, datadir(); filename) do c
         trange, probe = c["trange"], c["probe"]
         elx_gei = ELFIN.gei(trange, probe)
-        elx_flux = tsort(ELFIN.precipitating_flux(trange, probe; collect = true).prec)
+        elx_flux = tsort(permutedims(ELFIN.epd(trange, probe).prec))
         continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
+        # filter very short ranges
+        continuous_ranges = filter!(x -> tspan(x) > Second(5), continuous_ranges)
+
         valid_ranges_with_ids = find_matched_mlat_conditions(
             continuous_ranges, elx_gei; ids, Δt, Δmlt_max
         )
-
         dfs = map(valid_ranges_with_ids) do (trange, ids)
             produce(trange, ids; elx_gei, elx_flux)[1]["df"]
         end
-        conf["df"] = reduce(vcat, filter(!isempty, dfs))
+        filter!(!isempty, dfs)
+        conf["df"] = isempty(dfs) ? DataFrame() : reduce(vcat, dfs)
         return conf
     end
 end
 
-function produce(tranges::AbstractVector, probe, ids; kw...)
-    dfs = map(tranges) do trange
-        produce(trange, probe, ids; kw...)[1]["df"]
+function produce(tranges::AbstractVector, probe, ids; file = "logfile.txt", kw...)
+    return open(file, "a+") do io
+        file_logger = SimpleLogger(io)
+        tee_logger = TeeLogger(current_logger(), file_logger)
+
+        with_logger(tee_logger) do
+            dfs = map(tranges) do trange
+                produce(trange, probe, ids; kw...)[1]["df"]
+            end
+            reduce(vcat, filter(!isempty, dfs))
+        end
     end
-    return reduce(vcat, filter(!isempty, dfs))
 end
 
 

@@ -1,7 +1,7 @@
 import Base: read
 using URIs
 
-function apply_date_format(pattern, date)
+function format_date(pattern, date)
     return replace(
         pattern,
         "{Y}" => year(date),

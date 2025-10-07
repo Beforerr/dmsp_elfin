@@ -1,3 +1,5 @@
+using Beforerr: fhist
+
 const 𝐦 = (;
     mlat = :mlat => abs => "|MLAT| (degrees)",
     maxAE = :maxAE => "Max AE (nT)",
