@@ -1,0 +1,13 @@
+
+
+PowerLawExpCutoff2
+
+$$
+f(E) = A ⋅ E^{-γ} ⋅ exp(-E/E_c)
+$$
+
+Kappa
+
+$$
+f(E) = A ⋅ E ⋅ (1 + E/(κ⋅E_c))^{(-κ-1)}
+$$

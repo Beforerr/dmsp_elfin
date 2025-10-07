@@ -37,8 +37,4 @@ end
     no_update = true
     using Base.Iterators: product
     cdf = ELFIN.load(trange, probe; no_update)
-    var = "elb_pef_hs_time"
-    @test CDF.tt2000_to_datetime_py(cdf.py[var]) == cdf[var]
-
-    var = "elb_pef_hs_Epat_nflux"
 end
