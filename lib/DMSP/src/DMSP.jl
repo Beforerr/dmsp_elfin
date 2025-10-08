@@ -21,7 +21,7 @@ function download(t::AbstractTime, id = 16; format = "hdf5")
     _yearabbr = _year[3:4]
     _date = Dates.format(t, "yyyymmdd")
     filename = prefix * "$(_year)/dms/$(_dayofmonth)$(_monthabbr)$(_yearabbr)/dms_$(_date)_$(id)e.001.$format"
-    return Madrigal.download_file(filename)
+    return Madrigal.download_file(filename; download = (; update_period = 8))
 end
 
 download(t::AbstractString, args...) = download(DateTime(t), args...)

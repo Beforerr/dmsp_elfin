@@ -96,6 +96,7 @@ end
 (m::PowerLawExpCutoff2)(E) = A(m) * E^(-m.γ) * exp(-E / E_c(m))
 
 A(m::PowerLawExpCutoff2) = exp(m.logA)
+logA(m::PowerLawExpCutoff2) = m.logA
 E_c(m::PowerLawExpCutoff2) = exp(m.logE_c)
 
 """
@@ -117,7 +118,9 @@ end
 
 log_eval(m::KappaDistribution, E) = nm.log(m.A) + log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
 
+A(m::KappaDistribution) = m.A
 E_c(m::KappaDistribution) = m.E_c
+logA(m::KappaDistribution) = log(m.A)
 
 function log_jacobian(m::KappaDistribution, E)
     A = m.A

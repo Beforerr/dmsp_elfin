@@ -1,5 +1,6 @@
 
 
+
 PowerLawExpCutoff2
 
 $$
@@ -11,3 +12,8 @@ Kappa
 $$
 f(E) = A ⋅ E ⋅ (1 + E/(κ⋅E_c))^{(-κ-1)}
 $$
+
+
+Geomagnetic Auroral Electrojet (AE)
+
+<!-- https://wdc.kugi.kyoto-u.ac.jp/aedir/ -->

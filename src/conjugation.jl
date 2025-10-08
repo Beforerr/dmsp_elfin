@@ -119,8 +119,8 @@ function check_matched_mlat_Δmlt(ranges, elx_gei; ids = 16:18, Δt = Minute(10)
                 push!(valid_ids, id)
             end
         catch
-            @warn "Failed to check matched MLAT conditions for $id with ranges $(ranges)"
             Main.@autoinfiltrate
+            @warn "Failed to check matched MLAT conditions for $id with ranges $(ranges)"
             rethrow()
         end
     end
