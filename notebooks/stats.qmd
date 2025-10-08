@@ -17,11 +17,11 @@ includet("../src/workload.jl")
 
 
 ```{julia}
-probe = "b"
-tr = Date("2021-01-01"), Date("2022-08-01")
+tr = Date("2020-01-01"), Date("2022-08-01")
 ids = 16:18
-
-df = produce(tsplit(tr, Month), probe, ids)
+df_a = produce(tsplit(tr, Month), "a", ids)
+df_b = produce(tsplit(tr, Month), "b", ids)
+df = vcat(df_a, df_b)
 ```
 
 
@@ -54,10 +54,22 @@ f
 ```{julia}
 using Statistics
 
+sdf = @chain df begin
+    @transform(
+        :log_A1 = (log10 ∘ A ∘ m1).(:model),
+        :E_c1 = (E_c ∘ m1).(:model),
+        :γ = (γ_len ∘ m1).(:model),
+        :log_A2 = (log10 ∘ A ∘ m2).(:model),
+        :E_c2 = (E_c ∘ m2).(:model),
+        :κ = (κ_len ∘ m2).(:model),
+    )
+    @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100, :maxAE <= 2000)
+end
 
-sdf = @rsubset(df, 0 < κ_len(m2(:model)) < 20, E_c(m1(:model)) < 100, E_c(m2(:model)) < 100)
+vars = [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ]
+
 # Generate the plot
-plot_all_means_by_ae_bin(sdf; binedges=5:15:200)
+# plot_all_means_by_ae_bin(sdf; binedges=5:15:200)
 ```
 
 
@@ -77,21 +89,11 @@ function plot_bin_stats!(ax, x, y)
 end
 
 let binedges = 5:15:200
-    tdf = @chain df begin
-        @transform(
-            :maxAE_bin = cut(:maxAE, binedges; extend=missing),
-            :log_A1 = (log10 ∘ A ∘ m1).(:model),
-            :E_c1 = (E_c ∘ m1).(:model),
-            :γ = (γ_len ∘ m1).(:model),
-            :log_A2 = (log10 ∘ A ∘ m2).(:model),
-            :E_c2 = (E_c ∘ m2).(:model),
-            :κ = (κ_len ∘ m2).(:model),
-        )
-        @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100)
+    tdf = @chain sdf begin
+        @transform(:maxAE_bin = cut(:maxAE, binedges; extend=missing))
         @groupby(:maxAE_bin)
-        combine(
-            [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ] .=> mean_std,
-            :maxAE => mean; renamecols=false)
+        combine(vars .=> mean_std, :maxAE => mean; renamecols=false)
+        dropmissing!
     end
 
     # https://github.com/MakieOrg/AlgebraOfGraphics.jl/issues/688
@@ -132,36 +134,35 @@ end
 ### MLT, maxAE space
 
 ```{julia}
-vars = [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ]
+
+mlt_fmt(from, to, i; leftclosed, rightclosed) = string(Int(from + (to - from) / 2))
+mlt_levels = ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"]
 
 tdf = let binedges_ae = [0, 100, 300], binedges_mlt = 0:2:24
-    @chain df begin
+    @chain sdf begin
         @transform(
             :maxAE_bin = cut(:maxAE, binedges_ae; extend=true),
-            :mlt_bin = cut(:elfin_mlt, binedges_mlt; extend=missing),
-            :log_A1 = (log10 ∘ A ∘ m1).(:model),
-            :E_c1 = (E_c ∘ m1).(:model),
-            :γ = (γ_len ∘ m1).(:model),
-            :log_A2 = (log10 ∘ A ∘ m2).(:model),
-            :E_c2 = (E_c ∘ m2).(:model),
-            :κ = (κ_len ∘ m2).(:model),
+            :mlt_bin = cut(:elfin_mlt, binedges_mlt; extend=missing, labels=mlt_fmt),
         )
-        @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100)
         @groupby(:mlt_bin, :maxAE_bin)
         combine(vars .=> mean, renamecols=false)
         dropmissing!
     end
 end
-levels!(tdf.mlt_bin, ["[12, 14)", "[14, 16)", "[16, 18)", "[18, 20)", "[20, 22)", "[22, 24]", "[0, 2)", "[2, 4)", "[4, 6)", "[6, 8)", "[8, 10)", "[10, 12)"])
+
+# Reorder MLT levels: 12→24, then 0→12
+levels!(tdf.mlt_bin, mlt_levels)
 
 #  plot in such a way, that it will be MLT from 12 to 24, and then from 0 to 12, so 24=0 will be in the middle of figure
-f = Figure(; size=(600, 900))
+f = Figure(; size=(600, 600))
 
-base_plt = data(tdf) * mapping(:mlt_bin, :maxAE_bin) * visual(Heatmap)
+base_plt = data(tdf) * mapping(:mlt_bin => "MLT", :maxAE_bin => "AE") * visual(Heatmap)
 fpos = (f[1, 1], f[2, 1], f[3, 1], f[1, 2], f[2, 2], f[3, 2])
 fgrids = map(fpos, vars) do fp, var
-    sf = draw!(fp, base_plt * mapping(var))
-    colorbar!(fp[0, 1], sf; vertical=:false)
+    gl = GridLayout(fp)
+    sf = draw!(gl[2, 1], base_plt * mapping(var))
+    colorbar!(gl[1, 1], sf; vertical=:false)
+    rowgap!(gl, 4)
     return sf
 end
 f11, f21, f31, f12, f22, f32 = fgrids
@@ -172,6 +173,87 @@ for sf in (f12, f22, f32)
     hideydecorations!(sf[1].axis)
 end
 
+f
+```
+
+### mlt, mlat space, separately for three MaxAE ranges
+
+```{julia}
+# Prepare data with MLT and MLAT binning
+mlat_binedges = 60:1:80
+mlt_binedges = 0:2:24
+ae_binedges = [0, 100, 300]
+
+fmt(from, to, i; leftclosed, rightclosed) = string(from + (to - from) / 2)
+
+tdf_spatial = let
+    @chain sdf begin
+        @transform(
+            :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
+            :mlt_bin = cut(:elfin_mlt, mlt_binedges; extend=missing, labels=mlt_fmt),
+            :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
+        )
+        @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
+        combine(vars .=> mean, renamecols=false)
+        dropmissing!
+    end
+end
+
+# Reorder MLT levels: 12→24, then 0→12
+levels!(tdf_spatial.mlt_bin, mlt_levels)
+
+# Create figure with 3 rows (one per AE range) and 6 columns (one per variable)
+f = Figure(; size=(1800, 900))
+
+ae_bins = unique(tdf_spatial.maxAE_bin)
+
+_mlat(s) = parse(Float64, String(s))
+colorranges = Dict(
+    :log_A1 => (9, 17),
+    :E_c1 => (0, 5),
+    :γ => (-3.6, 1),
+    :log_A2 => (6, 11),
+    :E_c2 => (0, 5),
+    :κ => (2, 8),
+)
+
+# Plot each variable for each AE range
+for (col_idx, var) in enumerate(vars)
+    colorrange = colorranges[var]
+    for (row_idx, ae_bin) in enumerate(ae_bins)
+        tdf_subset = @rsubset(tdf_spatial, :maxAE_bin == ae_bin)
+        values = tdf_subset[!, var]
+        quantiles = quantile(values, [0.01, 0.1, 0.5, 0.9, 0.95, 0.99])
+        @info quantiles var
+        ax = Axis(f[row_idx, col_idx], xlabel="MLT", ylabel="MLAT")
+        # Create heatmap
+        x = tdf_subset.mlt_bin
+        y = tdf_subset.mlat_bin
+        mlt_indices = levelcode.(x)
+        mlat_indices = _mlat.(y)
+        hm = heatmap!(ax, mlt_indices, mlat_indices, values; colorrange)
+
+        # Customize x-axis ticks for MLT
+        ax.xticks = (1:length(mlt_levels), String.(CategoricalArrays.levels(x)))
+        # Add colorbar
+        row_idx == 1 && Colorbar(f[row_idx-1, col_idx], hm, label=string(var), vertical=false)
+        # Add AE range label on the left
+        col_idx == 1 && Label(f[row_idx, 0], string(ae_bin), rotation=π / 2, tellheight=false)
+
+        row_idx != length(ae_bins) && hidexdecorations!(ax)
+        col_idx != 1 && hideydecorations!(ax)
+    end
+
+    # plt = data(tdf_spatial) * mapping(:mlt_bin, :mlat_bin, var) * visual(Heatmap) * mapping(row=:maxAE_bin)
+    # fgrids = draw!(f[1, col_idx], plt)
+    # for axe in fgrids
+    #     axe.axis.xticks = (1:length(unique(tdf_spatial.mlt_bin)),
+    #         ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"])
+    #     axe.axis.yticks = (1:length(unique(tdf_spatial.mlat_bin)),
+    #         string.(_mlat.(unique(tdf_spatial.mlat_bin))))
+    # end
+
+end
 f
 ```
 

@@ -85,3 +85,71 @@ function plot_parameter_distributions_aog(df, xsym = :mlat; bins = 60, normaliza
 
     return f
 end
+
+
+function plot_all_means_by_ae_bin(df; binedges = 0:20:1000)
+    # Extract all parameter values
+    E_c_vals = E_c.(m1.(df.model))
+    γ_vals = γ_len.(m1.(df.model))
+    κ_vals = κ_len.(m2.(df.model))
+    E_c2_vals = E_c.(m2.(df.model))
+    mlat_vals = df.mlat
+    Δmlt_vals = df.Δmlt
+
+    # Create bins
+    bin_indices = searchsortedlast.(Ref(binedges), df.maxAE)
+
+    # Helper function to calculate stats for a parameter
+    function calc_bin_stats(vals, pred = isfinite)
+        means, stds, bin_centers, counts = Float64[], Float64[], Float64[], Int[]
+        for i in 1:(length(binedges) - 1)
+            mask = bin_indices .== i
+            bin_vals = filter(pred, vals[mask])
+            if !isempty(bin_vals)
+                push!(means, mean(bin_vals))
+                push!(stds, std(bin_vals))
+                push!(bin_centers, (binedges[i] + binedges[i + 1]) / 2)
+                push!(counts, length(bin_vals))
+            end
+        end
+        return bin_centers, means, stds, counts
+    end
+
+    # Calculate stats for all parameters
+    bc_Ec, means_Ec, stds_Ec, counts_Ec = calc_bin_stats(E_c_vals)
+    bc_γ, means_γ, stds_γ, counts_γ = calc_bin_stats(γ_vals)
+    bc_κ, means_κ, stds_κ, counts_κ = calc_bin_stats(κ_vals)
+    bc_Ec2, means_Ec2, stds_Ec2, counts_Ec2 = calc_bin_stats(E_c2_vals)
+
+    # Create figure with multiple panels
+    f = Figure(size = (1400, 1000))
+
+    # E_c panel
+    ax1 = Axis(f[1, 1], xlabel = "AE (nT)", ylabel = "Mean E_c (keV)")
+    errorbars!(ax1, bc_Ec, means_Ec, stds_Ec, whiskerwidth = 8)
+    scatter!(ax1, bc_Ec, means_Ec, markersize = 12, color = :steelblue)
+    ylims!(ax1, 0, 10)
+
+    # γ panel
+    ax2 = Axis(f[1, 2], xlabel = "AE (nT)", ylabel = "Mean γ")
+    errorbars!(ax2, bc_γ, means_γ, stds_γ, whiskerwidth = 8)
+    scatter!(ax2, bc_γ, means_γ, markersize = 12, color = :coral)
+    ylims!(ax2, -10, 5)
+
+    # κ panel
+    ax3 = Axis(f[2, 1], xlabel = "AE (nT)", ylabel = "Mean κ")
+    errorbars!(ax3, bc_κ, means_κ, stds_κ, whiskerwidth = 8)
+    scatter!(ax3, bc_κ, means_κ, markersize = 12, color = :seagreen)
+    # ylims!(ax3, 0, 12)
+
+    # E_c2 panel
+    ax4 = Axis(f[2, 2], xlabel = "AE (nT)", ylabel = "Mean E_c2 (keV)")
+    errorbars!(ax4, bc_Ec2, means_Ec2, stds_Ec2, whiskerwidth = 8)
+    scatter!(ax4, bc_Ec2, means_Ec2, markersize = 12, color = :purple)
+    ylims!(ax4, 0, 30)
+
+    # Count panel
+    ax6 = Axis(f[3, 1:2], xlabel = "AE (nT)", ylabel = "Number of observations")
+    barplot!(ax6, bc_Ec, counts_Ec, color = :gray, strokewidth = 1, strokecolor = :black)
+    return f
+end

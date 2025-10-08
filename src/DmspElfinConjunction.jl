@@ -93,22 +93,24 @@ function bin_mlat_times(mlats; δmlat = 0.5, δt = Millisecond(1000))
     return filter(!isnothing, Dictionary(mlat_bins, bin_times))
 end
 
-function get_flux_by_mlat(flux, mlats; kw...)
-    # Get MLAT bin time ranges
+function get_trange_by_mlat(mlats; kw...)
     bin_times = bin_mlat_times(mlats; kw...)
-
     # Expand each MLAT bin with multiple segments into separate rows
     return mapreduce(vcat, pairs(bin_times)) do (mlat_bin, time_ranges)
-        df = DataFrame(;
+        DataFrame(;
             mlat = fill(mlat_bin, length(time_ranges)),
             trange = time_ranges,
         )
-        @rtransform! df @astable begin
-            flux_by_mlat = tview(flux, :trange)
-            :flux = tmean(flux_by_mlat)
-            :n_time = ntime(flux_by_mlat)
-            :nnan_count = count(!isnan, :flux)
-        end
+    end
+end
+
+function get_flux_by_mlat(flux, mlats; kw...)
+    df = get_trange_by_mlat(mlats; kw...)
+    return @rtransform! df @astable begin
+        flux_by_mlat = tview(flux, :trange)
+        :flux = tmean(flux_by_mlat)
+        :n_time = ntime(flux_by_mlat)
+        :nnan_count = count(!isnan, :flux)
     end
 end
 

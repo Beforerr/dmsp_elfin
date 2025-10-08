@@ -6,6 +6,8 @@ using PartialFunctions
 using DrWatson
 using Logging
 using LoggingExtras: TeeLogger
+using DmspElfinConjunction: get_trange_by_mlat
+import DmspElfinConjunction as DE
 
 include("./conjugation.jl")
 
@@ -100,7 +102,7 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
 
     elx_mlt_trange = extend(trange, Second(1)) # Extend a bit to cover flux time range
 
-    elx_flux = @something elx_flux ELFIN.precipitating_flux(trange, elx_probe).prec
+    elx_flux = @something elx_flux permutedims(ELFIN.epd(trange, elx_probe).prec)
     elx_gei = @something elx_gei ELFIN.gei(elx_mlt_trange, elx_probe)
 
     elx_pflux = tview(elx_flux, trange)
@@ -111,16 +113,8 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
 
     results = map(ids) do id
         dmsp_range = extend(trange, Δt)
-        f = DMSP.flux(dmsp_range, id)
         mlt, mlat = get_mlt_mlat(id, dmsp_range)
-        if isnothing(f) || isempty(f)
-            @warn "Skipping DMSP ID $id due to missing or empty flux data for range $dmsp_range"
-            return (; df = DataFrame(), dmsp = nothing)
-        end
-        f = tsort(f)
-        dmsp = (; id, flux = f, mlt, mlat)
-        dmsp_df = get_flux_by_mlat(f, mlat)
-
+        dmsp_df = DE.get_trange_by_mlat(mlat)
         df = @chain begin
             leftjoin(elx_df, dmsp_df, on = :mlat, renamecols = "_elx" => "_dmsp")
             sort!(:mlat)
@@ -141,6 +135,26 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
                 sum(:flux_elx[1:3] .> 200) >= 3
             end
             @aside @info "There are $(nrow(_)) elements after filtering"
+        end
+
+        if nrow(df) == 0
+            @info "Skipping DMSP ID $id due to empty match after filtering"
+            return (; df = DataFrame(), dmsp = nothing)
+        end
+
+        flux = DMSP.flux(dmsp_range, id)
+        if isnothing(flux) || isempty(flux)
+            @warn "Skipping DMSP ID $id due to missing or empty flux data for range $dmsp_range"
+            return (; df = DataFrame(), dmsp = nothing)
+        end
+        flux = tsort(flux)
+        df = @chain df begin
+            @rtransform! @astable begin
+                flux_by_mlat = tview(flux, :trange_dmsp)
+                :flux_dmsp = tmean(flux_by_mlat)
+                :n_time_dmsp = DE.ntime(flux_by_mlat)
+                :nnan_count_dmsp = count(!isnan, :flux_dmsp)
+            end
             @rtransform! $AsTable = begin
                 elx_flux = :flux_elx
                 # remove all ELFIN measurements after the first (lowest energy) NaN
@@ -151,7 +165,8 @@ function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = n
             @rsubset! :success
             @aside @info "There are $(nrow(_)) successful fits"
         end
-        (; df, dmsp)
+
+        (; df, dmsp = (; id, flux, mlt, mlat))
     end
 
     # Filter out failed results and combine successful ones
