@@ -10,6 +10,11 @@ using DimensionalData, DataFrames, DataFramesMeta
 using GeoCotrans, IRBEM
 using SPEDAS
 using Accessors
+using AlgebraOfGraphics
+using Beforerr
+using CairoMakie, GLMakie
+
+set_aog_theme!()
 
 includet("../src/plot.jl")
 includet("../src/workload.jl")
@@ -40,7 +45,7 @@ TODO: investigate 1. why some E_c are so large 2. why some κ are so large and s
 ```{julia}
 f = Figure()
 sdf = @chain df begin
-    @rtransform(:E_c = E_c(m1_len(:model)))
+    @rtransform(:E_c = E_c(m1(:model)))
     sort(:E_c; rev=true)
 end
 ax = plot_spectra(f[1, 1], sdf[1:3, :])
@@ -63,7 +68,8 @@ sdf = @chain df begin
         :E_c2 = (E_c ∘ m2).(:model),
         :κ = (κ_len ∘ m2).(:model),
     )
-    @rsubset!(20 > :κ > 0, :E_c1 < 100, :E_c2 < 100, :maxAE <= 2000)
+    # TODO: remove this subset by improving the model
+    @rsubset!(20 > :κ > 0, :E_c1 < 10, :E_c2 < 20, :maxAE <= 2000, 0 < :log_A1 < 30, 0 < :log_A2 < 20)
 end
 
 vars = [:log_A1, :E_c1, :γ, :log_A2, :E_c2, :κ]
@@ -83,11 +89,6 @@ using Measurements
 
 mean_std(x) = mean(x) ± std(x)
 
-function plot_bin_stats!(ax, x, y)
-    scatter!(ax, x, y)
-    errorbars!(ax, x, y, whiskerwidth=8)
-end
-
 let binedges = 5:15:200
     tdf = @chain sdf begin
         @transform(:maxAE_bin = cut(:maxAE, binedges; extend=missing))
@@ -104,29 +105,17 @@ let binedges = 5:15:200
 
     f = Figure()
     x = tdf.maxAE
-    ax = Axis(f[1, 1], ylabel="Mean log A1")
-    plot_bin_stats!(ax, x, tdf.log_A1)
-    # ylims!(ax, 0, 5)
+    ys = vars .=> ["log A1", "E_c (keV)", "γ", "log A2", "E_c2 (keV)", "κ"]
+    layouts = [(1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (3, 2)]
 
-    ax2 = Axis(f[2, 1], ylabel="Mean E_c (keV)")
-    plot_bin_stats!(ax2, x, tdf.E_c1)
-    ylims!(ax2, 0, 10)
-
-    ax3 = Axis(f[3, 1], xlabel="AE (nT)", ylabel="Mean γ")
-    plot_bin_stats!(ax3, x, tdf.γ)
-    ylims!(ax3, -10, 5)
-
-    ax4 = Axis(f[1, 2], ylabel="Mean log A2")
-    plot_bin_stats!(ax4, x, tdf.log_A2)
-    # ylims!(ax4, -10, 5)
-
-    ax5 = Axis(f[2, 2], ylabel="Mean E_c2 (keV)")
-    plot_bin_stats!(ax5, x, tdf.E_c2)
-    ylims!(ax5, 0, 10)
-
-    ax6 = Axis(f[3, 2], xlabel="AE (nT)", ylabel="Mean κ")
-    plot_bin_stats!(ax6, x, tdf.κ)
-    ylims!(ax6, 2, 6)
+    axs = map(layouts, ys) do (i, j), (var, ylabel)
+        ax = Axis(f[i, j]; ylabel)
+        y = tdf[!, var]
+        scatter!(ax, x, y)
+        errorbars!(ax, x, y, whiskerwidth=8)
+        i != 3 && hidexdecorations!(ax)
+        ax
+    end
     f
 end
 ```
@@ -134,7 +123,6 @@ end
 ### MLT, maxAE space
 
 ```{julia}
-
 mlt_fmt(from, to, i; leftclosed, rightclosed) = string(Int(from + (to - from) / 2))
 mlt_levels = ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"]
 
@@ -155,24 +143,16 @@ levels!(tdf.mlt_bin, mlt_levels)
 
 #  plot in such a way, that it will be MLT from 12 to 24, and then from 0 to 12, so 24=0 will be in the middle of figure
 f = Figure(; size=(600, 600))
-
 base_plt = data(tdf) * mapping(:mlt_bin => "MLT", :maxAE_bin => "AE") * visual(Heatmap)
-fpos = (f[1, 1], f[2, 1], f[3, 1], f[1, 2], f[2, 2], f[3, 2])
-fgrids = map(fpos, vars) do fp, var
-    gl = GridLayout(fp)
+layouts = [(1, 1), (2, 1), (3, 1), (1, 2), (2, 2), (3, 2)]
+foreach(layouts, vars) do (i, j), var
+    gl = GridLayout(f[i, j])
     sf = draw!(gl[2, 1], base_plt * mapping(var))
     colorbar!(gl[1, 1], sf; vertical=:false)
+    i != 3 && hidexdecorations!(sf[1].axis)
+    j != 1 && hideydecorations!(sf[1].axis)
     rowgap!(gl, 4)
-    return sf
 end
-f11, f21, f31, f12, f22, f32 = fgrids
-for sf in (f11, f21, f12, f22)
-    hidexdecorations!(sf[1].axis)
-end
-for sf in (f12, f22, f32)
-    hideydecorations!(sf[1].axis)
-end
-
 f
 ```
 
@@ -208,6 +188,7 @@ f = Figure(; size=(1800, 900))
 ae_bins = unique(tdf_spatial.maxAE_bin)
 
 _mlat(s) = parse(Float64, String(s))
+
 colorranges = Dict(
     :log_A1 => (9, 17),
     :E_c1 => (0, 5),
@@ -245,19 +226,222 @@ for (col_idx, var) in enumerate(vars)
     end
 
     # plt = data(tdf_spatial) * mapping(:mlt_bin, :mlat_bin, var) * visual(Heatmap) * mapping(row=:maxAE_bin)
-    # fgrids = draw!(f[1, col_idx], plt)
-    # for axe in fgrids
-    #     axe.axis.xticks = (1:length(unique(tdf_spatial.mlt_bin)),
-    #         ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"])
-    #     axe.axis.yticks = (1:length(unique(tdf_spatial.mlat_bin)),
-    #         string.(_mlat.(unique(tdf_spatial.mlat_bin))))
-    # end
-
 end
 f
 ```
 
-### Probability distributions
+### Fitting of probability distributions
+
+#### Empirical pdf for `log_A1`
+
+```{julia}
+using StatsBase
+using FHist
+includet("../src/statmodel.jl")
+# logA1_empirical = empirical_conditional_density(sdf, :log_A1)
+var_edges = map(vars) do var
+    edge_min, edge_max = quantile(sdf[!, var], [0.01, 0.99])
+    range(edge_min, edge_max; length=31)
+end
+
+_maximum(h) = maximum(h.weights)
+_maximum(h::Hist1D) = maximum(h.bincounts)
+
+hist_funcs = HistFunc.(var_edges)
+
+tdf = let mlat_binedges = 49:2:81
+    @chain sdf begin
+        @transform(
+            :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
+            :mlt_bin = cut(:elfin_mlt, mlt_binedges; extend=missing, labels=mlt_fmt),
+            :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
+        )
+        @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
+        combine(vars .=> hist_funcs, renamecols=false)
+        dropmissing!
+    end
+end
+# ae_levels = levels(tdf.maxAE_bin)
+mlt_levels = levels(tdf.mlt_bin)
+```
+
+#### Visualizing the empirical pdf
+
+```{julia}
+f = Figure(size=(1200, 900))
+
+mlt_idxs = 1:2:12
+
+ssdf = @chain tdf begin
+    @groupby(:mlt_bin, :mlat_bin)
+    combine(vars .=> sum; renamecols=false)
+end
+
+foreach(enumerate(vars)) do (i, var)
+    # emp = empirical_conditional_density(sdf, var)
+    xlabel = string(var)
+    hists = ssdf[!, var]
+    limits = (0, quantile(_maximum.(hists), 0.95))
+    idx = 1
+    for (key, subdf) in pairs(@groupby(ssdf, :mlt_bin)[mlt_idxs])
+        matrix_data = extract_matrix(subdf, var)
+        ax = Axis(f[idx, i]; xlabel, ylabel="|MLAT| (deg)")
+        heatmap!(ax, matrix_data; colorrange=limits)
+        hists = subdf[!, var]
+        mlats = _mlat.(subdf.mlat_bin)
+        means = mean.(hists)
+        stds = std.(hists)
+        lines!(ax, means, mlats, color=:white, linewidth=2)
+        lines!(ax, means .+ stds, mlats, color=:white, linewidth=1.5, linestyle=:dash)
+        lines!(ax, means .- stds, mlats, color=:white, linewidth=1.5, linestyle=:dash)
+        ylims!(ax, (49, 81))
+        idx != length(mlt_idxs) && hidexdecorations!(ax)
+        i != 1 && hideydecorations!(ax)
+        i == 6 && Label(f[idx, i+1], "MLT = $(key.mlt_bin)", rotation=π / 2, tellheight=false)
+        idx += 1
+    end
+    Colorbar(f[0, i]; limits, label="pdf", vertical=false)
+end
+
+easy_save("empirical_pdf")
+f
+```
+
+#### Parametric pdf model conditioned on (MLAT, MLT)
+
+Fitted a cyclic linear model for the conditional mean and log-variance plus a Normal pdf evaluator, then compared model vs empirical densities with RMSE/KL metrics and slice-by-slice line plots.
+
+- The design matrix X includes a constant, |MLAT|, |MLAT|^2, and diurnal harmonics cos(θ), sin(θ) plus their interactions with |MLAT|, where θ = 2π·MLT/24. Solving X \ log_A1 gives β coefficients that predict the conditional mean μ(mlat, mlt).
+    - Mean surface: with θ = 2π·(MLT mod 24)/24 and m = |MLAT|, the model sets $μ(m, θ) = β₀ + β₁ m + β₂ m² + β₃ cos θ + β₄ sin θ + β₅ m cos θ + β₆ m sin θ$. The coefficients β are found by least squares: β = argmin‖Xβ - log_A1‖², where the rows of X contain the seven basis functions above.
+- Residuals from that mean fit are used to model heteroscedasticity. Another matrix Z (constant, |MLAT|, |MLAT|^2, cos, sin) regresses log(residual^2 + ε) to estimate a log-variance surface γ, keeping the variance positive via the exponential transform.
+    - Variance surface: residuals r = log_A1 - μ̂ are used to fit $log σ²(m, θ) = γ₀ + γ₁ m + γ₂ m² + γ₃ cos θ + γ₄ sin θ$, with γ estimated via least squares on the features matrix Z. The model enforces positivity by taking $σ(m, θ) = √(exp(log σ²))$.
+- Given μ and σ derived from β and γ, the code assumes a Gaussian conditional density: `pdf_logA1_model(P, mlat, mlt)` evaluates the Normal pdf with those parameter
+    - Conditional pdf (notebooks/stats.qmd:341–353): assuming log_A1 | m, θ ∼ Normal(μ(m, θ), σ²(m, θ)), the fitted density evaluates as $pdf(P | m, θ) = (1 / (σ √(2π))) · exp[ -½ ((P - μ)/σ)² ]$.
+
+```{julia}
+using LinearAlgebra
+
+# 2π * :elfin_mlt / 24
+
+emp = logA1_empirical
+emp.df.angle .= @. 2π * emp.df.elfin_mlt / 24
+θ = emp.df.angle
+abs_mlat_vals = emp.df.abs_mlat
+
+X = hcat(
+    ones(size(emp.df, 1)),
+    abs_mlat_vals,
+    abs_mlat_vals .^ 2,
+    cos.(θ),
+    sin.(θ),
+    abs_mlat_vals .* cos.(θ),
+    abs_mlat_vals .* sin.(θ),
+)
+β_logA1 = X \ emp.df.log_A1
+μ_hat = X * β_logA1
+residuals = emp.df.log_A1 .- μ_hat
+
+Z = hcat(
+    ones(size(emp.df, 1)),
+    abs_mlat_vals,
+    abs_mlat_vals .^ 2,
+    cos.(θ),
+    sin.(θ),
+)
+γ_logA1 = Z \ log.(residuals .^ 2 .+ 1e-6)
+
+predict_logA1(mlat, mlt) = begin
+    abs_mlat = abs(mlat)
+    φ = 2π * mod(mlt, 24) / 24
+    cosφ, sinφ = cos(φ), sin(φ)
+    μ = dot(β_logA1, (1.0, abs_mlat, abs_mlat^2, cosφ, sinφ, abs_mlat * cosφ, abs_mlat * sinφ))
+    logσ2 = dot(γ_logA1, (1.0, abs_mlat, abs_mlat^2, cosφ, sinφ))
+    σ = sqrt(exp(logσ2))
+    σ = max(σ, 1e-3)
+    return μ, σ
+end
+
+pdf_logA1_model(P, mlat, mlt) = begin
+    μ, σ = predict_logA1(mlat, mlt)
+    coeff = 1 / (σ * sqrt(2π))
+    expo = -0.5 * ((P - μ) / σ)^2
+    return coeff * exp(expo)
+end
+
+model_density = similar(emp.cond_density)
+@views for j in axes(model_density, 2), k in axes(model_density, 3)
+    mlat = emp.mlat_centers[j]
+    mlt = emp.mlt_centers[k]
+    model_density[:, j, k] .= pdf_logA1_model.(emp.p_centers, Ref(mlat), Ref(mlt))
+end
+
+logA1_model = (; β_logA1, γ_logA1, model_density, predict_logA1, pdf_logA1_model)
+logA1_model
+```
+
+#### Model evaluation
+
+```{julia}
+emp = logA1_empirical
+model = logA1_model
+
+widths_P = emp.widths_P
+diff_density = model.model_density .- emp.cond_density
+rmse = sqrt(mean(diff_density .^ 2))
+mae = mean(abs.(diff_density))
+
+eps = 1e-9
+kl = Matrix{Float64}(undef, length(emp.mlat_centers), length(emp.mlt_centers))
+fill!(kl, NaN)
+@views for j in axes(emp.cond_density, 2), k in axes(emp.cond_density, 3)
+    p = emp.cond_density[:, j, k]
+    q = model.model_density[:, j, k]
+    mask = p .> 0
+    if any(mask)
+        kl[j, k] = sum(p[mask] .* (log.(p[mask] .+ eps) .- log.(q[mask] .+ eps)) .* widths_P[mask])
+    end
+end
+
+println("RMSE across pdf grid = $(round(rmse, digits=4))")
+println("Mean absolute difference = $(round(mae, digits=4))")
+println("Median KL divergence (per bin) = $(round(median(skipmissing(vec(kl))), digits=4))")
+
+comparison_mlat = [60.0, 65.0, 70.0]
+comparison_mlt = [0.0, 12.0, 18.0]
+
+index_of(values, target) = findmin(abs.(values .- target))[2]
+
+f = Figure(size=(900, 720))
+for (i, mlat_target) in enumerate(comparison_mlat)
+    mlat_idx = index_of(emp.mlat_centers, mlat_target)
+    for (j, mlt_target) in enumerate(comparison_mlt)
+        mlt_idx = index_of(emp.mlt_centers, mlt_target)
+        ax = Axis(
+            f[i, j];
+            title="|MLAT| ~ $(round(emp.mlat_centers[mlat_idx], digits=1)) deg, MLT ~ $(round(emp.mlt_centers[mlt_idx], digits=1)) h",
+            xlabel="log10(A1)",
+            ylabel=i == length(comparison_mlat) ? "pdf" : "",
+            yscale=log10
+        )
+        empirical = emp.cond_density[:, mlat_idx, mlt_idx]
+        modeled = model.model_density[:, mlat_idx, mlt_idx]
+        lines_emp = lines!(ax, emp.p_centers, empirical; color=:steelblue, linewidth=2)
+        lines_mod = lines!(ax, emp.p_centers, modeled; color=:orange, linestyle=:dash, linewidth=2)
+        ylims!(ax, (1e-6, 1))
+        i != length(comparison_mlat) && hidexdecorations!(ax)
+        j != 1 && hideydecorations!(ax)
+        if i == 1 && j == 1
+            axislegend(ax, [lines_emp, lines_mod], ["Empirical", "Model"]; position=:rt)
+        end
+    end
+end
+f
+```
+
+
+
+
+### Joint probability distributions
 
 Probability distributions of observations in (Mlat, Ec) and (Mlat, gamma) spaces?
 
