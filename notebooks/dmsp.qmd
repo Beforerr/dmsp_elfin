@@ -74,8 +74,7 @@ f
 ```
 
 ```{julia}
-using SPEDAS: tplot
-
+using SpacePhysicsMakie
 f = Figure()
 dmsp_tvars = (dms_ds.el_d_flux, dms_ds.ion_d_flux, (dmspf16_aacgm.mlat, dms_ds.mlat), (dmspf16_mlt, dms_ds.mlt))
 elx_tvars = (elx_aacgm.mlat, elx_mlt)

@@ -12,7 +12,7 @@ export init_guess
 # https://fjebaker.github.io/SpectralFitting.jl/dev/
 
 include("model.jl")
-include("JSO.jl")
+# include("JSO.jl")
 include("SciML.jl")
 
 # https://github.com/JuliaNLSolvers/LsqFit.jl

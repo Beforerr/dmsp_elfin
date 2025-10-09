@@ -5,7 +5,8 @@ import Pkg
 Pkg.activate("docs")
 using DmspElfinConjunction
 import DmspElfinConjunction as DE
-using DMSP, ELFIN
+using DMSP, ELFINData
+import ELFINData as ELFIN
 using SPEDAS
 using Speasy
 using SpacePhysicsMakie

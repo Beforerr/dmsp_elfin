@@ -8,6 +8,7 @@ using Logging
 using LoggingExtras: TeeLogger
 using DmspElfinConjunction: get_trange_by_mlat
 import DmspElfinConjunction as DE
+import ELFINData as ELFIN
 
 include("./conjugation.jl")
 
