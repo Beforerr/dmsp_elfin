@@ -44,10 +44,12 @@ tplot([[dmsp_geo_file.x, dmsp_geo[:, 1]], [dmsp_geo_file.y, dmsp_geo[:, 2]], [dm
 
 ## Check
 
-Compare the MLAT of DMSP from our calculation and the one in the file
+Compare the MLAT, MLT of DMSP from our calculation and the one in the file
 
 ```{julia}
 using SpaceDataModel: set!
+
+dmsp_geod = DMSP.geod(trange, id)
 
 dmsp_calc_aacgm = dmsp_get_aacgm(timerange, id)
 dmsp_calc_mlat = getindex.(dmsp_calc_aacgm, 1)
@@ -55,7 +57,11 @@ set!(dmsp_calc_mlat.metadata, :label => "AACGM", :ylabel => "MLAT")
 dmsp_file_mlat = DMSP.load(timerange, id, "mlat")
 set!(dmsp_file_mlat.metadata, :label => "File", :ylabel => "MLAT")
 
+dmsp_mlt_file = DMSP.load(timerange, id, "mlt")
+set!(dmsp_mlt_file.metadata, :label => "File", :ylabel => "MLT")
+
 tplot(([dmsp_calc_mlat, dmsp_file_mlat],))
+tplot(([dmsp_calc_mlt, dmsp_file_mlt],))
 ```
 
 ```{julia}

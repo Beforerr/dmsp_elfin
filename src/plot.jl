@@ -1,6 +1,8 @@
 import SpacePhysicsMakie
 using SpacePhysicsMakie: set_if_valid!
 using DmspElfinConjunction: TwoStepModel
+using SpectralModels: math_show
+import SpectralModels as SM
 using UnPack
 using TimeseriesUtilities: times, tinterp
 using DimensionalData: set
@@ -12,7 +14,9 @@ using GLMakie
 set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
 
 baremodule YLabel
+    using LaTeXStrings
     nflux = "Flux (1/cm²/s/sr/MeV)"
+    flux_ratio = L"j_{prec}/j_{trap}"
     E = "Energy (keV)"
     A = "Amplitude A"
     γ = γ1 = γ2 = "Power Index γ"
@@ -51,13 +55,14 @@ function set_mlat_dim(A, mlat)
     end
     return set(A, Ti => X(x))
 end
-# set_mlat_dim(A, mlat, tspan) = set(tview(A, tspan), Ti => X(tview(mlat, tspan).data))
 
 function plot_flux_by_mlat(f, flux; kw...)
     ax = Axis(f; yscale = log10, ylabel = 𝒀.E)
-    x = flux.dims[1].val
-    y = flux.dims[2].val
-    plot = heatmap!(ax, x, y, flux; colorscale = log10, colorrange = COLORRANGE[], kw...)
+    f_kw = Dict()
+    if haskey(flux.metadata, :colorrange)
+        f_kw[:colorrange] = flux.metadata[:colorrange]
+    end
+    plot = heatmap!(ax, flux; colorscale = log10, f_kw..., kw...)
     return Makie.AxisPlot(ax, plot)
 end
 
@@ -147,17 +152,20 @@ function plot_conjunction(event, dmsp_interp, elfin_interp)
 end
 
 function plot_spectra!(ax, energies, model)
-    return lines!(ax, energies, model; label = string(model), linestyle = :dot)
+    return lines!(ax, energies, model; label = SM.math_show(model), linestyle = :dot)
 end
 
 function plot_spectra!(ax, energies, model::TwoStepModel)
     Emin = model.Emin
-    lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 3, color = :red)
+    lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 2, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
+    # axislegend(ax)
 
     # Plot individual components with parameters in labels
-    plot_spectra!(ax, energies, model.model1)
-    return plot_spectra!(ax, energies, model.model2)
+    l1 = plot_spectra!(ax, energies, model.model1)
+    l2 = plot_spectra!(ax, energies, model.model2)
+    axislegend(ax, [l1, l2], [l1.label, l2.label])
+    return ax
 end
 
 function plot_spectra!(ax, flux, flux_1, model; plot_model = true)
@@ -216,7 +224,7 @@ end
 
 Generic function to plot parameters of any spectral model type.
 """
-function plot_parameters_variation(f, T::Type{<:SpectralModel}, mlats, models)
+function plot_parameters_variation(f, T, mlats, models)
     if isempty(models)
         return f
     end
@@ -258,7 +266,7 @@ models = [TwoStepModel(PowerLaw(...), KappaDistribution(...), 50.0), ...]
 plot_parameters_variation(fig, mlats, models, n_points)
 ```
 """
-function plot_parameters_variation(f, ::Type{<:TwoStepModel}, mlats, models, n_points; scores = nothing)
+function plot_parameters_variation(f, T, mlats, models, n_points; scores = nothing)
     # Extract model components
     model1s = [m.model1 for m in models]
     model2s = [m.model2 for m in models]

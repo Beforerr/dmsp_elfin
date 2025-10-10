@@ -6,30 +6,37 @@ using DimensionalData
 using Dictionaries
 import Speasy
 using NaNStatistics
+using Statistics: mean
 
 export integrate_diff_flux
 export get_flux_by_mlat
 
 using SPEDAS
 using GeoCotrans
-using Printf
+
 export energies
 export dist, mlt_dist, local_mlt_mean
 export maxAE
 export extend
 
+# Import and re-export from SpectralModels
+using SpectralModels: SpectralModel, TwoStepModel, PowerLaw, PowerLawExpCutoff, PowerLawExpCutoff2
+using SpectralModels: TransformKappaDistribution
+using SpectralModels: init_guess, fit, fit_flux_two_step, fit_two_flux
+
 include("utils.jl")
 include("AACGM.jl")
-include("fit.jl")
 include("makie.jl")
 
 ntime(x) = size(x, 1)
 extend(timerange, Δt) = (timerange[1] - Δt, timerange[2] + Δt)
 
 # use maxAE for three hours before the event
+# See https://omniweb.gsfc.nasa.gov/form/omni_min_def.html for difference between HRO and HRO2
 function maxAE(trange, dt = Hour(3))
     pre_range = DateTime.(trange) .- dt
-    ae = Speasy.get_data("cda/OMNI_HRO2_1MIN/AE_INDEX", pre_range...)
+    ae = Speasy.get_data("cda/OMNI_HRO_1MIN/AE_INDEX", pre_range...)
+    # CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", pre_range...; orig=true, clip=true)
     return isempty(ae) ? missing : maximum(ae), ae
 end
 
@@ -109,8 +116,6 @@ function get_flux_by_mlat(flux, mlats; kw...)
     return @rtransform! df @astable begin
         flux_by_mlat = tview(flux, :trange)
         :flux = tmean(flux_by_mlat)
-        :n_time = ntime(flux_by_mlat)
-        :nnan_count = count(!isnan, :flux)
     end
 end
 

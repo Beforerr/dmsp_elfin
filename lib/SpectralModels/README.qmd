@@ -1,0 +1,45 @@
+# Spectral Models
+
+Some spectral models for fitting particle flux data.
+
+[Spectral analysis - gammapy](https://docs.gammapy.org/dev/tutorials/analysis-1d/spectral_analysis.html)
+
+## Models
+
+- [Model gallery — gammapy](https://docs.gammapy.org/dev/user-guide/model-gallery/index.html)
+- [Modeling and Fitting (DL4 to DL5) — gammapy](https://docs.gammapy.org/dev/user-guide/modeling.html)
+- [astromodels](https://github.com/threeML/astromodels)
+
+- [FSSC: Fermi Data » Data Analysis » Analysis Threads » Source Model Definitions for gtlike](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html)
+
+### Power Law with Exponential Cutoff (PLEC)
+
+
+The integral near E=0 converges iff γ<1.
+
+$$
+f(E) = A · E^{-γ} · \exp\left(-\frac{E}{E_c}\right)
+$$
+
+- [gammapy](https://docs.gammapy.org/2.0/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html)
+- [PLSuperExpCutoff](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html#PLSuperExpCutoff)
+
+### Smooth Broken Power Law (SBPL)
+
+$$
+f(E) = A · \left( \frac{E}{E_b} \right)^{-\gamma_1} · \left[1 + \left(\frac{E}{E_b}\right)^m\right]^{(\gamma_1 - \gamma_2)/m}
+$$
+
+- [Overview of broken power law functions and fitting them to data](https://gist.github.com/cgobat/12595d4e242576d4d84b1b682476317d)
+
+### Fit Fluxes
+
+https://discourse.julialang.org/t/alternatives-to-lsqfit-for-nonlinear-curve-fitting/107685
+
+https://juliastats.org/GLM.jl/dev/
+
+https://discourse.julialang.org/t/comparing-non-linear-least-squares-solvers/104752/26
+
+https://docs.sciml.ai/NonlinearSolve/stable/solvers/nonlinear_least_squares_solvers/
+
+

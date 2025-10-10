@@ -14,8 +14,15 @@ Interpolate ELFIN position data to 1 second resolution
 Overplot the fluxes
 
 ```{julia}
-using SPEDAS: tplot
-
-tvars = (dms_ds.el_d_flux, elx_flux, (dmspf16_aacgm.mlat, elx_aacgm.mlat), (dmspf16_mlt, elx_mlt))
-tplot(tvars)
+trange = ["2021-08-07", "2021-08-08"] # event in @zouKeyRoleMagnetic2024 
+zoom_tr1 = [DateTime("2021-08-07T00:40"), DateTime("2021-08-07T00:46")]
+zoom_tr2 = [DateTime("2021-08-07T02:12"), DateTime("2021-08-07T02:18")]
+f = Figure()
+r = elx_flux.prec ./ elx_flux.perp
+r.metadata[:colorrange] = (1e-2, 1)
+elx_flux.perp.metadata[:colorrange] = (1e2, 1e6)
+tvars = [elx_flux.perp, r]
+tplot(f[1, 1], tvars, zoom_tr1...)
+tplot(f[1, 2], tvars, zoom_tr2...)
+f
 ```

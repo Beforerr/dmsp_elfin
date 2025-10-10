@@ -1,0 +1,191 @@
+# Example demo
+
+```{julia}
+import Pkg
+Pkg.activate("docs")
+using DmspElfinConjunction
+import DmspElfinConjunction as DE
+using DMSP, ELFINData
+import ELFINData as ELFIN
+using SPEDAS
+using SpaceDataModel: setmeta
+using Speasy
+using GLMakie, SpacePhysicsMakie
+using Dates, TimeseriesUtilities
+using DataFrames, DataFramesMeta, DimensionalData
+using IRBEM
+using GeoCotrans
+using Beforerr
+
+using SpacePhysicsMakie: set_if_valid!
+
+Beforerr.DEFAULT_FORMATS = [:png, :pdf]
+includet("../../src/plot.jl")
+includet("../../src/workload.jl")
+includet("./demo.jl")
+using .YLabel
+using DmspElfinConjunction: FLUX_THRESHOLD
+```
+
+```{julia}
+probe = "a"
+Δt = Minute(10)
+# Good
+id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:10")]
+# Poor
+id, trange = 17, [DateTime("2020-04-25T13:10"), DateTime("2020-04-25T13:31")]
+id, trange = 17, [DateTime("2020-07-03T15:00"), DateTime("2020-07-03T15:30")] # only three points for kappa fitting (overfitting)
+id, trange = 18, [DateTime("2020-07-14T02:04"), DateTime("2020-07-14T02:34")] # only three points for kappa fitting (overfitting)
+id, trange = 18, [DateTime("2020-07-06T20"), DateTime("2020-07-06T21:33")] # one large kappa (~20), but reasonable results
+id, trange = 16, [DateTime("2020-07-04T22"), DateTime("2020-07-04T22:30")]
+
+id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:10")]
+
+# Load ELFIN EPD data
+begin
+    elx_flux = ELFIN.epd(trange, probe) |> permutedims
+    # julia> @b ELFIN.epd(trange, probe)
+    # 1.320 ms (1334 allocs: 2.731 MiB)
+    elx_gei = ELFIN.gei(trange, probe)
+    # elx_gei = tinterp(elx_gei, elx_flux.anti)
+    elx_aacgm = gei2aacgm(elx_gei)
+    elx_mlat = elx_aacgm.mlat
+    elx_geo = gei2geo(elx_gei)
+    elx_mlt = get_mlt(elx_geo)
+    ae_max, ae = DE.maxAE(trange)
+    elx_flux_ratio = ELFIN.flux_ratio(elx_flux)
+end
+
+dmsp_flux = DMSP.flux(extend(trange, Δt), id)
+dmsp_mlt, dmsp_mlat = get_mlt_mlat(id, extend(trange, Δt))
+zoom_tr = timerange(tview(elx_flux.para, trange))
+```
+
+```{julia}
+for x in (elx_flux.para, elx_flux.anti, elx_flux.prec, dmsp_flux)
+    set_if_valid!(x.metadata, :yscale => log10, :ylabel => "Energy (keV)", :colorscale => log10, :colorrange => (1e3, 1e11))
+end
+
+elx_mlat = setmeta(elx_mlat, :label => "ELFIN")
+dmsp_mlat = setmeta(dmsp_mlat, :labels => "DMSP")
+zoom_tr = timerange(tview(elx_flux.para, trange))
+tvars = (
+    elx_flux.para, elx_flux.anti, elx_flux.prec,
+    dmsp_flux,
+    [elx_mlat, dmsp_mlat],
+)
+tplot(tvars, zoom_tr...)
+```
+
+## Flux Data by MLAT
+
+```{julia}
+using DmspElfinConjunction: PowerLawExpCutoff2, TransformKappaDistribution
+
+elx_df = @chain get_trange_by_mlat(tview(elx_mlat, zoom_tr)) begin
+    @rtransform! begin
+        :mlt = local_mlt_mean(tview(elx_mlt, :trange))
+        :flux = tmean(tview(elx_flux.prec, :trange)) |> sanitize_elfin_flux
+    end
+end
+dmsp_df = get_flux_by_mlat(dmsp_flux, dmsp_mlat)
+@rtransform! dmsp_df :flux = sanitize_dmsp_flux(:flux)
+
+join_df = leftjoin(elx_df, dmsp_df, on=:mlat, makeunique=true, renamecols="_elx" => "_dmsp")
+
+@chain join_df begin
+    dropmissing!()
+    @rtransform! @astable begin # Add MLT values for each MLAT bin
+        :mlt_dmsp = local_mlt_mean(tview(dmsp_mlt, :trange_dmsp))
+        :Δmlt = mlt_dist(:mlt_dmsp, :mlt_elx)
+    end
+    @rtransform! $AsTable = fit_two_flux(:flux_dmsp, :flux_elx)
+    classify_precipitation!(elx_flux, elx_mlt; trange=:trange_elx)
+end
+sdf = @rsubset(join_df, :success, :Δmlt < 1, length(:flux_elx) >= 3 && all(view(:flux_elx, 1:3) .> FLUX_THRESHOLD))
+# successful_fits = filter(r -> r.success, join_df)
+```
+
+We treat 0 as 0 for averaging, 0 for NaN for fitting.
+
+## Demo Plotting
+
+```{julia}
+using StatsBase: counts
+@info counts(Int.(join_df.mechanism)) # [16, 18, 4, 39]
+mlats = [-70, -68, -63, -62.5]
+# mlats = 53:2:57
+mlats = 66:0.5:67
+mlats = nothing
+demo_plot(trange, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats)
+add_labels!(; position=Right(), padding=(0, 0, 0, 0))
+easy_save("flux_with_fit")
+```
+
+## Mechanisms
+
+We may separate two mechanisms in ELFIN, and these mechanisms may work for DMSP energy range as well. Let us introduce R=|j_para-j_anti|/j_perp for ELFIN
+[1] FLCS: R(maxE)>0.5 and R monotonically going down or stay above 0.5 with energy decrease to 63keV. maxE here is the maximum energy where ELFIN measure reliable precipitating fluxes. Additional criteria is night-side MLT sector and dipole L-shell>5
+[2] whistler-mode waves: R(63keV)>0.25 and R monotonically going down or stay above 0.25 with energy increase
+[1] and [2] criteria can be applied for individual ELFIN spins, and then 1o MLAT bin can be classified as: FLCS-only (>50% bins satisfy [1] and no bins satisfy [2]), whistler-only (>10% bins satisfy [2] and no bins satisfy [1]), mixed (>25% bins satisfy [1] and >10% bins satisfy [2]), no energetic precipitations (others)
+
+
+```{julia}
+includet("../../src/mechanisms.jl")
+for i in 1:3
+    mlt = sdf.elfin_mlt[i]
+    trange = sdf.trange_elx[i]
+    @info "MLT $mlt"
+    mlats = tview(elx_mlat, trange).data
+    @info "MLAT $mlats"
+    flux = tview(elx_flux.prec, trange)
+    flux_ratio = tview(elx_flux_ratio, trange)
+
+    (n_total, n_flcs, n_whistler) = classify_precipitation(flux_ratio.data, flux.data, mlt)
+    mechanism = classify(n_total, n_flcs, n_whistler)
+    @info "Total $n_total spins mechanism $mechanism, with FLCS $n_flcs ($n_flcs/$n_total) Whistler $n_whistler ($n_whistler/$n_total)"
+end
+# println("FLCS")
+```
+
+## Comprehensive Parameter Analysis
+
+Plotting model-calculated flux vs MLAT and how the PowerLawExpCutoff parameters change over MLAT.
+
+1. Spatial Variations: How particle precipitation characteristics change with magnetic latitude
+2. Spectral Hardness Trends: Whether spectra become harder/softer at different MLATs
+3. Cutoff Energy Patterns: How the high-energy cutoff varies spatially
+<!-- 4. Parameter Correlations: Relationships between spectral parameters that reveal physical processes -->
+
+```@example demo
+Es = energies(flux)
+modeled_fluxes = @with successful_fits begin
+    flux_modeled = stack(:model) do model
+        model.(Es)
+    end
+    DimArray(flux_modeled', (X(:mlat), Y(Es)))
+end
+```
+
+
+`plot_flux_analysis`
+
+```@example demo
+# Make MLAT as the x axis
+f = Figure(; size=(1200, 1000))
+p1 = plot_flux_by_mlat(f[1, 1:2], elx_flux.prec, elx_mlat, zoom_tr; colorrange)
+p2 = plot_flux_by_mlat(f[2, 1:2], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
+p3 = plot_flux_by_mlat(f[3:4, 1:2], modeled_fluxes; colorrange)
+Colorbar(f[1:4, 3], p3.plot; label=𝒀.nflux)
+
+for ax in (p1.axis, p2.axis, p3.axis)
+    xlims!(ax, -54, -75)
+end
+hidexdecorations!.((p1.axis, p2.axis); grid=false)
+
+@with successful_fits begin
+    plot_parameters_variation(f[1:4, 4:5], :mlat, :model, :n_points; scores = :score)
+end
+
+f
+```

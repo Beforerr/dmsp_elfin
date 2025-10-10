@@ -12,25 +12,10 @@ export load
 
 include("hdf5.jl")
 
-function download(t::AbstractTime, id = 16; format = "hdf5")
-    # <!-- '/opt/openmadrigal/madroot/experiments3/2020/dms/31dec20/dms_20201231_16e.001.hdf5' -->
-    prefix = "/opt/openmadrigal/madroot/experiments3/"
-    _dayofmonth = lpad(dayofmonth(t), 2, '0')
-    _monthabbr = Dates.monthabbr(t) |> lowercase
-    _year = string(Dates.year(t))
-    _yearabbr = _year[3:4]
-    _date = Dates.format(t, "yyyymmdd")
-    filename = prefix * "$(_year)/dms/$(_dayofmonth)$(_monthabbr)$(_yearabbr)/dms_$(_date)_$(id)e.001.$format"
-    return Madrigal.download_file(filename; download = (; update_period = 8))
-end
-
-download(t::AbstractString, args...) = download(DateTime(t), args...)
-
 function download(timerange, id, args...)
-    files = map(timerange) do t
-        download(t, id, args...)
-    end
-    return unique(files)
+    kindat = 10200 + id
+    files = download_files(:DMSP, kindat, timerange...)
+    return unique!(sort!(files))
 end
 
 function load(timerange, id, params)
@@ -43,21 +28,20 @@ end
 
 function load(timerange, id, param::String)
     files = download(timerange, id)
-
-    # Handle case when download returns nothing or empty array
-    if isnothing(files) || isempty(files) || any(isnothing, files)
+    return if isempty(files)
         @warn "DMSP data not available for ID $id, timerange $timerange"
-        return nothing
-    end
-
-    return if length(files) == 1
+        nothing
+    elseif length(files) == 1
         read2dimarray(only(files), param, timerange)
     else
-        vcat(read2dimarray.(files, param, Ref(timerange))...)
+        vcat(read2dimarray.(files, param, (timerange,))...)
     end
 end
 
 geod(timerange, id) = load(timerange, id, ("gdlat", "glon", "gdalt"))
+
+using DimensionalData: YDim, @dim
+@dim Energy YDim "Energy"
 
 # use keV as the basic unit for energy dimension
 # set the flux unit to 1/cm²/s/sr/MeV
@@ -66,9 +50,12 @@ function flux(timerange, id; kw...)
     f = load(timerange, id, "el_d_flux"; kw...)
     isnothing(f) && return nothing
 
-    f = set(f, Y => dims(f, Y).val .* 1.0e-3)
+    f = set(f, Y => Energy(dims(f, Y).val .* 1.0e-3))
     f[f .< 1.0e-8] .= 0
     f .*= 1.0e6
+    f.metadata[:description] = "Diff electron num flux (1/cm^2/s/sr/MeV)"
+    f.metadata[:ylabel] = "Energy (keV)"
+    f.metadata[:yscale] = log10
     return f
 end
 end

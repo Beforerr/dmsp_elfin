@@ -1,0 +1,9 @@
+Investigate the following:
+
+1. [x] Why some E_c are so large ? 
+    The core part looks like a power-law with large E_c
+2. [ ] Why some κ are so large ?
+    Overfitting of the energetic part (usually only 3 points)
+3. [x] Why maxAE = 99999 ?
+    `OMNI_HRO2_1MIN` covers a smaller time range than `OMNI_HRO_1MIN`
+4. [ ] Why some J1 are negative ?

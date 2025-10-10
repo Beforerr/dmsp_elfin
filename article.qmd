@@ -1,0 +1,85 @@
+---
+title: "Pecularities of precipitating electron spectra : DMPS & ELFIN combined dataset"
+format:
+  pptx: default
+---
+
+## Introduction
+
+Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input @wangIonosphericConductancesDue2024. Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns @zouKeyRoleMagnetic2024.
+
+This work combines ELFIN precipitating electron measurements with DMSP spectra at close conjunction to extend the DMSP‑based precipitation picture toward higher energies. The goal is an empirical description of spectral parameters and integrated fluxes across MLT/MLAT and geomagnetic activity, with attention to distinct scattering mechanisms.
+
+## Data and Methods
+
+- Missions: ELFIN precipitating fluxes and DMSP electron spectra during 2020–2022.
+- Activity: We tag each conjunction by the maximum AE value during the ELFIN window and analyze three AE ranges: [0,100], [100,300], and [300,1498] nT.
+
+![](./figures/quicklook.png)
+
+### Conjunction selection
+
+We first identify continuous ELFIN intervals and, for each, search DMSP satellites `16:18` for spatial match. Matching proceeds in MLAT bins of 0.5°; within overlaps we require the mean MLT difference to be < 1 hour. DMSP positions are obtained from SSC and upsampled to 1 s before MLAT binning. 
+
+<!-- This “matched‑MLAT, small‑ΔMLT” logic is implemented in `src/conjugation.jl` (`find_matched_mlat_conditions`). -->
+
+## Flux preparation
+
+- ELFIN: For each MLAT bin we average precipitating flux over the bin time and sanitize channels by dropping a problematic lowest‑energy point and any trailing NaNs.
+- DMSP: We average spectra over the matched MLAT‑bin time and drop the highest‑energy channel which is occasionally spurious.
+
+## Spectral modeling
+
+At each valid MLAT bin we jointly fit a two‑component spectrum to DMSP+ELFIN data. A low‑energy exponential cutoff power law (ExpPow) and a high‑energy kappa tail share a transition energy `Emin`:
+
+ExpPow
+$$f(E) = A\,E^{-\gamma}\,\exp(-E/E_c)$$
+
+Kappa @espinozaIonElectronDistribution2018
+$$f(E) = A\,E\,\bigl(1 + E/(\kappa E_c)\bigr)^{-(\kappa+1)}$$
+
+![](./figures/flux_with_fit.png)
+
+We compute integrated number flux and energy flux from each component and from the combined model (e.g., energy flux for E>10 keV). For population statistics we retain fits that satisfy broad physical/quality filters (e.g., reasonable parameter bounds) as used in the analysis notebooks.
+
+### Mechanism classification
+
+Using ELFIN spin‑resolved fluxes we form the ratio R = |j_para − j_anti|/j_perp to diagnose scattering. We classify each ELFIN MLAT bin as dominated by whistler‑mode waves or by field‑line curvature scattering (FLCS) using simple, threshold‑based rules implemented (night‑side and higher‑latitude preference for FLCS; low‑latitude, softer‑with‑energy behavior for whistlers).
+
+## Results
+
+### Sampling and parameters
+
+Conjunction sampling by MLT/MLAT and AE:
+
+![](./figures/n_mlt_mlat.png)
+
+Mean fitted parameters across MLT/MLAT and AE bins:
+
+![](./figures/params_mlt_mlat_mean.png)
+
+### Integrated fluxes
+
+The combined model reproduces coherent spatial patterns that intensify with AE. Rows show AE ranges; columns show number and energy flux from the ExpPow and Kappa components and the total energy flux above 10 keV:
+
+![](./figures/flux_mlt_mlat.png)
+
+Across activity levels we find enhanced precipitation in the premidnight–postmidnight sector and concentrated between roughly 65–75° MLAT, with poleward expansion and intensification during higher AE.
+
+### Mechanism‑conditioned flux maps
+
+Conditioning on ELFIN‑only mechanism tags clarifies two regimes—whistler‑mode scattering dominating at lower |MLAT| and FLCS dominating poleward:
+
+![](./figures/flux_mlt_mlat_WHISTLER.png)
+
+![](./figures/flux_mlt_mlat_FLCS.png)
+
+![](./figures/flux_mlt_mlat_OTHER.png)
+
+These partitions highlight complementary sources: whistlers mapping to the inner magnetosphere at lower latitudes and FLCS along more poleward field lines.
+
+## Discussion and Outlook
+
+- The two‑component fit captures a soft low‑energy spectrum with an exponential cutoff and a harder high‑energy tail, enabling integrated flux estimates to 100~ keV energies while remaining anchored by DMSP at lower energies.
+- AE‑dependent morphology agrees with the expected night‑side substorm precipitation and supports the use of activity‑conditioned parameterizations.
+- Mechanism conditioning suggests an empirical way to separate drivers for use in conductance or chemistry modeling.

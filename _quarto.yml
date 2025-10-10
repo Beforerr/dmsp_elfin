@@ -1,0 +1,32 @@
+project:
+  type: website
+  preview: 
+    port: 4003
+
+website:
+  sidebar:
+    contents: auto
+  navbar:
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Manuscript"
+        href: article.qmd
+        # href: _manuscript/index.html
+      - text: "Presentation"
+        menu: 
+          - href: presentations/grp.qmd
+            text: Group Meeting
+          - href: presentations/sparthb.qmd
+            text: SPARTHB
+
+format:
+  html:
+    toc: true
+    code-fold: true
+    lightbox: auto
+
+bibliography:
+  - files/bibliography/research.bib
+
+wrap: preserve

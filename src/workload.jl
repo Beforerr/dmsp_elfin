@@ -9,8 +9,14 @@ using LoggingExtras: TeeLogger
 using DmspElfinConjunction: get_trange_by_mlat
 import DmspElfinConjunction as DE
 import ELFINData as ELFIN
+using DimensionalData: NoMetadata
+import DimensionalData as DD
+using SpectralModels: fit_two_flux
 
 include("./conjugation.jl")
+include("./mechanisms.jl")
+
+const FLUX_THRESHOLD = 150
 
 """
     gei2mlt_mlat(gei)
@@ -35,8 +41,6 @@ gei2mlt_mlat(gei) = begin
         mlat = setmeta(mlat, :label => "ELFIN", :ylabel => "MLAT"),
     )
 end
-
-gei2mlt_mlat(gei, timerange) = gei2mlt_mlat(tview(gei, timerange...))
 
 get_geo(id, t0, t1) = DimArray(Speasy.get_data("ssc/dmspf$id/geo", t0, t1))
 
@@ -64,8 +68,65 @@ end
 
 get_mlt_mlat(id, trange) = get_mlt_mlat(id, trange[1], trange[2])
 
-# Remove the first channel of the flux if it is NaN or lower than second channel (this is a problem with the first channel only for some events)
-remove_first_channel(flux) = (isnan(flux[1]) || flux[1] < flux[2]) ? flux[2:end] : flux
+"""
+    sanitize_dmsp_flux(flux)
+
+1. Remove the last channel
+"""
+function sanitize_dmsp_flux(flux)
+    return @views flux[1:(end - 1)]
+end
+# The difference (uncertainty) in kappa between just removing the last channel and doing nothing is about 0.2-2 (usually 0.5).
+
+
+function process_dmsp_conjunction(id, trange, elx_df; Δmlt_max = 1, kw...)
+    mlt, mlat = get_mlt_mlat(id, trange)
+    dmsp_df = DE.get_trange_by_mlat(mlat)
+    df = @chain begin
+        leftjoin(elx_df, dmsp_df, on = :mlat, renamecols = "_elx" => "_dmsp")
+        dropmissing!()
+        @rtransform! @astable begin
+            :success = false
+            :mlt_dmsp = local_mlt_mean(tview(mlt, :trange_dmsp))
+            :Δmlt = mlt_dist(:mlt_dmsp, :mlt_elx)
+            :id = id
+        end
+        # require at least having 3 lowest channels on elfin should have flux larger than 200
+        @aside @info "There are $(nrow(_)) elements before filtering"
+        @rsubset! :Δmlt < Δmlt_max
+    end
+
+    @info "There are $(nrow(df)) elements after filtering"
+    nrow(df) == 0 && return DataFrame()
+
+    flux = DMSP.flux(trange, id)
+    if isnothing(flux) || isempty(flux)
+        @warn "Skipping DMSP ID $id due to missing or empty flux data for range $trange"
+        return DataFrame()
+    end
+    flux = tsort(flux)
+    df = @chain df begin
+        @rtransform! @astable begin
+            flux_by_mlat = tview(flux, :trange_dmsp)
+            :flux_dmsp = tmean(flux_by_mlat)
+            :n_time_dmsp = DE.ntime(flux_by_mlat)
+        end
+        @rtransform! $AsTable = fit_two_flux(sanitize_dmsp_flux(:flux_dmsp), :flux_elx; threshold = FLUX_THRESHOLD, kw...)
+        @rsubset! :success
+    end
+    @info "There are $(nrow(df)) successful fits"
+    return df
+end
+
+"""
+1. Remove the first channel of the flux if it is NaN or lower than second channel (this is a problem with the first channel only for some events)
+2. Remove all ELFIN measurements after the first (lowest energy) NaN
+"""
+function sanitize_elfin_flux(flux)
+    _flux = (isnan(flux[1]) || flux[1] < flux[2]) ? flux[2:end] : flux
+    nan_idx = findfirst(isnan, _flux)
+    return isnothing(nan_idx) ? _flux : _flux[1:(nan_idx - 1)]
+end
 
 """
     workload(trange, ids; Δt=Minute(10), elx_flux=nothing, elx_gei=nothing, elx_probe="b", Δmlt_max=1, flux_threshold=200)
@@ -93,110 +154,57 @@ Process ELFIN and DMSP data for conjunction analysis and spectral fitting.
    - Calculate MLT/MLAT from orbital data
    - Bin data by MLAT (0.5° resolution)
    - Join ELFIN and DMSP data by MLAT
-   - Filter by MLT difference and flux quality (≥3 channels > flux_threshold)
+   - Filter by MLT difference and flux quality (≥3 channels > FLUX_THRESHOLD)
    - Fit two-step spectral models
 3. Return combined results for analysis
 
-See also: [`fit_two_flux`](@ref)
+See also: `fit_two_flux`
 """
-function workload(trange, ids; Δt = Minute(10), elx_flux = nothing, elx_gei = nothing, elx_probe = "b", Δmlt_max = 1, flux_threshold = 200, verbose = false, kw...)
-
+function workload(trange, ids, elx_flux, elx_gei; Δt = Minute(10), kw...)
     elx_mlt_trange = extend(trange, Second(1)) # Extend a bit to cover flux time range
-
-    elx_flux = @something elx_flux permutedims(ELFIN.epd(trange, elx_probe).prec)
-    elx_gei = @something elx_gei ELFIN.gei(elx_mlt_trange, elx_probe)
-
-    elx_pflux = tview(elx_flux, trange)
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, elx_mlt_trange))
-    elx_df = get_flux_by_mlat(elx_pflux, elx_mlat)
 
-    elfin = (; flux = elx_pflux, mlt = elx_mlt, mlat = elx_mlat)
-
-    results = map(ids) do id
-        dmsp_range = extend(trange, Δt)
-        mlt, mlat = get_mlt_mlat(id, dmsp_range)
-        dmsp_df = DE.get_trange_by_mlat(mlat)
-        df = @chain begin
-            leftjoin(elx_df, dmsp_df, on = :mlat, renamecols = "_elx" => "_dmsp")
-            sort!(:mlat)
-            dropmissing!()
-            @rtransform! @astable begin
-                :success = false
-                :dmsp_mlt = local_mlt_mean(tview(mlt, :trange_dmsp))
-                :elfin_mlt = local_mlt_mean(tview(elx_mlt, :trange_elx))
-                :Δmlt = mlt_dist(:dmsp_mlt, :elfin_mlt)
-                :id = id
-            end
-            # Notes: there is a subset of orbits with no working first channel. So we remove the first channel.
-            @rtransform! :flux_elx = remove_first_channel(:flux_elx)
-            # require at least having 3 lowest channels on elfin should have flux larger than 200
-            @aside @info "There are $(nrow(_)) elements before filtering"
-            @rsubset! begin
-                :Δmlt < Δmlt_max
-                sum(:flux_elx[1:3] .> 200) >= 3
-            end
-            @aside @info "There are $(nrow(_)) elements after filtering"
+    elx_df = @chain get_trange_by_mlat(elx_mlat) begin
+        @rtransform! begin
+            :mlt = local_mlt_mean(tview(elx_mlt, :trange))
+            :flux = tmean(tview(elx_flux.prec, :trange)) |> sanitize_elfin_flux
         end
-
-        if nrow(df) == 0
-            @info "Skipping DMSP ID $id due to empty match after filtering"
-            return (; df = DataFrame(), dmsp = nothing)
-        end
-
-        flux = DMSP.flux(dmsp_range, id)
-        if isnothing(flux) || isempty(flux)
-            @warn "Skipping DMSP ID $id due to missing or empty flux data for range $dmsp_range"
-            return (; df = DataFrame(), dmsp = nothing)
-        end
-        flux = tsort(flux)
-        df = @chain df begin
-            @rtransform! @astable begin
-                flux_by_mlat = tview(flux, :trange_dmsp)
-                :flux_dmsp = tmean(flux_by_mlat)
-                :n_time_dmsp = DE.ntime(flux_by_mlat)
-                :nnan_count_dmsp = count(!isnan, :flux_dmsp)
-            end
-            @rtransform! $AsTable = begin
-                elx_flux = :flux_elx
-                # remove all ELFIN measurements after the first (lowest energy) NaN
-                nan_idx = findfirst(isnan, elx_flux)
-                elx_flux = isnothing(nan_idx) ? elx_flux : elx_flux[1:(nan_idx - 1)]
-                fit_two_flux(:flux_dmsp, elx_flux; verbose, kw...)
-            end
-            @rsubset! :success
-            @aside @info "There are $(nrow(_)) successful fits"
-        end
-
-        (; df, dmsp = (; id, flux, mlt, mlat))
+        @rsubset! length(:flux) >= 3 && all(view(:flux, 1:3) .> FLUX_THRESHOLD)
     end
 
-    # Filter out failed results and combine successful ones
-    successful_results = filter(x -> !isempty(x.df), results)
+    results = map(ids) do id
+        process_dmsp_conjunction(id, extend(trange, Δt), elx_df; kw...)
+    end
+    successful_results = filter(!isempty, results)
 
     if isempty(successful_results)
         @warn "No successful DMSP data processing for any ID in $ids"
-        return DataFrame(), elfin, []
+        return DataFrame()
     end
-
-    df = mapreduce(first, vcat, successful_results)
-    dmsps = map(last, successful_results)
-    return df, elfin, dmsps
+    df = reduce(vcat, successful_results)
+    classify_precipitation!(df, elx_flux, elx_mlt; trange = :trange_elx, kw...)
+    return df
 end
 
 workload((trange, ids); kw...) = workload(trange, ids; kw...)
 
-function produce(trange, ids; kw...)
-    conf = @strdict ids trange
-    filename = "t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"
-    return produce_or_load(conf, datadir(); filename) do c
-        df = workload(c["trange"], c["ids"]; kw...)[1]
-        df.maxAE .= maxAE(c["trange"])[1]
-        conf["df"] = df
-        return conf
+tspan(timerange) = timerange[2] - timerange[1]
+
+function delete_metadata!(df)
+    return @rtransform! df begin
+        :flux_elx = rebuild(:flux_elx, metadata = NoMetadata())
+        :flux_dmsp = rebuild(:flux_dmsp, metadata = NoMetadata())
     end
 end
 
-tspan(timerange) = timerange[2] - timerange[1]
+function add_metadata!(df, conf)
+    return isempty(df) ? df : begin
+            @rtransform! df begin
+                :flux_elx = rebuild(:flux_elx, metadata = conf["elfin_metadata"])
+                :flux_dmsp = rebuild(:flux_dmsp, metadata = conf["dmsps_metadata"])
+            end
+        end
+end
 
 """
     produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
@@ -205,26 +213,34 @@ Process ELFIN and DMSP statistic results for analysis.
 
 See also: [`workload`](@ref)
 """
-function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, kw...)
+function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, force = false, kw...)
     conf = @strdict trange probe ids
     filename = "ELFIN=$(probe)_t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"
-    return produce_or_load(conf, datadir(); filename) do c
+    return produce_or_load(conf, datadir(); filename, force) do c
         trange, probe = c["trange"], c["probe"]
         elx_gei = ELFIN.gei(trange, probe)
-        elx_flux = tsort(permutedims(ELFIN.epd(trange, probe).prec))
+        elx_flux = tsort(permutedims(ELFIN.epd(trange, probe)))
         continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
         # filter very short ranges
-        continuous_ranges = filter!(x -> tspan(x) > Second(5), continuous_ranges)
+        filter!(x -> tspan(x) > Second(5), continuous_ranges)
 
         valid_ranges_with_ids = find_matched_mlat_conditions(
             continuous_ranges, elx_gei; ids, Δt, Δmlt_max
         )
         dfs = map(valid_ranges_with_ids) do (trange, ids)
-            produce(trange, ids; elx_gei, elx_flux)[1]["df"]
+            df = workload(trange, ids, elx_flux, elx_gei; Δt)
+            df.maxAE .= maxAE(trange)[1]
+            return df
         end
         filter!(!isempty, dfs)
-        conf["df"] = isempty(dfs) ? DataFrame() : reduce(vcat, dfs)
-        return conf
+        df = isempty(dfs) ? DataFrame() : reduce(vcat, dfs)
+        conf["df"] = df
+        isempty(df) ? conf : begin
+                delete_metadata!(df)
+                conf["elfin_metadata"] = DD.metadata(elx_flux.prec)
+                conf["dmsps_metadata"] = DD.metadata(df.flux_dmsp[1])
+                conf
+            end
     end
 end
 
@@ -235,7 +251,8 @@ function produce(tranges::AbstractVector, probe, ids; file = "logfile.txt", kw..
 
         with_logger(tee_logger) do
             dfs = map(tranges) do trange
-                produce(trange, probe, ids; kw...)[1]["df"]
+                conf = produce(trange, probe, ids; kw...)[1]
+                add_metadata!(conf["df"], conf)
             end
             reduce(vcat, filter(!isempty, dfs))
         end

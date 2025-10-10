@@ -18,6 +18,88 @@ function _limits(x)
     error("Unknown x: $x")
 end
 
+_variable(x) = x isa Pair ? x[1] : x
+
+# Plot each variable for each AE range
+# Create figure with 3 rows (one per AE range) and 6 columns (one per variable)
+function plot_params_variation(f, df, vars; colorranges = (;), facet = :row)
+    # Reorder MLT levels: 12→24, then 0→12
+    levels!(df.mlt_bin, mlt_levels)
+    # xtickformat = x -> string.(mod.(x .+ 12, 24))
+    axis = (; xlabel = "MLT", ylabel = "MLAT")
+    ae_bins = unique(df.maxAE_bin)
+
+    ticks = WilkinsonTicks(4; k_max = 4)
+    for (col_idx, varp) in enumerate(vars)
+        var = _variable(varp)
+        label = varp isa Pair ? varp[2] : string(varp)
+        colorrange = get(colorranges, var, quantile(df[!, var], [0.02, 0.98]))
+        for (row_idx, ae_bin) in enumerate(ae_bins)
+            tdf_subset = @rsubset(df, :maxAE_bin == ae_bin; view = true)
+            values = tdf_subset[!, var]
+            fp = facet == :row ? (row_idx, col_idx) : (col_idx, row_idx)
+            ax = Axis(f[fp...]; axis...)
+            # Create heatmap
+            x = tdf_subset.mlt_bin
+            y = tdf_subset.mlat_bin
+            # mlt_indices = mod.(x .+ 12, 24)
+            mlt_indices = levelcode.(x)
+            mlat_indices = _mlat.(y)
+            hm = heatmap!(ax, mlt_indices, mlat_indices, values; colorrange)
+
+            # Customize x-axis ticks for MLT
+            ax.xticks = (1:length(mlt_levels), string.(CategoricalArrays.levels(x)))
+            # Add colorbar
+            cb_pos = facet == :row ? (row_idx - 1, col_idx) : (col_idx, row_idx - 1)
+            vertical = !(facet == :row)
+            row_idx == 1 && Colorbar(f[cb_pos...], hm; label, vertical = false, ticks)
+            # Add AE range label on the left
+            ae_pos = facet == :row ? (row_idx, 0) : (0, row_idx)
+            col_idx == 1 && Label(f[ae_pos...], "AE: $(ae_bin)", rotation = π / 2, tellheight = false, font = :bold)
+
+            row_idx != length(ae_bins) && hidexdecorations!(ax)
+            col_idx != 1 && hideydecorations!(ax)
+        end
+        # plt = data(tdf_spatial) * mapping(:mlt_bin, :mlat_bin, var) * visual(Heatmap) * mapping(row=:maxAE_bin)
+    end
+    return
+end
+
+function plot_empirical_conditional_density(f, df, vars; mlt_idxs = 1:2:12)
+    ssdf = @chain df begin
+        @groupby(:mlt_bin, :mlat_bin)
+        combine(vars .=> sum; renamecols = false)
+    end
+
+    foreach(enumerate(vars)) do (i, var)
+        # emp = empirical_conditional_density(sdf, var)
+        xlabel = string(var)
+        hists = ssdf[!, var]
+        limits = (0, quantile(_maximum.(hists), 0.95))
+        idx = 1
+        for (key, subdf) in pairs(@groupby(ssdf, :mlt_bin)[mlt_idxs])
+            tdf = @rsubset(subdf, nentries($var) >= 8)
+            matrix_data = extract_matrix(tdf, var)
+            ax = Axis(f[idx, i]; xlabel, ylabel = "|MLAT| (deg)")
+            heatmap!(ax, matrix_data; colorrange = limits)
+            hists = tdf[!, var]
+            mlats = _mlat.(tdf.mlat_bin)
+            means = mean.(hists)
+            stds = std.(hists)
+            lines!(ax, means, mlats, color = :white, linewidth = 2)
+            lines!(ax, means .+ stds, mlats, color = :white, linewidth = 1.5, linestyle = :dash)
+            lines!(ax, means .- stds, mlats, color = :white, linewidth = 1.5, linestyle = :dash)
+            ylims!(ax, (49, 81))
+            idx != length(mlt_idxs) && hidexdecorations!(ax)
+            i != 1 && hideydecorations!(ax)
+            i == length(vars) && Label(f[idx, i + 1], "MLT = $(key.mlt_bin)", rotation = π / 2, tellheight = false)
+            idx += 1
+        end
+        Colorbar(f[0, i]; limits, label = "n", vertical = false)
+    end
+    return f
+end
+
 function plot_parameter_distributions_aog(df, xsym = :mlat; bins = 60, normalization = :column, x_binedges = nothing)
     plot_df = @chain df begin
         @rtransform @astable begin

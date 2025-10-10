@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Zijin Zhang <zijin@ucla.edu>"]
 
 [deps]
-CurveFit = "5a033b19-8c74-5913-a970-47c3779ef25c"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -12,36 +11,38 @@ Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 GeoAACGM = "7d0bd8ea-8a67-4204-9dfc-7af11c683dec"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 NaNStatistics = "b946abbf-3ea7-4610-9019-9858bfdeaf2d"
 NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+SpectralModels = "8cde0a7b-b49c-424d-892f-63d9ca9e3520"
 SphericalHarmonics = "c489a379-e885-57ff-9236-bd896d33c250"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [sources]
-CurveFit = {rev = "master", url = "https://github.com/SciML/CurveFit.jl"}
+SpectralModels = {path = "lib/SpectralModels"}
 SphericalHarmonics = {rev = "master", url = "https://github.com/jishnub/SphericalHarmonics.jl"}
 
 [compat]
-CurveFit = "1.0.0"
 DataFramesMeta = "0.15.4"
 Dictionaries = "0.4.5"
 DimensionalData = "0.29.16"
 GeoCotrans = "0.1.2"
+LaTeXStrings = "1.4.0"
 LsqFit = "0.15"
 Makie = "0.22, 0.23, 0.24"
-NaNMath = "1"
 NaNStatistics = "0.6.54"
 NonlinearSolve = "4.9.0"
-Printf = "1"
 SciMLBase = "2.96.0"
 Speasy = "0.4.5"
+SpecialFunctions = "2.6.1"
 StaticArrays = "1.9.15"
 Statistics = "1"
+TransformVariables = "0.8.17"
