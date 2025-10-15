@@ -7,3 +7,6 @@ Investigate the following:
 3. [x] Why maxAE = 99999 ?
     `OMNI_HRO2_1MIN` covers a smaller time range than `OMNI_HRO_1MIN`
 4. [ ] Why some J1 are negative ?
+
+Ovation Prime 2010 auroral precipitation model
+- [Code](https://github.com/lkilcommons/OvationPyme): Ovation Prime 2010 in Python
