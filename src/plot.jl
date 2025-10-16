@@ -156,7 +156,7 @@ function plot_spectra!(ax, energies, model)
     return lines!(ax, energies, model; label = SM.math_show(model), linestyle = :dot)
 end
 
-function plot_spectra!(ax, energies, model::TwoStepModel)
+function plot_spectra!(ax, energies, model::TwoStepModel; legend = (;))
     Emin = model.Emin
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 2, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :grey, linestyle = :dash)
@@ -165,17 +165,17 @@ function plot_spectra!(ax, energies, model::TwoStepModel)
     # Plot individual components with parameters in labels
     l1 = plot_spectra!(ax, energies, model.model1)
     l2 = plot_spectra!(ax, energies, model.model2)
-    axislegend(ax, [l1], [l1.label]; position = (0, 0.3))
-    axislegend(ax, [l2], [l2.label]; position = :rt)
+    axislegend(ax, [l1], [l1.label]; position = (0, 0.3), legend...)
+    axislegend(ax, [l2], [l2.label]; position = :rt, legend...)
     return ax
 end
 
-function plot_spectra!(ax, flux, flux_1, model; plot_model = true)
+function plot_spectra!(ax, flux, flux_1, model; plot_model = true, kw...)
     scatterlines!(ax, flux)
     scatterlines!(ax, flux_1)
     plot_model && begin
         energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
-        plot_spectra!(ax, energies, model)
+        plot_spectra!(ax, energies, model; kw...)
     end
     return ax
 end

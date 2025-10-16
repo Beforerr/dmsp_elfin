@@ -21,13 +21,23 @@ date: "2025-10-17"
 
 ![](files/pictures/OP-2013.png)
 
+> The spectral distributions of auroral particles play a fundamental role in the construction of the global distribution of auroral particles and conductivities @mcintoshMapsPrecipitatingElectron2014
 
-![Example of spectrum best-fit by (a) Maxwellian and (b) kappa distributions](figures/mcintoshMapsPrecipitatingElectron2014-fig2.png)
+> “Large-scale models of the ionosphere [e.g., Quegan et al., 1981; Schunk and Szuszczewicz, 1988; Daniell et al., 1995] require accurate specification of the ionization due to auroral particles, while global thermospheric models [e.g., Roble et al., 1982; Fuller-Rowell et al., 1984; Roble and Ridley, 1994; Ridley et al., 2006; Deng et al., 2013] depend heavily on knowledge of the ionospheric conductivity for calculations of the neutral atmosphere response to ion drag and Joule heating.” @mcintoshMapsPrecipitatingElectron2014
 
 ![Examples of spectra in (top) diffuse and (bottom) discrete aurorae. We added power-law approximations to the original plots.](https://ars.els-cdn.com/content/image/3-s2.0-B9780128207604000041-f04-13-9780128207604.jpg)
 
-
-> The spectral distributions of auroral particles play a fundamental role in the construction of the global distribution of auroral particles and conductivities @mcintoshMapsPrecipitatingElectron2014
-
+![Example of spectrum best-fit by (a) Maxwellian and (b) kappa distributions](figures/mcintoshMapsPrecipitatingElectron2014-fig2.png)
 
 > The remaining limitations to OP-2013 most likely to be felt by users include a limitation to 30 keV (extrapolated to about 50 keV). Although higher energy precipitation contributes relatively little to the total energy budget, the deeper penetration into the atmosphere of high energy particles has important consequences for upper atmosphere chemistry. More detailed spectral information would also be quite useful for many modeling purposes.
+
+
+## Fitting is tricky
+
+![Good example with close MLT](figures/flux_with_fit_id=17_probe=a_t0=2021-12-01T22:19:00_t1=2021-12-01T22:28:00.pdf)
+
+![example with parameters changing rapidly over MLAT](figures/flux_with_fit_id=17_probe=a_t0=2021-04-12T01:33:00_t1=2021-04-12T01:42:00.pdf)
+
+![Bad example with close MLT](figures/flux_with_fit_id=16_probe=a_t0=2020-07-04T22:00:00_t1=2020-07-04T22:30:00.pdf)
+
+## References

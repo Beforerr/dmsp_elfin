@@ -1,4 +1,5 @@
 using Beforerr: fhist
+using Latexify
 
 const 𝐦 = (;
     mlat = :mlat => abs => "|MLAT| (degrees)",
@@ -351,7 +352,10 @@ function plot_superposed_spectra!(
             # Compute total flux statistics (both components)
             J_total = median(sample_df.J1 .+ sample_df.J2)
             JE_total = median(sample_df.JE1 .+ sample_df.JE2)
-            text = L"%$(latexxx((; J_κ, JE_κ)))\\%$(latexxx((; J_total, JE_total)))"
+            R_J2 = round(median(sample_df.R_J2), digits = 2)
+            R_JE2 = round(median(sample_df.R_JE2), digits = 2)
+            R_tex = L"$J_{\kappa}/J_{total}=%$(R_J2)$, $JE_{\kappa}/JE_{total}=%$(R_JE2)$"
+            text = L"%$(latexxx((; J_κ, JE_κ)))\\%$(latexxx((; J_total, JE_total)))\\%$(R_tex)"
             text!(ax, 0.05, 0.05; text, space = :relative)
 
             push!(axs, ax)

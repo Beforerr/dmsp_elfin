@@ -33,6 +33,8 @@ tr = Date("2020-01-01"), Date("2022-08-01")
 ids = 16:18
 df_a = produce(tsplit(tr, Month), "a", ids)
 df_b = produce(tsplit(tr, Month), "b", ids)
+df_a.elfin .= :a
+df_b.elfin .= :b
 df = vcat(df_a, df_b)
 
 unique(df.mechanism), counts(Int.(df.mechanism))
@@ -55,6 +57,7 @@ function parameters(df)
         :E_c2 = (E_c ∘ m2).(:model),
         :κ = (κ ∘ m2).(:model),
         :Emin = Emin.(:model),
+        :Δt = Δtrange.(:trange_elx, :trange_dmsp),
         :mlat, :maxAE, :mlt_elx, :mlt_dmsp
     )
 end
@@ -73,13 +76,19 @@ ae_binedges = [0, 100, 300]
 sdf = let Emin = 0.03
     @chain parameters(df) begin
         @rsubset!(20 > :κ > 1, :E_c1 < 20, :E_c2 < 20, abs(:γ) < 20, 0 < :log_A1 < 30, 0 < :log_A2 < 20)
-        @transform(
-            :J1 = (n_flux(Emin, 100) ∘ m1).(:model),
-            :J2 = (n_flux(Emin, 1000) ∘ m2).(:model),
-            :JE1 = (e_flux(Emin, 100) ∘ m1).(:model),
-            :JE2 = (e_flux(Emin, 1000) ∘ m2).(:model),
-            :JE_e10 = (e_flux(10, 1000) ∘ m2).(:model) .+ (e_flux(10, 1000) ∘ m1).(:model),
-        )
+        @transform @astable begin
+            :J1 = (n_flux(Emin, 100) ∘ m1).(:model)
+            :J2 = (n_flux(Emin, 1000) ∘ m2).(:model)
+            :JE1 = (e_flux(Emin, 100) ∘ m1).(:model)
+            :JE2 = (e_flux(Emin, 1000) ∘ m2).(:model)
+            :JE_e10 = (e_flux(10, 1000) ∘ m2).(:model) .+ (e_flux(10, 1000) ∘ m1).(:model)
+            :JE_e30 = (e_flux(30, 1000) ∘ m2).(:model) .+ (e_flux(30, 1000) ∘ m1).(:model)
+            :J_tot = :J1 + :J2
+            :JE_tot = :JE1 + :JE2
+            :R_J2 = :J2 ./ :J_tot
+            :R_JE2 = :JE2 ./ :JE_tot
+            :R_JE_e30 = :JE_e30 ./ :JE_tot
+        end
         @transform(
             :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
             :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
@@ -88,6 +97,18 @@ sdf = let Emin = 0.03
     end
 end
 
+make_gdf(df) = @chain df begin
+    @transform(
+        :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
+        :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
+        # :mlt_bin = mlt_round.(:mlt_elx),
+        :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
+    )
+    @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
+end
+
+gdf = make_gdf(sdf)
+
 size(sdf, 1) # 28739
 ```
 
@@ -95,11 +116,14 @@ size(sdf, 1) # 28739
 
 ```{julia}
 begin
-    row = tdf[2, :]
-    probe = "a"
+    #  find a good example for demostration purpose in the sense overlapping time,mlt and mlat at the same time
+    row = @rsubset(sdf, :Δt == Millisecond(0), :Δmlt < 0.05)[3, :]
+
+    # row = tdf[2, :]
+    probe = row.elfin
     trange = extend(row.trange_elx, Minute(4))
     elx_mlt_trange = extend(trange, Second(1)) # Extend a bit to cover flux time range
-    @info trange row.mlat
+    @info probe row.id, trange row.mlat
     elx_flux = permutedims(ELFIN.epd(trange, probe))
     elx_gei = ELFIN.gei(elx_mlt_trange, probe)
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, elx_mlt_trange))
@@ -107,13 +131,15 @@ begin
     dmsp_mlt, dmsp_mlat = get_mlt_mlat(row.id, trange)
     dmsp_flux = DMSP.flux(trange, row.id)
 
-    df = workload(trange, (row.id,), elx_flux, elx_gei)
+    tdf = workload(trange, (row.id,), elx_flux, elx_gei)
     mlats = nothing
-    # mlats = [61, 64]
+    mlats = [-68, -61.5]
     # mlats = -66:0.5:-65
 
     # quicklook(trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
-    demo_plot(trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats)
+    f = Figure(; size=(800, 600))
+    demo_plot(f, trange, tdf, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false)
+    f
 end
 ``` 
 
@@ -130,18 +156,6 @@ function mlt_round(x, d)
 end
 
 mlt_levels = ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"]
-
-make_gdf(df) = @chain df begin
-    @transform(
-        :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
-        :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
-        # :mlt_bin = mlt_round.(:mlt_elx),
-        :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
-    )
-    @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
-end
-
-gdf = make_gdf(sdf)
 ```
 
 ### MLT, maxAE space
@@ -206,6 +220,8 @@ rowgap!(f.layout, 2)
 easy_save("energy_spectra_mlt_mlat")
 ```
 
+![energy_spectra_mlt_mlat](../figures/energy_spectra_mlt_mlat.png)
+
 ### Model parameters variation
 
 ```{julia}
@@ -234,7 +250,43 @@ let vars = J_vars
 end
 ```
 
+```{julia}
+J_vars = [:J1 => "(a) Number flux (ExpPow)", :J2 => "(b) Number flux (Kappa)", :JE1 => "(c) Energy flux (ExpPow)", :JE2 => "(d) Energy flux (Kappa)", :JE_e10 => "(e) Energy flux (E>10 keV)"]
+let vars = J_vars
+    f = Figure(; size=(1200, 700))
+    df = combine(gdf, _variable.(vars) .=> mean, renamecols=false) |> dropmissing!
+    plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
+    easy_save("flux_mlt_mlat")
+end
+```
+
+```{julia}
+for func in (median, mean)
+    let vars = [:J2 => L"(a) $J_κ$: Number flux (Kappa)", :JE2 => L"(b) $JE_κ$: Energy flux (Kappa)", :R_J2 => L"(c) $J_κ / J_{total}$", :R_JE2 => L"(d) $JE_κ / JE_{total}$"]
+        f = Figure(; size=(1000, 700))
+        df = combine(gdf, _variable.(vars) .=> func, renamecols=false) |> dropmissing!
+        plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
+        display(f)
+        easy_save("flux_ratio_mlt_mlat_$(func)")
+    end
+end
+```
+
+```{julia}
+for func in (median, mean)
+    let vars = [:JE_e30 => L"(e) $JE_{E>30}$: Energy flux (E>30 keV)", :R_JE_e30 => L"(f) $JE_{E>30} / JE_{total}$"]
+        f = Figure(; size=(500, 700))
+        df = combine(gdf, _variable.(vars) .=> func, renamecols=false) |> dropmissing!
+        plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
+        display(f)
+        easy_save("e30_flux_ratio_mlt_mlat_$(func)")
+    end
+end
+```
+
 ![](../figures/flux_mlt_mlat.png)
+![](../figures/flux_ratio_mlt_mlat_median.png)
+![](../figures/e30_flux_ratio_mlt_mlat_median.png)
 
 Effects of different mechanisms on the fluxes result
 
