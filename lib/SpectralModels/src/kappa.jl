@@ -62,6 +62,7 @@ logA(m::KappaDistribution) = log(m.A)
 
 # Analytical integrals for number and energy flux
 # https://www.wolframalpha.com/input?i=A+x+%281%2Bx%2F%28c+%CE%BA%29%29%5E%28-%CE%BA-1%29
+# when integrate from 0 to Inf, the result is (A E_c^2 κ)/(-1 + κ)
 function _integral0(m::KappaDistribution, E)
     num = m.A * E_c(m) * m.κ * (E_c(m) + E) * (1 + E / (m.κ * E_c(m)))^(-m.κ)
     den = m.κ - 1

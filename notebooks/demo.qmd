@@ -74,8 +74,13 @@ tvars = (
     dmsp_flux,
     [elx_mlat, dmsp_mlat],
 )
-tplot(tvars, zoom_tr...)
+# tplot(tvars, zoom_tr...)
+
+quicklook(Figure(; size=(1000, 700),), trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
+easy_save("quicklook")
 ```
+
+![quicklook](../figures/quicklook.png)
 
 ## Flux Data by MLAT
 
@@ -117,10 +122,12 @@ mlats = [-70, -68, -63, -62.5]
 # mlats = 53:2:57
 mlats = 66:0.5:67
 mlats = nothing
-demo_plot(trange, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats)
+demo_plot(trange, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false)
 add_labels!(; position=Right(), padding=(0, 0, 0, 0))
 easy_save("flux_with_fit")
 ```
+
+![flux_with_fit](../figures/flux_with_fit.png)
 
 ## Mechanisms
 
