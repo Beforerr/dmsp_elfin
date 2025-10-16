@@ -1,16 +1,20 @@
 ---
-title: "Pecularities of precipitating electron spectra : DMPS & ELFIN combined dataset"
+title: "Peculiarities of precipitating electron spectra : DMPS & ELFIN combined dataset"
 format:
   pptx: default
 ---
 
 ## Introduction
 
-Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input @wangIonosphericConductancesDue2024. Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns @zouKeyRoleMagnetic2024.
+Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input @wangIonosphericConductancesDue2024.
+
+Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns @zouKeyRoleMagnetic2024.
 
 This work combines ELFIN precipitating electron measurements with DMSP spectra at close conjunction to extend the DMSP‑based precipitation picture toward higher energies. The goal is an empirical description of spectral parameters and integrated fluxes across MLT/MLAT and geomagnetic activity, with attention to distinct scattering mechanisms.
 
 ## Data and Methods
+
+> The particle data were obtained from the Special Sensor for Precipitating Particles (SSJ/4) flown on board the DMSP suite of polar-orbiting spacecraft. The DMSP satellites operate in circular, sun-synchronous orbits at altitudes of ∼800 km, with orbital inclinations of ∼ 99◦ and orbital periods of ∼100 min. The SSJ/4 particle detector [Hardy et al., 1984] measures the flux of precipitating ions and electrons in the energy range of 30 eV to 30 keV.  @mcintoshMapsPrecipitatingElectron2014 
 
 - Missions: ELFIN precipitating fluxes and DMSP electron spectra during 2020–2022.
 - Activity: We tag each conjunction by the maximum AE value during the ELFIN window and analyze three AE ranges: [0,100], [100,300], and [300,1498] nT.

@@ -20,6 +20,10 @@ end
 
 _variable(x) = x isa Pair ? x[1] : x
 
+fmt(from, to, i; leftclosed, rightclosed) = string(from + (to - from) / 2)
+_mlat(s) = parse(Float64, String(s))
+mlt_fmt(from, to, i; leftclosed, rightclosed) = string(Int(from + (to - from) / 2))
+
 # Plot each variable for each AE range
 # Create figure with 3 rows (one per AE range) and 6 columns (one per variable)
 function plot_params_variation(f, df, vars; colorranges = (;), facet = :row)
@@ -234,4 +238,132 @@ function plot_all_means_by_ae_bin(df; binedges = 0:20:1000)
     ax6 = Axis(f[3, 1:2], xlabel = "AE (nT)", ylabel = "Number of observations")
     barplot!(ax6, bc_Ec, counts_Ec, color = :gray, strokewidth = 1, strokecolor = :black)
     return f
+end
+
+"""
+    plot_superposed_spectra!(fig_grid, df; mlat_range, mlt_range, n_sample=100, E_range=(0.03, 1000), n_points=200)
+
+Plot superposed energy spectra for data within specified MLat and MLT ranges, separated by AE bins.
+
+Creates a multi-panel visualization showing:
+- Individual model spectra (semi-transparent lines)
+- Median spectrum across all samples (red line)
+- 25-75 percentile range (shaded band)
+
+# Arguments
+- `fig_grid`: Figure grid position (e.g., `f[1, :]` for row 1 of figure `f`)
+- `df`: DataFrame containing fitted models with columns `:model`, `:mlat`, `:mlt_elx`, `:maxAE_bin`
+
+# Keyword Arguments
+- `mlat_range::Tuple{Real,Real}`: MLat range to filter (degrees)
+- `mlt_range::Tuple{Real,Real}`: MLT range to filter (hours)
+- `n_sample::Int=100`: Maximum number of spectra to plot per AE bin
+- `show_legend::Bool=true`: Show legend on first panel
+- `add_label::Bool=true`: Add label to the figure
+
+# Dependencies
+Requires StatsBase (for `sample`, `median`, `quantile`) and DataFramesMeta (for `@chain`, `@rsubset`)
+to be available in the calling environment.
+
+# Examples
+```julia
+# Single row with three AE bins
+f = Figure(size=(1500, 500))
+plot_superposed_spectra!(f[1, :], sdf; mlat_range=(70, 72), mlt_range=(5, 7))
+```
+"""
+function plot_superposed_spectra!(
+        fig_grid, df, E_grid;
+        mlat_range,
+        mlt_range,
+        n_sample = 100,
+        show_legend = true,
+        add_label = true
+    )
+    fig_grid = GridLayout(fig_grid)
+    # Filter data within specified MLat and MLT ranges
+    filtered_df = @rsubset(
+        df,
+        mlat_range[1] <= abs(:mlat) <= mlat_range[2],
+        mlt_range[1] <= :mlt_elx <= mlt_range[2]
+    )
+
+    # Get unique AE bins
+    ae_bins = filter(!ismissing, sort(unique(filtered_df.maxAE_bin)))
+    axs = []
+
+    for (i, ae_bin) in enumerate(ae_bins)
+        # Filter by AE bin
+        ae_filtered = @rsubset(filtered_df, :maxAE_bin == ae_bin)
+        n_total = nrow(ae_filtered)
+
+        # Sample up to n_sample fittings
+        n_plot = min(n_sample, n_total)
+        if n_plot > 0
+            sample_indices = sample(1:n_total, n_plot; replace = false)
+            sample_df = ae_filtered[sample_indices, :]
+
+            # Compute kappa statistics
+            κ_values = sample_df.κ
+            κ_median = round(median(κ_values), digits = 1)
+            κ_q25 = round(quantile(κ_values, 0.25), digits = 1)
+            κ_q75 = round(quantile(κ_values, 0.75), digits = 1)
+
+            # Create axis with comprehensive title using LaTeX
+            title_text = L"AE: %$(ae_bin),\, n: %$n_total,\, κ: %$(κ_median)_{%$(κ_q25)}^{%$(κ_q75)}"
+
+            ax = Axis(
+                fig_grid[1, i]; xlabel = "Energy (keV)", ylabel = YLabel.nflux,
+                xscale = log10, yscale = log10,
+                title = title_text
+            )
+
+            # Plot each model's spectrum
+            for row in eachrow(sample_df)
+                model = row.model
+                flux_values = model.(E_grid)
+                lines!(ax, E_grid, flux_values; alpha = 0.3, color = (:steelblue, 0.3))
+            end
+
+            # Compute and plot median spectrum
+            flux_matrix = zeros(length(E_grid), nrow(sample_df))
+            for (j, row) in enumerate(eachrow(sample_df))
+                flux_matrix[:, j] .= row.model.(E_grid)
+            end
+            median_flux = vec(median(flux_matrix, dims = 2))
+            lines!(ax, E_grid, median_flux; color = :red, linewidth = 3, label = "Median")
+
+            # Compute and plot percentiles
+            p25_flux = quantile.(eachrow(flux_matrix), 0.25)
+            p75_flux = quantile.(eachrow(flux_matrix), 0.75)
+            band!(ax, E_grid, p25_flux, p75_flux; color = (:red, 0.2), label = "25-75%")
+            ylims!(ax, 1.0e1, 1.0e12)
+
+            # Hide y decorations for columns after the first
+            i != 1 && hideydecorations!(ax; ticks = false)
+
+            (i == 1 && show_legend) && axislegend(ax; position = :rt)
+
+            # Compute flux statistics (kappa component: model2)
+            J_κ = median(sample_df.J2)  # Number flux (kappa)
+            JE_κ = median(sample_df.JE2)  # Energy flux (kappa)
+
+            # Compute total flux statistics (both components)
+            J_total = median(sample_df.J1 .+ sample_df.J2)
+            JE_total = median(sample_df.JE1 .+ sample_df.JE2)
+            text = L"%$(latexxx((; J_κ, JE_κ)))\\%$(latexxx((; J_total, JE_total)))"
+            text!(ax, 0.05, 0.05; text, space = :relative)
+
+            push!(axs, ax)
+        end
+    end
+
+    add_label && Label(
+        fig_grid[0, 1:end], "Energy Spectra: MLat ∈ $(mlat_range), MLT ∈ $(mlt_range)",
+        fontsize = 16, font = :bold
+    )
+
+    rowgap!(fig_grid, 2)
+
+    return axs
 end
