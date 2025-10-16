@@ -1,21 +1,10 @@
-# DMSP-ELFIN Conjunction Finder [WIP]
+# DMSP-ELFIN Conjunction Study
 
-This tool identifies conjunction events between DMSP and ELFIN satellites based on their MLT (Magnetic Local Time) and MLAT (Magnetic Latitude) values.
+[![Quarto Badge](https://img.shields.io/badge/quarto-808090?logo=quarto)](https://quarto.org/)
+[![Julia Badge](https://img.shields.io/badge/-Julia-9558B2?logo=julia&logoColor=white)](https://julialang.org/)
 
-## What is a Conjunction Event?
+This repository contains the codes and manuscripts of the paper ***"An empircal model of energetic electron flux from DMSP and ELFIN Conjunction"***.
 
-A conjunction event is defined when:
+See [DMSP-ELFIN Conjunction Finder](./lib/DmspElfinConjunction/README.md) for conjunction finding tool.
 
-- The absolute difference in MLT between DMSP and ELFIN is less than a threshold d₁
-- The absolute difference in MLAT between DMSP and ELFIN is less than a threshold d₂
-- This condition persists for at least Tₘᵢₙ seconds
-
-## Input Data Format
-
-### DMSP Data
-
-See [DMSP notebook](./notebooks/dmsp.qmd)
-
-### ELFIN Data
-
-See [ELFIN notebook](./notebooks/elfin.qmd)
+See [Precipitating Flux Package](./lib/PrecipitatingFluxModels/README.md) for precipitating flux model.

@@ -1,8 +1,8 @@
 using Statistics: mean
 using Speasy
 import TimeseriesUtilities
+using SpaceDataModel: tdimnum
 using TimeseriesUtilities: tresample, tview, tsort, find_continuous_timeranges
-using PartialFunctions
 using DrWatson
 using Logging
 using LoggingExtras: TeeLogger
@@ -17,6 +17,14 @@ include("./conjugation.jl")
 include("./mechanisms.jl")
 
 const FLUX_THRESHOLD = 150
+
+# use maxAE for three hours before the event
+# See https://omniweb.gsfc.nasa.gov/form/omni_min_def.html for difference between HRO and HRO2
+function maxAE(trange, dt = Hour(3))
+    pre_range = (DateTime(trange[1]) - dt, DateTime(trange[2]))
+    ae = CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", pre_range...; clip = true)
+    return isempty(ae) ? missing : maximum(ae), ae
+end
 
 """
     gei2mlt_mlat(gei)
@@ -44,6 +52,11 @@ end
 
 get_geo(id, t0, t1) = DimArray(Speasy.get_data("ssc/dmspf$id/geo", t0, t1))
 
+otherdimnum(A) = tdimnum(A) == 1 ? 2 : 1
+function _mlat(x::AbstractArray)
+    return selectdim(x, otherdimnum(x), 1)
+end
+
 """
     get_mlt_mlat(id, timerange)
 
@@ -62,7 +75,7 @@ get_mlt_mlat(id, t0, t1) = begin
     geo = tinterp(_geo, t0:dt:t1)
     mlt = get_mlt(geo)
     aacgm = geo2aacgm(geo)
-    mlat = aacgm.mlat
+    mlat = _mlat(aacgm)
     return mlt, mlat
 end
 

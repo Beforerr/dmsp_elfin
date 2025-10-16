@@ -1,37 +1,36 @@
 # Example demo
 
 ```{julia}
-import Pkg
-Pkg.activate("docs")
 using DmspElfinConjunction
 import DmspElfinConjunction as DE
 using DMSP, ELFINData
-import ELFINData as ELFIN
-using SPEDAS
+# using SPEDAS
 using SpaceDataModel: setmeta
-using Speasy
 using GLMakie, SpacePhysicsMakie
 using Dates, TimeseriesUtilities
 using DataFrames, DataFramesMeta, DimensionalData
-using IRBEM
-using GeoCotrans
+using IRBEM, GeoCotrans, GeoAACGM
 using Beforerr
+using Beforerr: add_labels!
 
 using SpacePhysicsMakie: set_if_valid!
 
 Beforerr.DEFAULT_FORMATS = [:png, :pdf]
-includet("../../src/plot.jl")
-includet("../../src/workload.jl")
-includet("./demo.jl")
+includet("../src/plot.jl")
+includet("../src/workload.jl")
+includet("../src/demo.jl")
 using .YLabel
-using DmspElfinConjunction: FLUX_THRESHOLD
+set_Z_theme!()
 ```
 
 ```{julia}
 probe = "a"
 Δt = Minute(10)
+mlats = nothing
 # Good
 id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:10")]
+id, trange = 17, [DateTime("2021-12-01T22:19:00"), DateTime("2021-12-01T22:28")]
+id, trange = 17, [DateTime("2021-11-08T22:28"), DateTime("2021-11-08T22:32")]
 # Poor
 id, trange = 17, [DateTime("2020-04-25T13:10"), DateTime("2020-04-25T13:31")]
 id, trange = 17, [DateTime("2020-07-03T15:00"), DateTime("2020-07-03T15:30")] # only three points for kappa fitting (overfitting)
@@ -39,21 +38,31 @@ id, trange = 18, [DateTime("2020-07-14T02:04"), DateTime("2020-07-14T02:34")] # 
 id, trange = 18, [DateTime("2020-07-06T20"), DateTime("2020-07-06T21:33")] # one large kappa (~20), but reasonable results
 id, trange = 16, [DateTime("2020-07-04T22"), DateTime("2020-07-04T22:30")]
 
-id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:10")]
+# Example demonstrating the uncertainty of our fitting with overlapping time, mlt, and mlat at the same time
+# id, trange, mlats = 17, [DateTime("2021-04-12T01:33"), DateTime("2021-04-12T01:42")], -68:0.5:-67
 
+# Pretty good example with overlapping time and mlt
+id, trange, mlats, Δt = 17, [DateTime("2021-12-01T22:19:00"), DateTime("2021-12-01T22:28")], [-69., -65.], Minute(5)
+
+# id, trange = 17, [DateTime("2021-11-08T22:28"), DateTime("2021-11-08T22:32")]
+
+t0, t1 = trange
 # Load ELFIN EPD data
 begin
-    elx_flux = ELFIN.epd(trange, probe) |> permutedims
+    elx_flux = ELFINData.epd_spectral(trange; probe) |> permutedims
+
+    elx_gei_trange = extend(trange, Second(1))
     # julia> @b ELFIN.epd(trange, probe)
     # 1.320 ms (1334 allocs: 2.731 MiB)
-    elx_gei = ELFIN.gei(trange, probe)
-    # elx_gei = tinterp(elx_gei, elx_flux.anti)
+    elx_gei = tview(
+        DimArray(probe == "a" ? ELA_POS_GEI(elx_gei_trange) : ELB_POS_GEI(elx_gei_trange)),
+        elx_gei_trange)
     elx_aacgm = gei2aacgm(elx_gei)
-    elx_mlat = elx_aacgm.mlat
+    elx_mlat = _mlat(elx_aacgm)
     elx_geo = gei2geo(elx_gei)
     elx_mlt = get_mlt(elx_geo)
-    ae_max, ae = DE.maxAE(trange)
-    elx_flux_ratio = ELFIN.flux_ratio(elx_flux)
+    ae_max, ae = maxAE(elx_gei_trange)
+    elx_flux_ratio = ELFINData.flux_ratio(elx_flux)
 end
 
 dmsp_flux = DMSP.flux(extend(trange, Δt), id)
@@ -75,9 +84,14 @@ tvars = (
     [elx_mlat, dmsp_mlat],
 )
 # tplot(tvars, zoom_tr...)
-
-quicklook(Figure(; size=(1000, 700),), trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
+# Fail to plot in `Makie` 0.24: https://github.com/rafaqz/DimensionalData.jl/issues/1146
+f = Figure(; size=(800, 500),)
+axs = quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; colormap=:batlow)
+ylims!(axs[3], -84, -54)
+f
 easy_save("quicklook")
+config = (; probe, id, trange, t0, t1)
+easy_save(savename("quicklook", config))
 ```
 
 ![quicklook](../figures/quicklook.png)
@@ -117,17 +131,18 @@ We treat 0 as 0 for averaging, 0 for NaN for fitting.
 
 ```{julia}
 using StatsBase: counts
-@info counts(Int.(join_df.mechanism)) # [16, 18, 4, 39]
-mlats = [-70, -68, -63, -62.5]
-# mlats = 53:2:57
-mlats = 66:0.5:67
-mlats = nothing
-demo_plot(trange, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false)
+# mlats = nothing
+demo_plot(Figure(; size=(900, 700)), zoom_tr, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:cividis)
 add_labels!(; position=Right(), padding=(0, 0, 0, 0))
 easy_save("flux_with_fit")
+# easy_save(savename("flux_with_fit", config))
 ```
 
 ![flux_with_fit](../figures/flux_with_fit.png)
+
+![Good example with close MLT](../figures/flux_with_fit_id=17_probe=a_t0=2021-12-01T22:19:00_t1=2021-12-01T22:28:00.png)
+
+![Bad example with close MLT](../figures/flux_with_fit_id=16_probe=a_t0=2020-07-04T22:00:00_t1=2020-07-04T22:30:00.png)
 
 ## Mechanisms
 
@@ -172,27 +187,4 @@ modeled_fluxes = @with successful_fits begin
     end
     DimArray(flux_modeled', (X(:mlat), Y(Es)))
 end
-```
-
-
-`plot_flux_analysis`
-
-```@example demo
-# Make MLAT as the x axis
-f = Figure(; size=(1200, 1000))
-p1 = plot_flux_by_mlat(f[1, 1:2], elx_flux.prec, elx_mlat, zoom_tr; colorrange)
-p2 = plot_flux_by_mlat(f[2, 1:2], dmsp_flux, dmsp_mlat, trial_tr; colorrange)
-p3 = plot_flux_by_mlat(f[3:4, 1:2], modeled_fluxes; colorrange)
-Colorbar(f[1:4, 3], p3.plot; label=𝒀.nflux)
-
-for ax in (p1.axis, p2.axis, p3.axis)
-    xlims!(ax, -54, -75)
-end
-hidexdecorations!.((p1.axis, p2.axis); grid=false)
-
-@with successful_fits begin
-    plot_parameters_variation(f[1:4, 4:5], :mlat, :model, :n_points; scores = :score)
-end
-
-f
 ```

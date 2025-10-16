@@ -7,11 +7,16 @@ using UnPack
 using TimeseriesUtilities: times, tinterp
 using DimensionalData: set
 
-# Use CairoMakie in CI, GLMakie otherwise
-using GLMakie
-
 # Set better default colormap for wide dynamic range (10^3 to 10^11)
 set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
+set_aog_theme!()
+
+set_Z_theme!() = begin
+    set_aog_theme!()
+    update_theme!(;
+        figure_padding = 2,
+    )
+end
 
 baremodule YLabel
     using LaTeXStrings
@@ -63,16 +68,13 @@ function plot_flux_by_mlat(f, flux; kw...)
     if haskey(flux.metadata, :colorrange)
         f_kw[:colorrange] = flux.metadata[:colorrange]
     end
-    plot = heatmap!(ax, flux; colorscale = log10, f_kw..., kw...)
+    plot = heatmap!(ax, replace(flux, 0 => NaN); colorscale = log10, f_kw..., kw...)
     return Makie.AxisPlot(ax, plot)
 end
 
-function plot_x_by_mlat(f, flux, mlat, args...; kw...)
-    return plot_flux_by_mlat(f, set_mlat_dim(flux, mlat, args...); kw...)
-end
-
-function plot_flux_by_mlat(f, flux, mlat, args...; kw...)
-    return plot_flux_by_mlat(f, set_mlat_dim(flux, mlat, args...); kw...)
+function plot_flux_by_mlat(f, flux, mlat; kw...)
+    flux′ = set_mlat_dim(degap(flux), mlat)
+    return plot_flux_by_mlat(f, flux′; kw...)
 end
 
 function plot_elfin_dmsp(timerange, ids)
@@ -156,7 +158,7 @@ function plot_spectra!(ax, energies, model)
     return lines!(ax, energies, model; label = SM.math_show(model), linestyle = :dot)
 end
 
-function plot_spectra!(ax, energies, model::TwoStepModel)
+function plot_spectra!(ax, energies, model::TwoStepModel; legend = (;))
     Emin = model.Emin
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 2, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :grey, linestyle = :dash)
@@ -165,17 +167,19 @@ function plot_spectra!(ax, energies, model::TwoStepModel)
     # Plot individual components with parameters in labels
     l1 = plot_spectra!(ax, energies, model.model1)
     l2 = plot_spectra!(ax, energies, model.model2)
-    axislegend(ax, [l1], [l1.label]; position = (0, 0.3))
-    axislegend(ax, [l2], [l2.label]; position = :rt)
+
+    line_element = (; linewidth = 3)
+    axislegend(ax, [l1 => line_element], [l1.label[]]; position = (0, 0.3), legend...)
+    axislegend(ax, [l2 => line_element], [l2.label[]]; position = :rt, legend...)
     return ax
 end
 
-function plot_spectra!(ax, flux, flux_1, model; plot_model = true)
+function plot_spectra!(ax, flux, flux_1, model; plot_model = true, kw...)
     scatterlines!(ax, flux)
     scatterlines!(ax, flux_1)
     plot_model && begin
         energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
-        plot_spectra!(ax, energies, model)
+        plot_spectra!(ax, energies, model; kw...)
     end
     return ax
 end
@@ -186,7 +190,7 @@ function plot_spectra(f, args...; title = "", kw...)
     return ax
 end
 
-function plot_spectra(f, df::DataFrame; kw...)
+function plot_spectras(f, df::DataFrame; kw...)
     axs = map(enumerate(eachrow(df))) do (i, row)
         title = "MLAT: $(row.mlat), MLT: $(round(row.mlt_elx, digits = 1))"
         ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model; title, kw...)

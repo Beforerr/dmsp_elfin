@@ -1,28 +1,26 @@
 # Statistics analysis
 
 ```{julia}
-import Pkg
-Pkg.activate("docs")
 using DmspElfinConjunction, DMSP
 using Dates
 using TimeseriesUtilities
 using DimensionalData, DataFrames, DataFramesMeta
 using GeoCotrans, IRBEM
-using SPEDAS
 using Accessors
 using AlgebraOfGraphics
-using CairoMakie, GLMakie
+using CairoMakie
+!haskey(ENV, "VSCODE_GIT_ASKPASS_NODE") && using GLMakie
 using StatsBase
 using CategoricalArrays
 using Beforerr: easy_save
-
-set_aog_theme!()
 
 includet("../src/plot.jl")
 includet("../src/workload.jl")
 includet("../src/mechanisms.jl")
 includet("../src/statplot.jl")
+include("../src/statplot.jl")
 includet("../src/demo.jl")
+includet("../src/analysis.jl")
 ```
 
 
@@ -33,31 +31,26 @@ tr = Date("2020-01-01"), Date("2022-08-01")
 ids = 16:18
 df_a = produce(tsplit(tr, Month), "a", ids)
 df_b = produce(tsplit(tr, Month), "b", ids)
+df_a.elfin .= :a
+df_b.elfin .= :b
 df = vcat(df_a, df_b)
 
 unique(df.mechanism), counts(Int.(df.mechanism))
+
+find_continuous_timeranges(sort!(first.(df.trange_elx)), Minute(2)) # 2754-element
 ```
+
+<!--
+ 18988 for ELFIN A, 17392 for ELFIN B
+-->
 
 ```{julia}
 using SpectralModels: A, κ, E_c, n_flux, e_flux
 
-γ_len = @optic _.γ
+const γ_len = @optic _.γ
 const m1 = @optic _.model1
 const m2 = @optic _.model2
 const Emin = @optic _.Emin
-
-function parameters(df)
-    @transform(df,
-        :log_A1 = (log10 ∘ A ∘ m1).(:model),
-        :E_c1 = (E_c ∘ m1).(:model),
-        :γ = (γ_len ∘ m1).(:model),
-        :log_A2 = (log10 ∘ A ∘ m2).(:model),
-        :E_c2 = (E_c ∘ m2).(:model),
-        :κ = (κ ∘ m2).(:model),
-        :Emin = Emin.(:model),
-        :mlat, :maxAE, :mlt_elx, :mlt_dmsp
-    )
-end
 
 let df = df, rev = false
     qs = (x -> round.(quantile(skipmissing(x), [0.02, 0.1, 0.9, 0.98]), sigdigits=2)) => :quantiles
@@ -65,28 +58,30 @@ let df = df, rev = false
     @info describe(parameters(df), :mean, qs, :q25, :median, :q75, :nmissing)
 end
 
-# Prepare data with MLT and MLAT binning
-mlat_binedges = 55:1:80
-mlt_binedges = 0.0:2.0:24.0
-ae_binedges = [0, 100, 300]
-
 sdf = let Emin = 0.03
     @chain parameters(df) begin
         @rsubset!(20 > :κ > 1, :E_c1 < 20, :E_c2 < 20, abs(:γ) < 20, 0 < :log_A1 < 30, 0 < :log_A2 < 20)
-        @transform(
-            :J1 = (n_flux(Emin, 100) ∘ m1).(:model),
-            :J2 = (n_flux(Emin, 1000) ∘ m2).(:model),
-            :JE1 = (e_flux(Emin, 100) ∘ m1).(:model),
-            :JE2 = (e_flux(Emin, 1000) ∘ m2).(:model),
-            :JE_e10 = (e_flux(10, 1000) ∘ m2).(:model) .+ (e_flux(10, 1000) ∘ m1).(:model),
-        )
-        @transform(
-            :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
-            :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
-            :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
-        )
+        integrate_flux!(Emin)
     end
 end
+
+bin(x, δx) = (x + δx / 2) - (x + δx / 2) % δx
+demlt(x::T) where T = x == 24 ? zero(T) : x
+fmt(from, to, i; leftclosed, rightclosed) = from + (to - from) / 2
+
+cut_AE(df; breaks=[0, 100, 300]) = @transform(df, :maxAE_bin = cut(:maxAE, breaks; extend=true))
+
+# Prepare data with MLT and MLAT binning
+make_gdf(df; mlat_binedges=52.5:1:80.5, Δmlt=1) = @chain df begin
+    cut_AE
+    @transform(
+        :mlt_bin = demlt.(bin.(:mlt_elx, Δmlt)),
+        :mlat_bin = Array(cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt)),
+    )
+    @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
+end
+
+gdf = make_gdf(sdf)
 
 size(sdf, 1) # 28739
 ```
@@ -95,11 +90,14 @@ size(sdf, 1) # 28739
 
 ```{julia}
 begin
-    row = tdf[2, :]
-    probe = "a"
+    #  find a good example for demostration purpose in the sense overlapping time,mlt and mlat at the same time
+    row = @rsubset(sdf, :Δt < Millisecond(100000), :Δmlt < 0.1)[75, :]
+
+    # row = tdf[2, :]
+    probe = row.elfin
     trange = extend(row.trange_elx, Minute(4))
     elx_mlt_trange = extend(trange, Second(1)) # Extend a bit to cover flux time range
-    @info trange row.mlat
+    @info probe row.id, trange row.mlat
     elx_flux = permutedims(ELFIN.epd(trange, probe))
     elx_gei = ELFIN.gei(elx_mlt_trange, probe)
     elx_mlt, elx_mlat = gei2mlt_mlat(tview(elx_gei, elx_mlt_trange))
@@ -107,15 +105,64 @@ begin
     dmsp_mlt, dmsp_mlat = get_mlt_mlat(row.id, trange)
     dmsp_flux = DMSP.flux(trange, row.id)
 
-    df = workload(trange, (row.id,), elx_flux, elx_gei)
+    tdf = workload(trange, (row.id,), elx_flux, elx_gei)
     mlats = nothing
-    # mlats = [61, 64]
     # mlats = -66:0.5:-65
 
     # quicklook(trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
-    demo_plot(trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats)
+    f = Figure(; size=(800, 600))
+    demo_plot(f, trange, tdf, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:batlow)
+    f
 end
-``` 
+```
+
+### Multiple peaks in kappa distribution
+
+Related to @fig-param-pdf. Three examples of electron flux spectra.
+
+```{julia}
+# Find examples with kappa ≈ 2, 5, 8 for AE > 300, MLAT > 65, and 0 < MLT < 9
+target_kappas = [2, 5, 8]
+
+example_df = @chain sdf begin
+    @rsubset(:maxAE > 300, abs(:mlat) > 65, :mlt_elx < 9)
+    @transform(:kappa_diff = abs.(:κ .- 2))  # Start with first target
+end
+
+# Find one example for each target kappa
+examples = map(target_kappas) do target_κ
+    @chain example_df begin
+        @transform(:kappa_diff = abs.(:κ .- target_κ))
+        @orderby(:kappa_diff)
+        first
+    end
+end
+# Create figure with 3 panels showing the spectra
+let f = Figure(size=(1200, 400))
+    axs = map(enumerate(examples)) do (i, row)
+        title = "κ = $(round(row.κ, digits=1)), MLAT = $(round(row.mlat, digits=1))°, MLT = $(round(row.mlt_elx, digits=1))"
+        ax = Axis(f[1, i]; xlabel=𝒀.E, ylabel=𝒀.nflux, xscale=log10, yscale=log10, title)
+
+        scatterlines!(ax, row.flux_dmsp; label="DMSP")
+        scatterlines!(ax, row.flux_elx; label="ELFIN")
+        energies = vcat(row.flux_dmsp.dims[1].val, row.flux_elx.dims[1].val)
+        lines!(ax, energies, row.model.(energies); label="Model", linewidth=2, color=:red)
+        # Add transition energy line
+        vlines!(ax, row.Emin; color=:grey, linestyle=:dash, label="E_tran")
+        ax
+    end
+    axislegend(axs[1]; position=:lb)
+    hideydecorations!.(axs[2:3]; grid=false)
+    ylims!.(axs, 5, 5e11)
+    linkaxes!(axs...)
+    # easy_save("kappa_examples")
+    f
+end
+```
+
+:::{#fig-kappa}
+
+:::
 
 ## Dependence analysis
 
@@ -123,25 +170,6 @@ end
 using Statistics
 
 vars = [:log_A1 => "Log A (ExpPow)", :E_c1 => "E_c (ExpPow)", :γ => "γ (ExpPow)", :Emin => "Transition Energy", :log_A2 => "Log A (Kappa)", :E_c2 => "E_c (Kappa)", :κ => "κ (Kappa)"]
-
-function mlt_round(x, d)
-    r = round(Int, x)
-    r == 24 ? 0 : r
-end
-
-mlt_levels = ["13", "15", "17", "19", "21", "23", "1", "3", "5", "7", "9", "11"]
-
-make_gdf(df) = @chain df begin
-    @transform(
-        :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
-        :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
-        # :mlt_bin = mlt_round.(:mlt_elx),
-        :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
-    )
-    @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
-end
-
-gdf = make_gdf(sdf)
 ```
 
 ### MLT, maxAE space
@@ -159,9 +187,6 @@ tdf = let binedges_ae = [0, 100, 300], binedges_mlt = 0:2:24
     end
 end
 
-# Reorder MLT levels: 12→24, then 0→12
-levels!(tdf.mlt_bin, mlt_levels)
-
 #  plot in such a way, that it will be MLT from 12 to 24, and then from 0 to 12, so 24=0 will be in the middle of figure
 f = Figure(; size=(600, 600))
 base_plt = data(tdf) * mapping(:mlt_bin => "MLT", :maxAE_bin => "AE") * visual(Heatmap)
@@ -177,22 +202,26 @@ end
 easy_save("params_mlt_ae_mean")
 ```
 
+![](../figures/params_mlt_ae_mean.png)
+
 ## MLT, MLAT space, separately for three MaxAE ranges
 
 ```{julia}
-tdf_spatial = combine(gdf, nrow => :n, renamecols=false) |> dropmissing!
-levels!(tdf_spatial.mlt_bin, mlt_levels)
-plt = data(tdf_spatial) * mapping(:mlt_bin => "MLT", :mlat_bin => "MLAT", :n) * visual(Heatmap) * mapping(col=:maxAE_bin)
-fg = draw(plt; figure=(; size=(1000, 300)))
-orig_yticks = fg.grid[1].axis.yticks[]
-# do not print odd numbers
-fg.grid[1].axis.yticks[] = orig_yticks[1][2:2:end], orig_yticks[2][2:2:end]
-easy_save("n_mlt_mlat")
+const m2axis = (; xtickformat=mlt_tickformat, xticks=0:3:24)
+let df = combine(gdf, nrow => :n, renamecols=false) |> dropmissing!
+    plt = data(df) * mapping(:mlt_bin => mlt2x => "MLT", :mlat_bin => "MLAT", :n) * visual(Heatmap) * mapping(col=:maxAE_bin)
+    fg = draw(plt; figure=(; size=(1000, 300)), axis=m2axis)
+    orig_yticks = fg.grid[1].axis.yticks[]
+    # do not print odd numbers
+    step = 3
+    fg.grid[1].axis.yticks[] = orig_yticks[1][1:step:end], orig_yticks[2][1:step:end]
+    easy_save("n_mlt_mlat")
+end
 ```
 
 ![](../figures/n_mlt_mlat.png)
 
-### Superposed energy flux analysis
+### * Superposed energy flux analysis
 
 ```{julia}
 mlt_mlat_ranges = [((2, 4), (70, 72)), ((6, 8), (68, 70)), ((6, 8), (61, 63)), ((12, 14), (62, 64)), ((16, 18), (65.5, 67.5))]
@@ -205,6 +234,8 @@ end
 rowgap!(f.layout, 2)
 easy_save("energy_spectra_mlt_mlat")
 ```
+
+![energy_spectra_mlt_mlat](../figures/energy_spectra_mlt_mlat.pdf)
 
 ### Model parameters variation
 
@@ -222,32 +253,32 @@ easy_save("params_mlt_mlat_median")
 
 ![](../figures/params_mlt_mlat_mean.png) See also [params_mlt_mlat_median.png](../figures/params_mlt_mlat_median.png)
 
-### Total number flux and energy flux variation
+## * Total number flux and energy flux variation
 
 ```{julia}
-J_vars = [:J1 => "(a) Number flux (ExpPow)", :J2 => "(b) Number flux (Kappa)", :JE1 => "(c) Energy flux (ExpPow)", :JE2 => "(d) Energy flux (Kappa)", :JE_e10 => "(e) Energy flux (E>10 keV)"]
+J_vars = [:J1 => "(a) Number flux (ExpPow)", :J2 => "(b) Number flux (Kappa)", :JE1 => "(c) Energy flux (ExpPow)", :JE2 => "(d) Energy flux (Kappa)"]
 let vars = J_vars
     f = Figure(; size=(1200, 700))
     df = combine(gdf, _variable.(vars) .=> mean, renamecols=false) |> dropmissing!
-    plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
+    plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11)))
     easy_save("flux_mlt_mlat")
 end
 ```
 
-![](../figures/flux_mlt_mlat.png)
-
-Effects of different mechanisms on the fluxes result
-
 ```{julia}
-for (key, mdf) in pairs(groupby(sdf, :mechanism))
-    let gdf = make_gdf(mdf), vars = J_vars
-        f = Figure(; size=(1200, 700))
-        df = combine(gdf, _variable.(vars) .=> mean, renamecols=false) |> dropmissing!
-        plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
-        easy_save("flux_mlt_mlat_$(key.mechanism)"; force=true)
+for func in (median, mean)
+    let vars = [:J2 => L"(a) $J_κ$: Number flux (Kappa)", :JE2 => L"(b) $JE_κ$: Energy flux (Kappa)", :R_J2 => L"(c) $J_κ / J_{total}$", :R_JE2 => L"(d) $JE_κ / JE_{total}$"]
+        f = Figure(; size=(1000, 700))
+        df = combine(gdf, _variable.(vars) .=> func, renamecols=false) |> dropmissing!
+        plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11)))
+        display(f)
+        easy_save("flux_ratio_mlt_mlat_$(func)")
     end
 end
 ```
+
+![](../figures/flux_mlt_mlat.png)
+![](../figures/flux_ratio_mlt_mlat_median.png)
 
 ####
 
@@ -287,13 +318,7 @@ end
 most_likely_params(sdf, (:log_A2, :E_c2, :κ))
 
 tdf_most_likely = let
-    @chain sdf begin
-        @transform(
-            :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
-            :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
-            :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
-        )
-        @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
+    @chain gdf begin
         combine(
             [:log_A1, :E_c1, :γ] => most_likely_params => :model1,
             [:log_A2, :E_c2, :κ] => most_likely_params => :model2,
@@ -338,20 +363,10 @@ _maximum(h::Hist1D) = maximum(h.bincounts)
 
 hist_funcs = HistFunc.(var_edges)
 
-tdf = let mlat_binedges = 49:2:81
-    @chain sdf begin
-        @transform(
-            :maxAE_bin = cut(:maxAE, ae_binedges; extend=true),
-            :mlt_bin = cut(:mlt_elx, mlt_binedges; extend=missing, labels=mlt_fmt),
-            :mlat_bin = cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt),
-        )
-        @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
-        combine(vars .=> hist_funcs, renamecols=false)
-        dropmissing!
-    end
+tdf = @chain gdf begin
+    combine(vars .=> hist_funcs, renamecols=false)
+    dropmissing!
 end
-# ae_levels = levels(tdf.maxAE_bin)
-mlt_levels = levels(tdf.mlt_bin)
 ```
 
 #### Visualizing the empirical pdf
@@ -708,13 +723,6 @@ end
 # Print statistical summary
 summarize_parameter_distributions(df)
 ```
-
-
-
-
-
-
-
 
 ## Parameter Statistics and Correlations
 

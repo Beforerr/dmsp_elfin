@@ -4,7 +4,6 @@ using Dates
 using DataFrames, DataFramesMeta
 using DimensionalData
 using Dictionaries
-import Speasy
 using NaNStatistics
 using Statistics: mean
 
@@ -15,8 +14,7 @@ using SPEDAS
 using GeoCotrans
 
 export energies
-export dist, mlt_dist, local_mlt_mean
-export maxAE
+export dist, mlt_dist, local_mlt_mean, Δtrange
 export extend
 
 # Import and re-export from SpectralModels
@@ -25,19 +23,22 @@ using SpectralModels: TransformKappaDistribution
 using SpectralModels: init_guess, fit, fit_flux_two_step, fit_two_flux
 
 include("utils.jl")
-include("AACGM.jl")
-include("makie.jl")
 
 ntime(x) = size(x, 1)
 extend(timerange, Δt) = (timerange[1] - Δt, timerange[2] + Δt)
 
-# use maxAE for three hours before the event
-# See https://omniweb.gsfc.nasa.gov/form/omni_min_def.html for difference between HRO and HRO2
-function maxAE(trange, dt = Hour(3))
-    pre_range = DateTime.(trange) .- dt
-    ae = Speasy.get_data("cda/OMNI_HRO_1MIN/AE_INDEX", pre_range...)
-    # CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", pre_range...; orig=true, clip=true)
-    return isempty(ae) ? missing : maximum(ae), ae
+function Δtrange(trange1, trange2)
+    # Return 0 if ranges overlap, otherwise return distance between them
+    t1_start, t1_end = DateTime.(extrema(trange1))
+    t2_start, t2_end = DateTime.(extrema(trange2))
+
+    # Check for overlap: ranges overlap if one starts before the other ends
+    if t1_start <= t2_end && t2_start <= t1_end
+        return Millisecond(0)
+    end
+
+    # No overlap: return distance between closest endpoints
+    return min(abs(t1_start - t2_end), abs(t2_start - t1_end))
 end
 
 function integrate_diff_flux(flux)

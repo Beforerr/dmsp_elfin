@@ -13,3 +13,18 @@ Ovation Prime 2010 auroral precipitation model
 - [2.3 - CCMC](https://ccmc.gsfc.nasa.gov/models/Ovation-Prime~2.3/)
 
 > Ovation Prime provides statistical distribution of auroral precipitation in the ionosphere obtained from 11 years of DMSP electrostatic analyzer data.
+
+
+### Superposed energy flux
+
+![Superposed energy flux](./figures/energy_spectra_mlt_mlat.pdf)
+
+### κ part contribution
+
+:::{#fig-κ-ratio}
+![](./figures/flux_ratio_mlt_mlat_mean.png)
+
+Comparison of spectral parameters: (a) total energy flux, (b) total number flux, (c) flux ratio from energetic particles, (d) energy flux ratio from energetic particles, and (e) averaged electron energy.
+:::
+
+@fig-κ-ratio presents the total energy flux, total number flux, flux ratio from kappa distribution particles, energy flux ratio from kappa distributino and averaged electron energy —as functions of MLT and MLAT, sorted by AE index levels. The results indicate that the strongest contributions from energetic electrons are concentrated in the dawn sector at MLAT between approximately 65° and 85°. Although both the total number flux and total energy flux are lower in this region compared to the primary dayside precipitation region, the fractional contribution from the high-energy component is significantly larger.

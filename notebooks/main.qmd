@@ -1,8 +1,6 @@
 ## Loading ELFIN Flux and State Data
 
 ```{julia}
-import Pkg
-Pkg.activate("docs")
 using DmspElfinConjunction, DMSP, ELFIN
 using Dates
 using TimeseriesUtilities

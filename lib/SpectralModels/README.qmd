@@ -18,8 +18,10 @@ Some spectral models for fitting particle flux data.
 The integral near E=0 converges iff γ<1.
 
 $$
-f(E) = A · E^{-γ} · \exp\left(-\frac{E}{E_c}\right)
+f(E) = A · (E/E_0)^{-γ} · \exp\left(-\frac{E}{E_c}\right)
 $$
+
+Where E_0 is the reference energy.
 
 - [gammapy](https://docs.gammapy.org/2.0/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html)
 - [PLSuperExpCutoff](https://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html#PLSuperExpCutoff)
@@ -31,6 +33,10 @@ f(E) = A · \left( \frac{E}{E_b} \right)^{-\gamma_1} · \left[1 + \left(\frac{E}
 $$
 
 - [Overview of broken power law functions and fitting them to data](https://gist.github.com/cgobat/12595d4e242576d4d84b1b682476317d)
+
+### Kappa distribution
+
+
 
 ### Fit Fluxes
 

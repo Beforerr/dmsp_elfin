@@ -1,4 +1,5 @@
 using Beforerr: fhist
+using Latexify
 
 const 𝐦 = (;
     mlat = :mlat => abs => "|MLAT| (degrees)",
@@ -20,53 +21,56 @@ end
 
 _variable(x) = x isa Pair ? x[1] : x
 
-fmt(from, to, i; leftclosed, rightclosed) = string(from + (to - from) / 2)
-_mlat(s) = parse(Float64, String(s))
-mlt_fmt(from, to, i; leftclosed, rightclosed) = string(Int(from + (to - from) / 2))
+_mlat(s::AbstractString) = parse(Float64, String(s))
+_mlat(s::Number) = s
+
+include("mltmlatplot.jl")
+_hidexdecorations!(ax) = Makie.hidexdecorations!(ax)
+_hidexdecorations!(::PolarAxis) = nothing
+_hideydecorations!(ax) = Makie.hideydecorations!(ax)
+_hideydecorations!(::PolarAxis) = nothing
 
 # Plot each variable for each AE range
 # Create figure with 3 rows (one per AE range) and 6 columns (one per variable)
-function plot_params_variation(f, df, vars; colorranges = (;), facet = :row)
-    # Reorder MLT levels: 12→24, then 0→12
-    levels!(df.mlt_bin, mlt_levels)
-    # xtickformat = x -> string.(mod.(x .+ 12, 24))
-    axis = (; xlabel = "MLT", ylabel = "MLAT")
-    ae_bins = unique(df.maxAE_bin)
+function plot_params_variation(f, df, vars; kw...)
+    return plot_params_variation(f, ((df,) .=> vars)...; kw...)
+end
 
-    ticks = WilkinsonTicks(4; k_max = 4)
-    for (col_idx, varp) in enumerate(vars)
+function plot_params_variation(f, dfvars::Pair...; colorranges = (;), facet = :row, style = Axis, axis = (;))
+    ae_bins = unique(dfvars[1][1].maxAE_bin)
+    axs = mapreduce(vcat, enumerate(dfvars)) do (col_idx, (df, varp))
         var = _variable(varp)
-        label = varp isa Pair ? varp[2] : string(varp)
+        scale_label = varp isa Pair ? last(varp) : nothing
+        label = isnothing(scale_label) ? string(varp) : (scale_label isa Pair ? last(scale_label) : scale_label)
+        colorscale = scale_label isa Pair ? first(scale_label) : identity
         colorrange = get(colorranges, var, quantile(df[!, var], [0.02, 0.98]))
-        for (row_idx, ae_bin) in enumerate(ae_bins)
-            tdf_subset = @rsubset(df, :maxAE_bin == ae_bin; view = true)
+        map(enumerate(ae_bins)) do (row_idx, ae_bin)
+            tdf_subset = @rsubset(df, :maxAE_bin == ae_bin)
             values = tdf_subset[!, var]
-            fp = facet == :row ? (row_idx, col_idx) : (col_idx, row_idx)
-            ax = Axis(f[fp...]; axis...)
-            # Create heatmap
-            x = tdf_subset.mlt_bin
-            y = tdf_subset.mlat_bin
-            # mlt_indices = mod.(x .+ 12, 24)
-            mlt_indices = levelcode.(x)
-            mlat_indices = _mlat.(y)
-            hm = heatmap!(ax, mlt_indices, mlat_indices, values; colorrange)
-
-            # Customize x-axis ticks for MLT
-            ax.xticks = (1:length(mlt_levels), string.(CategoricalArrays.levels(x)))
+            fpos = facet == :row ? (row_idx, col_idx) : (col_idx, row_idx)
+            fp = f[fpos...]
+            ax, hm = style != PolarAxis ? begin
+                    mltmlatplot(fp, tdf_subset.mlt_bin, tdf_subset.mlat_bin, values; colorscale, colorrange, axis)
+                end : begin
+                    ax, pf = polarplot(fp, tdf_subset.mlt_bin, tdf_subset.mlat_bin, values; colorrange)
+                    rlims!(ax, nothing, 35)
+                    ax, pf
+                end
             # Add colorbar
             cb_pos = facet == :row ? (row_idx - 1, col_idx) : (col_idx, row_idx - 1)
             vertical = !(facet == :row)
-            row_idx == 1 && Colorbar(f[cb_pos...], hm; label, vertical = false, ticks)
+            row_idx == 1 && Colorbar(f[cb_pos...], hm; label, vertical = false)
             # Add AE range label on the left
             ae_pos = facet == :row ? (row_idx, 0) : (0, row_idx)
             col_idx == 1 && Label(f[ae_pos...], "AE: $(ae_bin)", rotation = π / 2, tellheight = false, font = :bold)
-
-            row_idx != length(ae_bins) && hidexdecorations!(ax)
-            col_idx != 1 && hideydecorations!(ax)
+            row_idx != length(ae_bins) && _hidexdecorations!(ax)
+            col_idx != 1 && _hideydecorations!(ax)
+            ax
         end
         # plt = data(tdf_spatial) * mapping(:mlt_bin, :mlat_bin, var) * visual(Heatmap) * mapping(row=:maxAE_bin)
     end
-    return
+    linkaxes!(axs...)
+    return axs
 end
 
 function plot_empirical_conditional_density(f, df, vars; mlt_idxs = 1:2:12)
@@ -351,7 +355,10 @@ function plot_superposed_spectra!(
             # Compute total flux statistics (both components)
             J_total = median(sample_df.J1 .+ sample_df.J2)
             JE_total = median(sample_df.JE1 .+ sample_df.JE2)
-            text = L"%$(latexxx((; J_κ, JE_κ)))\\%$(latexxx((; J_total, JE_total)))"
+            R_J2 = round(median(sample_df.R_J2), digits = 2)
+            R_JE2 = round(median(sample_df.R_JE2), digits = 2)
+            R_tex = L"$J_{\kappa}/J_{total}=%$(R_J2)$, $JE_{\kappa}/JE_{total}=%$(R_JE2)$"
+            text = L"%$(latexxx((; J_κ, JE_κ)))\\%$(latexxx((; J_total, JE_total)))\\%$(R_tex)"
             text!(ax, 0.05, 0.05; text, space = :relative)
 
             push!(axs, ax)

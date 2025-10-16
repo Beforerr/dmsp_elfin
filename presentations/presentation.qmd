@@ -19,7 +19,7 @@ This work combines ELFIN precipitating electron measurements with DMSP spectra a
 - Missions: ELFIN precipitating fluxes and DMSP electron spectra during 2020–2022.
 - Activity: We tag each conjunction by the maximum AE value during the ELFIN window and analyze three AE ranges: [0,100], [100,300], and [300,1498] nT.
 
-![](./figures/quicklook.png)
+![](../figures/quicklook.png)
 
 ### Conjunction selection
 
@@ -37,50 +37,46 @@ We first identify continuous ELFIN intervals and, for each, search DMSP satellit
 At each valid MLAT bin we jointly fit a two‑component spectrum to DMSP+ELFIN data. A low‑energy exponential cutoff power law (ExpPow) and a high‑energy kappa tail share a transition energy `Emin`:
 
 ExpPow
-$$f(E) = A\,E^{-\gamma}\,\exp(-E/E_c)$$
+
+$$
+j_{ep}(E) = A_1 (\frac{E}{E_0})^{-γ}\,\exp(-\frac{E}{E_c})
+$$
+
+with $J_{ep} = \int j_{ep}(E) dE$
 
 Kappa @espinozaIonElectronDistribution2018
-$$f(E) = A\,E\,\bigl(1 + E/(\kappa E_c)\bigr)^{-(\kappa+1)}$$
 
-![](./figures/flux_with_fit.png)
+$$
+j_κ(E) = A_2 \frac{E}{E_0} (1 + \frac{E}{κ E_h})^{-κ-1}
+$$
+
+![](../figures/flux_with_fit.png)
 
 We compute integrated number flux and energy flux from each component and from the combined model (e.g., energy flux for E>10 keV). For population statistics we retain fits that satisfy broad physical/quality filters (e.g., reasonable parameter bounds) as used in the analysis notebooks.
 
-### Mechanism classification
-
-Using ELFIN spin‑resolved fluxes we form the ratio R = |j_para − j_anti|/j_perp to diagnose scattering. We classify each ELFIN MLAT bin as dominated by whistler‑mode waves or by field‑line curvature scattering (FLCS) using simple, threshold‑based rules implemented (night‑side and higher‑latitude preference for FLCS; low‑latitude, softer‑with‑energy behavior for whistlers).
-
 ## Results
+
+![Superposed energy flux](../figures/energy_spectra_mlt_mlat.png)
 
 ### Sampling and parameters
 
 Conjunction sampling by MLT/MLAT and AE:
 
-![](./figures/n_mlt_mlat.png)
+![](../figures/n_mlt_mlat.png)
 
 Mean fitted parameters across MLT/MLAT and AE bins:
 
-![](./figures/params_mlt_mlat_mean.png)
+![](../figures/params_mlt_mlat_mean.png)
 
 ### Integrated fluxes
 
 The combined model reproduces coherent spatial patterns that intensify with AE. Rows show AE ranges; columns show number and energy flux from the ExpPow and Kappa components and the total energy flux above 10 keV:
 
-![](./figures/flux_mlt_mlat.png)
+![](../figures/flux_mlt_mlat.png)
+
+![](../figures/flux_ratio_mlt_mlat_mean.png)
 
 Across activity levels we find enhanced precipitation in the premidnight–postmidnight sector and concentrated between roughly 65–75° MLAT, with poleward expansion and intensification during higher AE.
-
-### Mechanism‑conditioned flux maps
-
-Conditioning on ELFIN‑only mechanism tags clarifies two regimes—whistler‑mode scattering dominating at lower |MLAT| and FLCS dominating poleward:
-
-![](./figures/flux_mlt_mlat_WHISTLER.png)
-
-![](./figures/flux_mlt_mlat_FLCS.png)
-
-![](./figures/flux_mlt_mlat_OTHER.png)
-
-These partitions highlight complementary sources: whistlers mapping to the inner magnetosphere at lower latitudes and FLCS along more poleward field lines.
 
 ## Discussion and Outlook
 
