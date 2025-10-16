@@ -12,3 +12,10 @@ ssjread
 logfile.txt
 /.quarto/
 _site/
+release
+_manuscript/
+**/*.quarto_ipynb
+site_libs
+/.luarc.json
+overleaf/
+_extensions

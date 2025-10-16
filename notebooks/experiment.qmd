@@ -1,0 +1,28 @@
+# Experimental Analysis
+
+Using ELFIN spin‑resolved fluxes we form the ratio R = |j_para − j_anti|/j_perp to diagnose scattering. We classify each ELFIN MLAT bin as dominated by whistler‑mode waves or by field‑line curvature scattering (FLCS) using simple, threshold‑based rules implemented (night‑side and higher‑latitude preference for FLCS; low‑latitude, softer‑with‑energy behavior for whistlers).
+
+## Different mechanisms
+
+Effects of different mechanisms on the fluxes result
+
+```{julia}
+for (key, mdf) in pairs(groupby(sdf, :mechanism))
+    let gdf = make_gdf(mdf), vars = J_vars
+        f = Figure(; size=(1200, 700))
+        df = combine(gdf, _variable.(vars) .=> mean, renamecols=false) |> dropmissing!
+        plot_params_variation(f, df, vars; colorranges=(; JE1=(1e10, 2.6e11), JE2=(1e10, 2.6e11), JE_e10=(1e10, 2.6e11)))
+        easy_save("flux_mlt_mlat_$(key.mechanism)"; force=true)
+    end
+end
+```
+
+Conditioning on ELFIN‑only mechanism tags clarifies two regimes—whistler‑mode scattering dominating at lower |MLAT| and FLCS dominating poleward:
+
+![](./figures/flux_mlt_mlat_WHISTLER.png)
+
+![](./figures/flux_mlt_mlat_FLCS.png)
+
+![](./figures/flux_mlt_mlat_OTHER.png)
+
+These partitions highlight complementary sources: whistlers mapping to the inner magnetosphere at lower latitudes and FLCS along more poleward field lines.

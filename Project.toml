@@ -1,48 +1,58 @@
-name = "DmspElfinConjunction"
-uuid = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
-version = "0.1.0"
-authors = ["Zijin Zhang <zijin@ucla.edu>"]
-
 [deps]
+Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+Beforerr = "49aed396-608e-4c3f-b6d6-a749216c9ea7"
+CDAWeb = "950ff2a9-823f-469c-91a7-754a5d85edca"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+DMSP = "18f86b58-c793-4198-b447-5463fba1ecf3"
+DMSPData = "d5333723-18be-412f-8474-053889153fe2"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+DmspElfinConjunction = "c0e9c7d8-0e34-4f1c-b3e5-e3c8d6f1f1b3"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+ELFINData = "fcbbe0ba-d66e-4e8f-95dd-8166f95b70c5"
+FHist = "68837c9b-b678-4cd5-9925-8a54edc8f695"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoAACGM = "7d0bd8ea-8a67-4204-9dfc-7af11c683dec"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
+IRBEM = "d0b46c7b-8a8f-4d20-a1b4-6e9a4a1e4e5f"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-NaNStatistics = "b946abbf-3ea7-4610-9019-9858bfdeaf2d"
-NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
-SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
-SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+PairPlots = "43a3c2be-4208-490b-832a-a21dcd55d7da"
+PrecipitatingFluxModels = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+SpaceDataModel = "0b37b92c-f0c5-4a52-bd5c-390dec20857c"
+SpacePhysicsMakie = "0c28ffd8-ae30-4a56-b2e4-f8332c621ad2"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
-SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 SpectralModels = "8cde0a7b-b49c-424d-892f-63d9ca9e3520"
-SphericalHarmonics = "c489a379-e885-57ff-9236-bd896d33c250"
-StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
+UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [sources]
+Beforerr = {path = "/Users/zijin/.julia/dev/Beforerr"}
+DMSP = {path = "lib/DMSP"}
+DMSPData = {path = "/Users/zijin/.julia/dev/DMSPData"}
+DmspElfinConjunction = {path = "lib/DmspElfinConjunction"}
+ELFINData = {path = "/Users/zijin/.julia/dev/ELFINData"}
+GeoAACGM = {path = "/Users/zijin/.julia/dev/GeoAACGM"}
+IRBEM = {path = "/Users/zijin/.julia/dev/IRBEM"}
+PrecipitatingFluxModels = {path = "lib/PrecipitatingFluxModels"}
+SpaceDataModel = {path = "/Users/zijin/.julia/dev/SpaceDataModel"}
+SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
+Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}
 SpectralModels = {path = "lib/SpectralModels"}
-SphericalHarmonics = {rev = "master", url = "https://github.com/jishnub/SphericalHarmonics.jl"}
+TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}
 
 [compat]
 DataFramesMeta = "0.15.4"
-Dictionaries = "0.4.5"
 DimensionalData = "0.29.16"
 GeoCotrans = "0.1.2"
-LaTeXStrings = "1.4.0"
-LsqFit = "0.15"
-Makie = "0.22, 0.23, 0.24"
-NaNStatistics = "0.6.54"
-NonlinearSolve = "4.9.0"
-SciMLBase = "2.96.0"
-Speasy = "0.4.5"
-SpecialFunctions = "2.6.1"
-StaticArrays = "1.9.15"
+IRBEM = "0.1.4"
+Speasy = "0.4"
 Statistics = "1"
-TransformVariables = "0.8.17"

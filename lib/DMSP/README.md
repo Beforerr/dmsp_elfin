@@ -1,3 +1,374 @@
 # DMSP
 
-Load DMSP data from Madrigal.
+```{julia}
+using DMSP.Madrigal
+```
+
+```{julia}
+get_experiments(8100)
+```
+
+There are strange spikes for GLON (Geographic longitude) from files downloaded from Madrigal. Also, there's inconsistency between the MLT from the file downloaded and the MLT calculated.
+
+```{julia}
+# Compare this geo with the one from SSCWeb
+dmsp_geo_file = geod2geo(dmsp_geod)
+tplot([[dmsp_geo_file.x, dmsp_geo[:, 1]], [dmsp_geo_file.y, dmsp_geo[:, 2]], [dmsp_geo_file.z, dmsp_geo[:, 3]], [dmsp_mlt_file, dmsp_mlt], dmsp_geod.glon, dmsp_geod.gdlat])
+```
+
+## Elsewhere
+
+- [geospacelab](https://github.com/JouleCai/geospacelab)
+- [ocbpy](https://github.com/aburrell/ocbpy): Convert between magnetic and adaptive, polar boundary coordinates
+    - [DMSP SSJ Boundaries](https://ocbpy.readthedocs.io/en/latest/examples/ex_dmsp.html)
+
+## Check
+
+Compare the MLAT, MLT of DMSP from our calculation and the one in the file
+
+```{julia}
+using SpaceDataModel: set!
+
+dmsp_geod = DMSP.geod(trange, id)
+
+dmsp_calc_aacgm = dmsp_get_aacgm(timerange, id)
+dmsp_calc_mlat = getindex.(dmsp_calc_aacgm, 1)
+set!(dmsp_calc_mlat.metadata, :label => "AACGM", :ylabel => "MLAT")
+dmsp_file_mlat = DMSP.load(timerange, id, "mlat")
+set!(dmsp_file_mlat.metadata, :label => "File", :ylabel => "MLAT")
+
+dmsp_mlt_file = DMSP.load(timerange, id, "mlt")
+set!(dmsp_mlt_file.metadata, :label => "File", :ylabel => "MLT")
+
+tplot(([dmsp_calc_mlat, dmsp_file_mlat],))
+tplot(([dmsp_calc_mlt, dmsp_file_mlt],))
+```
+
+```{julia}
+norm_times(ts) = (ts .- ts[1]) ./ (ts[end] - ts[1])
+
+f = Figure()
+ax1 = Axis3(f[1, 1], aspect=(2, 1, 1), xlabel="Time", ylabel="MLat", zlabel="MLT")
+
+lines!(ax1, norm_times(times(elfin_x_geo)), parent(elx_aacgm.mlat), parent(elx_mlt), linewidth=4)
+
+for i in 1:length(dmsp_xs_geo)
+    lines!(ax1, norm_times(times(dmsp_xs_geo[i])), parent(dmsp_xs_aacgm[i].mlat), parent(dmsp_xs_mlt[i]))
+end
+
+f
+```
+
+```{julia}
+using SpacePhysicsMakie
+f = Figure()
+dmsp_tvars = (dms_ds.el_d_flux, dms_ds.ion_d_flux, (dmspf16_aacgm.mlat, dms_ds.mlat), (dmspf16_mlt, dms_ds.mlt))
+elx_tvars = (elx_aacgm.mlat, elx_mlt)
+tplot(f[1, 1], dmsp_tvars)
+tplot(f[1, 2], elx_tvars)
+f
+```
+
+## Validation of DMSP Fluxes
+
+@redmonNewDMSPDatabase2017
+
+> The total number (energy) flux is calculated in the following manner (adapted from Hardy et al. [2008]) by “integrating” differential number (energy) fluxes (equation (2)) over energy:
+
+$$
+J_{N, \text { Total }}(\Omega)=j_N\left(E_1, \Omega\right)\left(E_2-E_1\right)+\left[\sum_{i=2}^{18} j_N\left(E_i, \Omega\right) \frac{\left(E_{i+1}-E_{i-1}\right)}{2}\right]+j_N\left(E_{19}, \Omega\right)\left(E_{19}-E_{18}\right) .
+$$
+
+```{julia}
+dmsp_flux = DMSP.load(["2010-01-10T00:05", "2010-01-10T00:35"], 16, "el_d_ener")
+dmsp_J = integrate_diff_flux(dmsp_flux)
+
+dmsp_J = SPEDAS.set_meta(dmsp_J, :scale => log10)
+tplot([dmsp_flux, dmsp_J])
+ylims!(current_axis(), 1e9, 1e13)
+current_figure()
+```
+
+In this project, we are trying to find conjunction event when DMSP and ELFIN satellites are close to each other. 
+
+By conjunction, we define the difference in MLT $MLT_{DMSP}-MLT_{ELFIN} < d_1$ and and MLAT $MLAT_{DMSP}-MLAT_{ELFIN} < d_2$ is smaller for a period of time $T > T_{min}$. 
+
+### Metadata
+
+```julia
+
+📂 HDF5.Group: /Data (file: data/dms_20220326_16e.001.hdf5)
+├─ 📂 Array Layout
+│  ├─ 📂 1D Parameters
+│  │  ├─ 🔢 Data Parameters
+│  │  ├─ 🔢 el_i_ener
+│  │  ├─ 🔢 el_i_flux
+│  │  ├─ 🔢 el_m_ener
+│  │  ├─ 🔢 gdalt
+│  │  ├─ 🔢 gdlat
+│  │  ├─ 🔢 glon
+│  │  ├─ 🔢 ion_i_ener
+│  │  ├─ 🔢 ion_i_flux
+│  │  ├─ 🔢 ion_m_ener
+│  │  ├─ 🔢 mlat
+│  │  ├─ 🔢 mlong
+│  │  ├─ 🔢 mlt
+│  │  └─ 🔢 sat_id
+│  ├─ 📂 2D Parameters
+│  │  ├─ 🔢 Data Parameters
+│  │  ├─ 🔢 ch_ctrl_ener
+│  │  ├─ 🔢 el_d_ener
+│  │  ├─ 🔢 el_d_flux
+│  │  ├─ 🔢 ion_d_ener
+│  │  └─ 🔢 ion_d_flux
+│  ├─ 🔢 Layout Description
+│  ├─ 🔢 ch_energy
+│  └─ 🔢 timestamps
+└─ 🔢 Table Layout
+
+ (mnemonic = "YEAR", description = "Year (universal time)", isError = 0, units = "y", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "MONTH", description = "Month (universal time)", isError = 0, units = "m", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "DAY", description = "Day (universal time)", isError = 0, units = "d", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "HOUR", description = "Hour (universal time)", isError = 0, units = "h", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "MIN", description = "Minute (universal time)", isError = 0, units = "m", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "SEC", description = "Second (universal time)", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "RECNO", description = "Logical Record Number", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "KINDAT", description = "Kind of data", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "KINST", description = "Instrument Code", isError = 0, units = "N/A", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "UT1_UNIX", description = "Unix seconds (1/1/1970) at start", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "UT2_UNIX", description = "Unix seconds (1/1/1970) at end", isError = 0, units = "s", category = "Madrigal Hdf5 Prolog Parameters")
+ (mnemonic = "GDLAT", description = "Geodetic latitude of measurement", isError = 0, units = "deg", category = "Geographic Coordinate")
+ (mnemonic = "GLON", description = "Geographic longitude of measurement", isError = 0, units = "deg", category = "Geographic Coordinate")
+ (mnemonic = "GDALT", description = "Geodetic altitude (height)", isError = 0, units = "km", category = "Geographic Coordinate")
+ (mnemonic = "SAT_ID", description = "Satellite id", isError = 0, units = "N/A", category = "Radar Instrument Operation Parameter")
+ (mnemonic = "MLT", description = "Magnetic local time", isError = 0, units = "hour", category = "Time Related Parameter")
+ (mnemonic = "MLAT", description = "Magnetic latitude", isError = 0, units = "deg", category = "Magnetic Coordinate")
+ (mnemonic = "MLONG", description = "Magnetic Longitude", isError = 0, units = "deg", category = "Magnetic Coordinate")
+ (mnemonic = "EL_I_FLUX", description = "Integrated elect num flux (1/cm2s*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "ION_I_FLUX", description = "Integrated ion num flux (1/cm2s*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "EL_I_ENER", description = "Integr elect energy flux (eV/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "ION_I_ENER", description = "Integr ion energy flux (eV/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "EL_M_ENER", description = "Mean electron energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "ION_M_ENER", description = "Mean ion energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "CH_ENERGY", description = "Channel central energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "CH_CTRL_ENER", description = "Channel spacing energy", isError = 0, units = "eV", category = "Energy Parameter")
+ (mnemonic = "EL_D_FLUX", description = "Diff electron num flux (1/cm2eVs*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "ION_D_FLUX", description = "Diff ion num flux (1/cm2eVs*ster)", isError = 0, units = "numFlux", category = "Energy Parameter")
+ (mnemonic = "EL_D_ENER", description = "Diff electron energy flux (1/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+ (mnemonic = "ION_D_ENER", description = "Diff ion energy flux (1/cm2s*ster)", isError = 0, units = "enFlux", category = "Energy Parameter")
+```
+
+
+
+```
+							Experiment Notes:
+Catalog information from record 0:                                              
+                                                                                
+KRECC       2001 Catalogue Record, Version 1                                    
+KINSTE     8100 Defense Meteorological Satellite Program                        
+MODEXP    10217                                                                 
+IBYRE       2020 Beginning year                                                 
+IBDTE        101 Beginning month and day                                        
+IBHME          0 Beginning UT hour and minute                                   
+IBCSE          0 Beginning centisecond                                          
+IEYRE       2020 Ending year                                                    
+IEDTE        102 Ending month and day                                           
+IEHME          0 Ending UT hour and minute                                      
+IECSE          0 Ending centisecond                                             
+CPI      Patricia Doherty                                                       
+IBYRT               2020 Beginning year                                         
+IBDTT               0101 Beginning month and day                                
+IBHMT               0000 Beginning UT hour and minute                           
+IBCST               0000 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT               0102 Ending month and day                                   
+IEHMT               0000 Ending UT hour and minute                              
+IECST               0000 Ending centisecond                                     
+                                                                                
+Header information from record 1:                                               
+                                                                                
+KRECH               3002 Header Record, Version 3                               
+KINST     8100 Defense Meteorological Satellite Program                         
+KINDAT    10217 F17 flux/energy values                                          
+CKINDAT This file contains all flux/energy parameters measured on the DMSP      
+CKINDAT spacecraft.                                                             
+CKINDAT This file is all NASA level 1 data - data quality is not included.      
+CKINDAT Background counts have been                                             
+CKINDAT subtracted from these values according to the following algorithm:      
+CKINDAT Looks for a nearly constant                                             
+CKINDAT count rate in the higher energy channels of the electron or ion         
+CKINDAT spectrum. If such a nearly constant                                     
+CKINDAT count rate is found, then that rate plus one sigma of the rate is       
+CKINDAT subtracted from all counts in the                                       
+CKINDAT given spectrum. That background is then cached and used for future      
+CKINDAT measurements that do not fit that                                       
+CKINDAT criteria. If a cached background level is used and too many values      
+CKINDAT would be negative, the background                                       
+CKINDAT is reduced by the average negative value. In any case, counts are       
+CKINDAT never set below zero.                                                   
+IBYRT               2020 Beginning year                                         
+IBDTT                101 Beginning month and day                                
+IBHMT                  0 Beginning UT hour and minute                           
+IBCST                  0 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT                102 Ending month and day                                   
+IEHMT                  0 Ending UT hour and minute                              
+IECST                  0 Ending centisecond                                     
+C 1D Parameters:                                                                
+KODS(0)           54 Magnetic local time                              hour      
+KODS(1)          110 Geodetic altitude (height)                       km        
+KODS(2)          160 Geodetic latitude of measurement                 deg       
+KODS(3)          170 Geographic longitude of measurement              deg       
+KODS(4)          228 Magnetic latitude                                deg       
+KODS(5)          248 Magnetic Longitude                               deg       
+KODS(6)         2172 Integrated elect num flux (1/cm2s*ster)          numFlux   
+KODS(7)         2174 Integrated ion num flux (1/cm2s*ster)            numFlux   
+KODS(8)         2176 Integr elect energy flux (eV/cm2s*ster)          enFlux    
+KODS(9)         2178 Integr ion energy flux (eV/cm2s*ster)            enFlux    
+KODS(10)        2182 Mean electron energy                             eV        
+KODS(11)        2184 Mean ion energy                                  eV        
+KODS(12)        4200 Satellite id                                     N/A       
+C 2D Parameters:                                                                
+KODM(0)         2160 Diff electron num flux (1/cm2eVs*ster)           numFlux   
+KODM(1)         2162 Diff electron energy flux (1/cm2s*ster)          enFlux    
+KODM(2)         2164 Diff ion num flux (1/cm2eVs*ster)                numFlux   
+KODM(3)         2166 Diff ion energy flux (1/cm2s*ster)               enFlux    
+KODM(4)         2168 Channel central energy                           eV        
+KODM(5)         2171 Channel spacing energy                           eV        
+CANALYST Kevin Martin                                                           
+CANDATE  Thu Jan 09 23:26:14 2020 UT                                            
+IBYRT               2020 Beginning year                                         
+IBDTT               0101 Beginning month and day                                
+IBHMT               0000 Beginning UT hour and minute                           
+IBCST               0000 Beginning centisecond                                  
+IEYRT               2020 Ending year                                            
+IEDTT               0102 Ending month and day                                   
+IEHMT               0000 Ending UT hour and minute                              
+IECST               0000 Ending centisecond                                     
+                                                                                
+
+Experiment Parameters:
+instrument: Defense Meteorological Satellite Program
+instrument code(s): 8100
+kind of data file: F17 flux/energy values
+kindat code(s): 10217
+start time: 2020-01-01 00:00:00 UT
+end time: 2020-01-02 00:00:00 UT
+Cedar file name: dms_20200101_17e.001.hdf5
+status description: Unknown
+instrument latitude: 0.0
+instrument longitude: 0.0
+instrument altitude: 0.0
+instrument category: Satellite Instruments
+instrument PI: Patricia Doherty
+instrument PI email: Patricia.Doherty@bc.edu
+
+Data Parameters:
+YEAR: Year (universal time), units: y
+MONTH: Month (universal time), units: m
+DAY: Day (universal time), units: d
+HOUR: Hour (universal time), units: h
+MIN: Minute (universal time), units: m
+SEC: Second (universal time), units: s
+RECNO: Logical Record Number, units: N/A
+KINDAT: Kind of data, units: N/A
+KINST: Instrument Code, units: N/A
+UT1_UNIX: Unix seconds (1/1/1970) at start, units: s
+UT2_UNIX: Unix seconds (1/1/1970) at end, units: s
+GDLAT: Geodetic latitude of measurement, units: deg
+GLON: Geographic longitude of measurement, units: deg
+GDALT: Geodetic altitude (height), units: km
+SAT_ID: Satellite id, units: N/A
+MLT: Magnetic local time, units: hour
+MLAT: Magnetic latitude, units: deg
+MLONG: Magnetic Longitude, units: deg
+EL_I_FLUX: Integrated elect num flux (1/cm2s*ster), units: numFlux
+ION_I_FLUX: Integrated ion num flux (1/cm2s*ster), units: numFlux
+EL_I_ENER: Integr elect energy flux (eV/cm2s*ster), units: enFlux
+ION_I_ENER: Integr ion energy flux (eV/cm2s*ster), units: enFlux
+EL_M_ENER: Mean electron energy, units: eV
+ION_M_ENER: Mean ion energy, units: eV
+CH_ENERGY: Channel central energy, units: eV
+CH_CTRL_ENER: Channel spacing energy, units: eV
+EL_D_FLUX: Diff electron num flux (1/cm2eVs*ster), units: numFlux
+ION_D_FLUX: Diff ion num flux (1/cm2eVs*ster), units: numFlux
+EL_D_ENER: Diff electron energy flux (1/cm2s*ster), units: enFlux
+ION_D_ENER: Diff ion energy flux (1/cm2s*ster), units: enFlux
+
+Independent Spatial Parameters:
+mnemonic: ch_energy: description: Channel central energy
+```
+
+#### SSJ data files
+
+Table: File format description for the SSJ data files
+
+| Word | Variable Description, Range, Units | Conversion | Bytes |
+| :--- | :--- | :--- | :--- |
+| 1 | Day of year, 1 to 366, days |  | 2 |
+| 2 | Hour of day, 0 to 23, hours |  | 2 |
+| 3 | Minute of hour, 0 to 59, minutes |  | 2 |
+| 4 | Second of minute, 0 to 59, seconds |  | 2 |
+| 5 | Integer year, 1987 to 2049, years | i-50 | 2 |
+| 6 | Geodetic latitude, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i-4995)/10.0 | 2 |
+| 7 | Geographic longitude, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 8 | Altitude, nautical miles |  | 2 |
+| 9 | Geographic latitude at 110 km altitude and on the same magnetic field line as the DMSP spacecraft, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i - 4995)/10.0 | 2 |
+| 10 | Geographic longitude at 110 km altitude and on the same magnetic field line as the DMSP spacecraft, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 11 | Corrected geomagnetic latitude at 110 km altitude, -90.0 to 90.0, degrees | float(i-900)/10.0 if i > 1800 then float(i-4995)/10.0 | 2 |
+| 12 | Corrected geomagnetic longitude at 110 km altitude, 0.0 to 360.0, degrees | float(i)/10.0 | 2 |
+| 13 | Hour of magnetic local time, 0 to 23, hours |  | 2 |
+| 14 | Minute of hour of magnetic local time, 0 to 59, minutes |  | 2 |
+| 15 | Second of minute of magnetic local time, 0 to 59, seconds |  | 2 |
+| 16 | Hour of day for $1^{\text {st }}$ second of data, 0 to 23, hours |  | 2 |
+| 17 | Minute of hour for $1^{\text {st }}$ second of data, 0 to 59, minutes |  | 2 |
+| 18 | Second of minute for $1^{\text {st }}$ second of data, 0 to 60, seconds | If word 2596 equals 1 then float(i)/1000.0 | 2 |
+| 19 | channel 4, 9450 eV electrons, raw data | See below | 2 |
+| 20 | channel 3, 13900 eV electrons, raw data | See below | 2 |
+| 21 | channel 2, 20400 eV electrons, raw data | See below | 2 |
+| 22 | Channel 1, 30000 eV electrons, raw data | See below | 2 |
+| 23 | channel 8, 2040 eV electrons, raw data | See below | 2 |
+| 24 | channel 7, 3000 eV electrons, raw data | See below | 2 |
+| 25 | channel 6, 4400 eV electrons, raw data | See below | 2 |
+| 26 | channel 5, 6460 eV electrons, raw data | See below | 2 |
+| 27 | channel 12, 646 eV electrons, raw data | See below | 2 |
+| 28 | channel 11, 949 eV electrons, raw data; or status word 1 if SSJ5 data | See below | 2 |
+| 29 | channel 10, 949 eV electrons, raw data | See below | 2 |
+| 30 | channel 9, 1392 eV electrons, raw data | See below | 2 |
+| 31 | channel 16, 139 eV electrons, raw data | See below | 2 |
+| 32 | channel 15, 204 eV electrons, raw data | See below | 2 |
+| 33 | channel 14, 300 eV electrons, raw data | See below | 2 |
+| 34 | channel 13, 440 eV electrons, raw data | See below | 2 |
+| 35 | channel 20, 30 eV electrons, raw data | See below | 2 |
+| 36 | channel 19, 44 eV electrons, raw data | See below | 2 |
+| 37 | channel 18, 65 eV electrons, raw data | See below | 2 |
+| 38 | channel 17, 95 eV electrons, raw data | See below | 2 |
+| 39 | channel 4, 9450 eV ions, raw data | See below | 2 |
+| 40 | channel 3, 13900 eV ions, raw data | See below | 2 |
+| 41 | channel 2,20400 eV ions, raw data | See below | 2 |
+| 42 | channel 1,30000 eV ions, raw data | See below | 2 |
+| 43 | channel 8, 2040 eV ions, raw data | See below | 2 |
+| 44 | channel 7, 3000 eV ions, raw data | See below | 2 |
+| 45 | channel 6, 4400 eV ions, raw data | See below | 2 |
+| 46 | channel 5, 6460 eV ions, raw data | See below | 2 |
+| 47 | channel 12, 646 eV ions, raw data | See below | 2 |
+| 48 | channel 11, 949 eV ions, raw data; or status word 2 if SSJ5 data | See below | 2 |
+| 49 | channel 10, 949 eV ions, raw data | See below | 2 |
+| 50 | channel 9, 1392 eV ions, raw data | See below | 2 |
+| 51 | channel 16, 139 eV ions, raw data | See below | 2 |
+| 52 | channel 15, 204 eV ions, raw data | See below | 2 |
+| 53 | channel 14, 300 eV ions, raw data | See below | 2 |
+| 54 | channel 13, 440 eV ions, raw data | See below | 2 |
+| 55 | channel 20, 30 eV ions, raw data | See below | 2 |
+| 56 | channel 19, 44 eV ions, raw data | See below | 2 |
+| 57 | channel 18, 65 eV ions, raw data | See below | 2 |
+| 58 | channel 17, 95 eV ions, raw data | See below | 2 |
+| 59-101 | Repeat of words 16-58 for 2nd second of data |  | 86 |
+| 102-144 | Repeat of words 16-58 for 3rd second of data |  | 86 |
+| .. .. | .. <br> .. |  |  |
+| 2553-2595 | Repeat of words 16-58 for 60th second of data |  | 86 |
+| 2596 | Set to 1 to indicate that word 18 is in milliseconds, 0 or 1, unitless |  | 2 |
+| 2597-2640 | Zero fill |  | 88 |
+| 2641-5280 | Repeat of words 1-2640 for 2nd minute of data |  | 5280 |
+| 5281-7920 | Repeat of words 1-2640 for 3rd minute of data |  | 5280 |
+| .. .. | .. <br> .. |  |  |

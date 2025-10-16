@@ -1,0 +1,374 @@
+% Options for packages loaded elsewhere
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+%
+\documentclass[
+]{agujournal2019}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{5}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+% Make \paragraph and \subparagraph free-standing
+\makeatletter
+\ifx\paragraph\undefined\else
+  \let\oldparagraph\paragraph
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+  \let\oldsubparagraph\subparagraph
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+\makeatother
+
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{241,243,245}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.40,0.45,0.13}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\ExtensionTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.28,0.35,0.67}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.46,0.62}{#1}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.07,0.07,0.07}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+
+
+
+
+
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+ 
+\usepackage[]{natbib}
+\bibliographystyle{plainnat}
+
+
+\usepackage{url} %this package should fix any errors with URLs in refs.
+\usepackage{lineno}
+\usepackage[inline]{trackchanges} %for better track changes. finalnew option will compile document with changes incorporated.
+\usepackage{soul}
+\linenumbers
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\AtBeginDocument{%
+\ifdefined\contentsname
+  \renewcommand*\contentsname{Table of contents}
+\else
+  \newcommand\contentsname{Table of contents}
+\fi
+\ifdefined\listfigurename
+  \renewcommand*\listfigurename{List of Figures}
+\else
+  \newcommand\listfigurename{List of Figures}
+\fi
+\ifdefined\listtablename
+  \renewcommand*\listtablename{List of Tables}
+\else
+  \newcommand\listtablename{List of Tables}
+\fi
+\ifdefined\figurename
+  \renewcommand*\figurename{Figure}
+\else
+  \newcommand\figurename{Figure}
+\fi
+\ifdefined\tablename
+  \renewcommand*\tablename{Table}
+\else
+  \newcommand\tablename{Table}
+\fi
+}
+\@ifpackageloaded{float}{}{\usepackage{float}}
+\floatstyle{ruled}
+\@ifundefined{c@chapter}{\newfloat{codelisting}{h}{lop}}{\newfloat{codelisting}{h}{lop}[chapter]}
+\floatname{codelisting}{Listing}
+\newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
+\makeatother
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Peculiarities of precipitating electron spectra : DMPS \& ELFIN combined dataset},
+  pdfauthor={Zijin Zhang; Anton V. Artemyev; Vassilis Angelopoulos},
+  colorlinks=true,
+  linkcolor={blue},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={Blue},
+  pdfcreator={LaTeX via pandoc}}
+
+
+\journalname{JGR: Space Physics}
+
+\draftfalse
+
+\begin{document}
+\title{Peculiarities of precipitating electron spectra : DMPS \& ELFIN combined dataset}
+
+\authors{Zijin Zhang\affil{1}, Anton V. Artemyev\affil{1}, Vassilis Angelopoulos\affil{1}}
+\affiliation{1}{University of California, Los Angeles, }
+\correspondingauthor{Zijin Zhang}{zijin@ucla.edu}
+
+
+\begin{abstract}
+ELFIN and DMSP electron spectra at close conjunction
+\end{abstract}
+
+
+
+
+
+\section{Introduction}\label{introduction}
+
+Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input \citet{wangIonosphericConductancesDue2024}.
+
+Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns \citet{zouKeyRoleMagnetic2024}.
+
+This work combines ELFIN precipitating electron measurements with DMSP spectra at close conjunction to extend the DMSP‑based precipitation picture toward higher energies. The goal is an empirical description of spectral parameters and integrated fluxes across MLT/MLAT and geomagnetic activity, with attention to distinct scattering mechanisms.
+
+This paper is organized as follows. Section 2 describes the methodology and datasets used in this study. Section 3 presents the statistical results obtained from all conjunction events, Section 4 discusses the implications of our findings and Appendix A provides the compiled dataset and package for community use.
+
+\section{Data and Methods}\label{data-and-methods}
+
+We use low-energy (\(<30\) keV) particle measurements from three DMSP satellites (F16, F17, F18) at an altitude of \(\sim840\) km \citep{redmonNewDMSPDatabase2017}, and energetic electron (from 50 keV to \(\sim6\) MeV) measurements from the twin ELFIN CubeSats (ELFIN-A and ELFIN-B) at altitudes of \(\sim450\) km \citep{angelopoulosELFINMission2020}.
+
+We first identify time intervals with continuous ELFIN electron fluxes. Then for each DMSP satellite, we search for the closest interval where the Magnetic Latitude (MLAT) of DMSP matches that of ELFIN, subject to two constraints: the time difference must be within a 20-minute window, and the Magnetic Local Time (MLT) difference must be less than 1 hour. An example of a conjunction event is shown in Figure~\ref{fig-conjunction}. MLAT is calculated from satellite ephemeris using the AACGM coordinate transformation \citep{shepherdAltitudeadjustedCorrectedGeomagnetic2014, zhangJuliaSpacePhysicsGeoAACGMjl2025}, and MLT is calculated using the IRBEM library.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{./figures/flux_with_fit.png}}
+
+}
+
+\caption{\label{fig-conjunction}Example of a satellite conjunction event between 2021-12-01T22:19 and 2021-12-01T22:28. (a) The precipitating electron flux measured by ELFIN (high-energy range) (with x axis being MLAT), (b) the DMSP electron flux (low-energy range) and (c) the MLT for these two satellites. (d-e) the precipitating flux spectra from both satellites averaged over MLAT. Scatter points represent the measured fluxes, while the line curves denote the fitted composite spectral model as a function of energy. The best-fit parameters of the model are indicated in the figure labels.}
+
+\end{figure}%
+
+MLAT is used as the primary spatial parameter for characterizing electron precipitation. For each conjunction event, we subdivide the spectral data into 0.5° MLAT bins, average the fluxes within each bin, and combine fluxes from ELFIN and DMSP into a single composite electron flux spectrum. Then the resulting energy spectra are fitted using a two-component distribution model: \(j(E) = j_{EP}(E) + j_κ(E)\).
+The low-to-intermediate energy population is represented by an exponential cutoff power-law distribution, which provides greater flexibility than a pure exponential or power-law form alone: \(j_{EP}(E) = A_{EP} (\frac{E}{E_0})^{-γ}\,\exp(-\frac{E}{E_{EP}})\). The high-energy population is modeled using a kappa distribution for the suprathermal tails \citep{espinozaIonElectronDistribution2018, lazarKappaDistributionsObservational2021}: \(j_κ(E) = A_κ \frac{E}{E_0} (1 + \frac{E}{κ E_κ})^{-κ-1}\). The reference energy \(E_0\) is set to 1 keV.
+The fitting procedure minimizes deviations in logarithmic space to accurately represent the overall spectral shape. During fitting, we exclude the highest‑energy channel of DMSP, which is occasionally spurious, as well as data points with flux values less than 200. Because direct nonlinear fitting of the full two-component model is numerically unstable, we employ a sequential fitting procedure. First, the high-energy portion of the observed spectrum is fitted independently using the kappa function. After fixing the parameters of this energetic component, the composite model is fitted to the full energy range.
+To identify the optimal transition between the two components, we introduce a variable boundary energy, denoted as \(E_{\mathrm{trans}}\), which separates the low-energy and high-energy populations. The fitting routine systematically varies \(E_{\mathrm{trans}}\) across the available precipitating energy range to evaluate the goodness of fit. The final fit is selected by minimizing the loss function, yielding the best overall representation of the measured spectrum.
+
+The total precipitating number flux (\(J\)) and energy flux (\(J_E\)) are calculated by integrating the fitted analytic composite distribution over the energy range: \(J = \int j(E) dE\) and \(J_E = \int j(E) E dE\). The averaged electron energy is then derived as the ratio of total energy flux to total number flux, \(\bar{E} = J_E / J\). Fitting the spectral shape allows for reliable interpolation across energy gaps. This method is more robust than direct numerical integration, which is susceptible to bias caused by intermittent instrumental gaps in the observational data. Because the electron spectra also depend on geomagnetic activity, we characterize the magnetospheric conditions using the AE index. Specifically, for each conjunction we consider the AE index within a three-hour window before the observation time and adopt the maximum value within that interval as a representative measure of substorm activity.
+
+\section{Results}\label{results}
+
+We identified 2,754 conjunction events, yielding a total of 36,380 individual spectral fits from 2020 to 2022. Figure~\ref{fig-n} illustrates the spatial distribution of these data samples binned by MLT and MLAT. To investigate the influence of geomagnetic activity, the dataset is stratified into three AE index regimes: quiet (\(0 \le \text{AE} < 100\) nT), moderate (\(100 \le \text{AE} < 300\) nT), and active (\(\text{AE} \ge 300\) nT). Owing to the orbital configuration of the ELFIN spacecraft, the available observations are concentrated primarily in the dusk sector, followed by the dawn sector.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{./figures/n_mlt_mlat.png}}
+
+}
+
+\caption{\label{fig-n}The total number of MLAT-averaged spectral data points across different MLT and MLAT regions, separated by varying levels of the AE index.}
+
+\end{figure}%
+
+Figure~\ref{fig-e30-ratio} presents the distributions of total energy flux, total number flux, and the relative contributions of energetic particles (\(>30\) keV) to both number and energy fluxes. These parameters are plotted as functions of MLT and MLAT, categorized by AE index levels.
+The results indicate that both total number and energy fluxes exhibit a strong dependence on MLAT, MLT, and geomagnetic activity. The majority of electron precipitation occurs at high magnetic latitudes (\(66^{\circ}\) -- \(80^{\circ}\)). Furthermore, precipitation is most intense in the dusk sector, where the overall flux magnitude is largest. However, while the absolute flux in the dawn sector is dominated by the low-energy component, the relative contribution of the energetic population is systematically enhanced in the dusk sector.
+Additionally, as shown in the figure, increases in the AE index are accompanied by enhanced total energy and number fluxes, with the region of significant precipitation expanding toward lower magnetic latitudes and a broader MLT range. In contrast, the fractional contribution of the energetic component decreases during periods of high AE activity relative to quieter intervals.
+
+\textsubscript{Source: \href{https://Beforerr.github.io/dmsp_elfin/index.qmd.html}{Article Notebook}}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{./figures/e30_flux_ratio_mlt_mlat_median.png}}
+
+}
+
+\caption{\label{fig-e30-ratio}Distribution of (a) total energy flux, (b) total number flux, (c-d) energy and number flux ratio from energetic particles (\(>30\) keV) as functions of MLT and MLAT, sorted by AE index levels.}
+
+\end{figure}%
+
+Figure~\ref{fig-param} presents the kappa parameter (\(\kappa\)) and averaged energy (\(\bar{E}\)) as functions of MLT and MLAT, sorted by AE index levels. As shown in the figure, the average electron energy exhibits a strong dependence on MLT, MLAT, and the AE index. While average energy varies significantly with all three parameters, the kappa parameter shows a comparatively weaker dependence on MLT and the AE index, but a stronger dependence on MLAT.
+
+\textsubscript{Source: \href{https://Beforerr.github.io/dmsp_elfin/index.qmd.html}{Article Notebook}}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{./figures/key_params_mlt_mlat_median.pdf}}
+
+}
+
+\caption{\label{fig-param}Distribution of (a) averaged energy (\(\bar{E}\)) and (b) kappa parameter (\(\kappa\)) as functions of MLT and MLAT, sorted by AE index levels.}
+
+\end{figure}%
+
+\section{Summary}\label{summary}
+
+In this study, we investigate precipitating electron fluxes across an extended energy range by leveraging conjunction observations from two ELFIN satellites and three DMSP satellites. Our analysis reveals that energetic flux, total number flux, and average electron energy exhibit a strong dependence on MLAT, MLT, and geomagnetic activity (quantified by the AE index). Specifically, we find that while the strongest energy and number fluxes occur in the dawn sector at high magnetic latitudes (\(65^{\circ}\)--\(75^{\circ}\)), the spectral composition varies significantly across local times, modulated by geomagnetic activity. Crucially, our results demonstrate that the energetic component (\(>30\) keV) contributes substantially to the total energy flux in the dusk sector, underscoring the necessity of accounting for this population to accurately capture magnetosphere-ionosphere coupling.
+
+Building on these results, we developed an empirical, data-driven model (detailed in the Appendix) to characterize precipitating electron fluxes from the thermal regime (\(\sim1\) keV, DMSP) to relativistic energies (\(\sim1\) MeV, ELFIN). This model extends the energy range of previous frameworks, such as \citet{newellOVATIONPrime2013Extension2014}, to provide a comprehensive representation of the full electron spectrum.
+
+\section{Data Availability}\label{data-availability}
+
+The processing and analysis software used in this manuscript is available on GitHub at https://github.com/Beforerr/dmsp\_elfin. ELFIN data were accessed using the ELFINData.jl package, and DMSP observations were obtained from the Madrigal database via the DMSPData.jl package.
+We gratefully acknowledge the ELFIN and DMSP teams for providing these datasets that make this study possible.
+We acknowledge the use of the IRBEM library (version 5.0.0), the latest version of which can be found at https://doi.org/10.5281/zenodo.6867552.
+
+\section{Appendix: Data Products}\label{appendix-data-products}
+
+This study provides two primary data products for community use:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Event Catalog: We provide a tabulated catalog of all identified conjunction events. For each event, the table includes the observation time, the corresponding measurements from DMSP and ELFIN, the precipitating electron fluxes observed by both satellites, and the parameters of the fitted composite spectral model.
+\item
+  DEEEP Software Library: To facilitate the application of our results, we developed the DEEEP (Dmsp Elfin Energetic Electron Precipitation) software library. This tool allows users to predict precipitating electron energy flux under specified geophysical conditions. Given inputs of Magnetic Local Time (MLT), Magnetic Latitude (MLAT), and the AE index, the library returns a spectral function mapping electron energy to differential number flux.
+\end{enumerate}
+
+An example demonstrating the usage of this library in Julia is shown below:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ImportTok{using} \BuiltInTok{DEEEP} \CommentTok{\# DmspElfinEnergeticElectronPrecipitation}
+
+\CommentTok{\# Initialize the model}
+\NormalTok{model }\OperatorTok{=} \FunctionTok{load\_flux\_model}\NormalTok{()}
+
+\CommentTok{\# Evaluate flux at specific geophysical conditions:}
+\CommentTok{\# Location: 65° MLat, 6 MLT (dawn sector)}
+\CommentTok{\# Activity: Moderate (AE = 150 nT)}
+\NormalTok{j\_Efunc }\OperatorTok{=} \FunctionTok{model}\NormalTok{(; mlat}\OperatorTok{=}\FloatTok{65.0}\NormalTok{, mlt}\OperatorTok{=}\FloatTok{6.0}\NormalTok{, ae}\OperatorTok{=}\FloatTok{150.0}\NormalTok{) }\CommentTok{\# Returns a function of energy}
+
+\CommentTok{\# Calculate flux at a specific energy (e.g., 10 keV)}
+\NormalTok{E }\OperatorTok{=} \FloatTok{10.0} \CommentTok{\# [keV]}
+\NormalTok{flux\_10keV }\OperatorTok{=} \FunctionTok{j\_Efunc}\NormalTok{(E)}
+
+\CommentTok{\# Generate the full energy spectrum}
+\NormalTok{energies }\OperatorTok{=} \FloatTok{10} \OperatorTok{.\^{}} \FunctionTok{range}\NormalTok{(}\FunctionTok{log10}\NormalTok{(}\FloatTok{0.03}\NormalTok{), }\FunctionTok{log10}\NormalTok{(}\FloatTok{1000}\NormalTok{), length}\OperatorTok{=}\FloatTok{100}\NormalTok{)  }\CommentTok{\# 0.03 {-} 1000 keV}
+\NormalTok{spectrum }\OperatorTok{=} \FunctionTok{j\_Efunc}\NormalTok{.(energies)}
+
+\CommentTok{\# Compute integrated fluxes across the spectrum}
+\NormalTok{Emin }\OperatorTok{=} \FloatTok{0.03}
+\NormalTok{Emax }\OperatorTok{=} \FloatTok{100.0}
+\NormalTok{J  }\OperatorTok{=} \FunctionTok{n\_flux}\NormalTok{(j\_Efunc, Emin, Emax)  }\CommentTok{\# Number flux [cm⁻² s⁻¹ sr⁻¹]}
+\NormalTok{JE }\OperatorTok{=} \FunctionTok{e\_flux}\NormalTok{(j\_Efunc, Emin, Emax)  }\CommentTok{\# Energy flux [keV cm⁻² s⁻¹ sr⁻¹]}
+\end{Highlighting}
+\end{Shaded}
+
+
+
+\bibliography{files/bibliography/research.bib}
+
+
+
+\end{document}

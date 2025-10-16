@@ -4,14 +4,6 @@ const COLOR_RANGE = (8.0e2, 1.2e11)
 
 include("plot.jl")
 
-set_Z_theme!() = begin
-    set_aog_theme!()
-    update_theme!(;
-        figure_padding = 2,
-    )
-end
-
-
 function _standardize(da)
     return set(da, Ti => DateTime.(da.dims[1].val))
 end
@@ -39,9 +31,9 @@ function quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, 
 
     non_flux_axs = let layout = GridLayout(f[1, 1])
 
-        ae = DimArray(CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", trange...)) |> _standardize
+        ae = DimArray(CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", trange[1] - Hour(3), trange[2]; clip = true)) |> _standardize
         ae_ax = Axis(layout[1, 1]; ylabel = "AE (nT)")
-        scatterlines!(ae_ax, ae; label = "AE")
+        lines!(ae_ax, ae; label = "AE")
 
         markersize = 4
         label_kw = (; markersize = 8)
@@ -58,27 +50,28 @@ function quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, 
         (ae_ax, mlt_ax, mlat_ax)
     end
 
-    hidexdecorations!.(non_flux_axs; grid = false)
+    hidexdecorations!.(non_flux_axs[2:end]; grid = false)
 
     flux_layout = GridLayout(f[2, 1])
-    axs = map(enumerate(tvars)) do (i, f)
+    flux_axs = map(enumerate(tvars)) do (i, var)
         ax = Axis(flux_layout[i, 1]; yscale = log10, ylabel = 𝒀.E)
-        _heatmap!(ax, f; colorscale = log10, colorrange, colormap)
+        _heatmap!(ax, var; colorscale = log10, colorrange, colormap)
         ax
     end
-    hidexdecorations!.(axs[1:(end - 1)]; grid = false)
+    hidexdecorations!.(flux_axs[1:(end - 1)]; grid = false)
 
     Colorbar(flux_layout[1:2, 2]; limits = colorrange, scale = log10, label = 𝒀.nflux, colormap)
     rowgap!(flux_layout, 0)
     colgap!(flux_layout, 0)
 
-    linkxaxes!(axs..., non_flux_axs...)
-    rowgap!(f.layout, 2)
+    axs = (non_flux_axs..., flux_axs...)
+    linkxaxes!(axs[2:end]...)
+    rowsize!(f.layout, 2, Auto(2))
     xlims!(current_axis(), trange...)
-    return f
+    return axs
 end
 
-function demo_plot(trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colormap = :turbo, colorrange = (1.0e2, 2.0e11), add_ratios = true)
+function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colormap = :batlow, colorrange = (1.0e2, 2.0e11), add_ratios = true, add_elx_ratio = false)
     mlat_limits = extrema(df.mlat)
 
     sdf = @rsubset(df, :Δmlt < 1)
@@ -87,35 +80,36 @@ function demo_plot(trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt,
 
     elx_flux_ratio = ELFIN.flux_ratio(elx_flux)
 
-    f = Figure(; size = (1000, 800))
-
     let layout = GridLayout(f[1, 1])
 
-        p1 = plot_flux_by_mlat(layout[1, 1], replace(tview(elx_flux.prec, trange), 0 => NaN), elx_mlat; colorrange, colormap)
-        p2 = plot_flux_by_mlat(layout[2, 1], replace(dmsp_flux, 0 => NaN), dmsp_mlat; colorrange, colormap)
-        Colorbar(layout[1:2, 2], p1.plot; label = 𝒀.nflux)
-
-        p3 = plot_flux_by_mlat(layout[3, 1], tview(elx_flux_ratio, trange), elx_mlat)
-        Colorbar(layout[3, 2], p3.plot; label = L"j_{prec}/j_{trap}")
-
-        ax = Axis(layout[4, 1]; ylabel = "MLT")
-        scatter!(ax, set_mlat_dim(elx_mlt, elx_mlat); label = "ELFIN")
+        ax = Axis(layout[1, 1]; ylabel = "MLT")
         scatter!(ax, set_mlat_dim(dmsp_mlt, dmsp_mlat); label = "DMSP")
-        Legend(layout[4, 2], ax; padding = (30, 0, 0, 0), tellheight = false, tellwidth = false)
+        scatter!(ax, set_mlat_dim(elx_mlt, elx_mlat); label = "ELFIN")
+        Legend(layout[1, 2], ax; padding = (30, 0, 0, 0), tellheight = false, tellwidth = false)
 
-        mlat_axes = (p1.axis, p2.axis, p3.axis, ax)
+        p1 = plot_flux_by_mlat(layout[2, 1], tview(elx_flux.prec, trange), elx_mlat; colorrange, colormap)
+        p2 = plot_flux_by_mlat(layout[3, 1], dmsp_flux, dmsp_mlat; colorrange, colormap)
+        Colorbar(layout[2:3, 2], p1.plot; label = 𝒀.nflux)
+        mlat_axes = (ax, p1.axis, p2.axis)
+
+        add_elx_ratio && begin
+            p3 = plot_flux_by_mlat(layout[4, 1], tview(elx_flux_ratio, trange), elx_mlat)
+            Colorbar(layout[4, 2], p3.plot; label = L"j_{prec}/j_{trap}")
+            mlat_axes = (mlat_axes..., p3.axis)
+        end
+
         vlines!.(mlat_axes, (mlats,); linestyle = :dash)
         xlims!.(mlat_axes, mlat_limits...)
-        hidexdecorations!.(mlat_axes[1:3]; grid = false)
-        rowgap!(layout, 1, 0)
+        hidexdecorations!.(mlat_axes[1:(end - 1)]; grid = false)
+        rowgap!(layout, 0)
         colgap!(layout, 0)
-        rowsize!(layout, 4, Auto(0.6))
+        rowsize!(layout, 1, Auto(0.4))
         linkxaxes!(mlat_axes...)
     end
 
     let layout = GridLayout(f[2, 1])
 
-        axs = plot_spectra(layout[1, 1:2], _sdf)
+        axs = plot_spectras(layout[1, 1:2], _sdf; legend = (; labelsize = 12))
 
         hlines!.(axs, FLUX_THRESHOLD; color = :black, linestyle = :dash)
 
@@ -141,9 +135,10 @@ function demo_plot(trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt,
             colgap!(layout, 0)
             rowsize!(layout, 1, Auto(1.5))
             linkaxes!(axs...)
+            rowsize!(f.layout, 2, Auto(3))
         end
         rowgap!(f.layout, 1, 0)
     end
-    rowsize!(f.layout, 1, Auto(4))
+    rowsize!(f.layout, 1, Auto(2.5))
     return f
 end

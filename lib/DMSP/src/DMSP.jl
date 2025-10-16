@@ -1,21 +1,15 @@
 module DMSP
 
 using Dates
-using Dates: AbstractTime
-using Madrigal
 using DimensionalData
-using GeoCotrans
-using HDF5
-using JLD2
+using DMSPData: SSJ_Dataset, SSJ_dataset_files
 
 export load
 
 include("hdf5.jl")
 
-function download(timerange, id, args...)
-    kindat = 10200 + id
-    files = download_files(:DMSP, kindat, timerange...)
-    return unique!(sort!(files))
+function download(timerange, id)
+    return SSJ_dataset_files(id, timerange...)
 end
 
 function load(timerange, id, params)
@@ -27,15 +21,7 @@ function load(timerange, id, params)
 end
 
 function load(timerange, id, param::String)
-    files = download(timerange, id)
-    return if isempty(files)
-        @warn "DMSP data not available for ID $id, timerange $timerange"
-        nothing
-    elseif length(files) == 1
-        read2dimarray(only(files), param, timerange)
-    else
-        vcat(read2dimarray.(files, param, (timerange,))...)
-    end
+    return DimArray(SSJ_Dataset(id, timerange...)[param])
 end
 
 geod(timerange, id) = load(timerange, id, ("gdlat", "glon", "gdalt"))

@@ -8,7 +8,7 @@
 Abstract base type for kappa distribution spectral models.
 
 ```math
-f(E) = A ⋅ E ⋅ [1 + E/(κ⋅E_c)]^{-κ-1}
+f(E) = A ⋅ E/E_0 ⋅ [1 + E/(κ⋅E_c)]^{-κ-1}
 ```
 
 Kappa distributions are similar to the Maxwellian distribution for low and central energies but model suprathermal (high energy) particle populations with power-law tails characterized by the kappa parameter κ.
@@ -36,10 +36,6 @@ Kappa distribution spectral model for suprathermal particle populations.
 # Typical magnetospheric suprathermal population
 model = KappaDistribution(A=1e4, κ=5.0, E_c=10.0)
 flux = model.(10.0:10.0:100.0)
-
-# Compute integrated quantities
-n = n_flux(model, 10.0, 100.0)  # Total particle count
-e = e_flux(model, 10.0, 100.0)  # Total energy
 ```
 """
 @kwdef struct KappaDistribution{T} <: AbstractKappaDistribution{T}
@@ -142,12 +138,7 @@ end
 
 Kappa distribution with log-transformed parameters for unconstrained optimization.
 
-# Model
-```math
-f(E) = A ⋅ E ⋅ [1 + E/(κ⋅E_c)]^{-κ-1}
-```
-
-where `A = exp(logA)`, `κ = exp(logκ)`, and `E_c = exp(logE_c)`.
+Where `A = exp(logA)`, `κ = exp(logκ)`, and `E_c = exp(logE_c)`.
 
 # Fields
 - `logA::T`: Log of normalization amplitude
@@ -214,9 +205,9 @@ function math_show(m::AbstractKappaDistribution; sigdigits = 2)
     _κ = round(κ(m); sigdigits)
     _E_c = round(E_c(m); sigdigits)
     return L"""
-    $A ⋅ E ⋅ \left(1 + E/κ E_c\right)^{-κ-1}$
+    $A_κ ⋅ E/E_0 ⋅ (1 + E/κ E_κ)^{-κ-1}$
     \\
-    A:%$_A, κ:%$_κ, E_c:%$_E_c
+    $A_κ$:%$_A, $κ$:%$_κ, $E_κ$:%$_E_c
     """
 end
 
