@@ -9,27 +9,6 @@ Complete guide for creating and using empirical flux models.
 3. [Advanced Usage](#advanced-usage)
 4. [API Reference](#api-reference)
 
----
-
-## For Model Creators
-
-### Step 3: Run the Creation Script
-
-Use the provided script:
-
-```bash
-julia scripts/create_flux_model.jl
-```
-
-This will:
-1. Load your statistical analysis
-2. Group observations by spatial bins
-3. Compute median and percentiles for all parameters
-4. Create the model
-5. Save to `lib/PrecipitatingFluxModels/data/default_model.jld2`
-
----
-
 ## For End Users
 
 ### Computing Energy Spectra
@@ -42,7 +21,6 @@ fig, ax, ln = lines(energies, spectrum;
           xlabel="Energy (keV)",
           ylabel="Flux (cm⁻² s⁻¹ sr⁻¹ keV⁻¹)")
 )
-save("spectrum.png", fig)
 ```
 
 ### Uncertainty Quantification
@@ -198,8 +176,6 @@ save("flux_spectrum.png", fig)
 
 ## API Reference
 
-### Model Loading/Saving
-
 ### Flux Evaluation
 
 ```julia
@@ -230,14 +206,6 @@ flux_components(model, energy; mlat, mlt, ae, stat=:median)
 flux_parameters(model; mlat, mlt, ae, stat=:median)
     # Get FluxParameters object
     # Returns: FluxParameters
-
-to_spectral_model(params)
-    # Convert to TwoStepModel
-    # Returns: TwoStepModel
-
-get_ae_bin(ae_value, ae_bins)
-    # Find AE bin for value
-    # Returns: String
 ```
 
 ### Common Arguments
@@ -255,8 +223,6 @@ get_ae_bin(ae_value, ae_bins)
 
 1. **Sufficient Statistics**: Ensure each spatial bin has enough observations (>20 recommended)
 2. **Quality Control**: Filter out poor fits before computing statistics
-3. **Documentation**: Include detailed descriptions of data sources and methodology
-4. **Versioning**: Use semantic versioning (MAJOR.MINOR.PATCH)
 
 ### For End Users
 

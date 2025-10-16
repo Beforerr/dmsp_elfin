@@ -80,7 +80,7 @@ The empirical flux model stores:
 
 ### Quick Evaluation
 ```julia
-model = load_flux_model()
+model = load_model()
 flux = evaluate_flux(model, 10.0; mlat=65.0, mlt=6.0, ae=150.0)
 ```
 

@@ -10,7 +10,6 @@ derived from DMSP and ELFIN satellite observations.
 - Statistical parameters (median, percentiles) for model uncertainty quantification
 
 # Exported Functions
-- `load_flux_model`: Load empirical flux model from data
 - `evaluate_flux`: Evaluate flux at specific geophysical conditions
 - `flux_parameters`: Get model parameters for given conditions
 - `number_flux`: Compute integrated number flux
@@ -29,11 +28,10 @@ export n_flux, e_flux
 
 # Package exports
 export FluxModel, EmpiricalFluxModel
-export load_flux_model, save_flux_model
+export load_model
 export evaluate_flux
 export flux_parameters
 export number_flux, energy_flux
-export get_ae_bin, interpolate_parameters
 
 include("types.jl")
 include("model.jl")

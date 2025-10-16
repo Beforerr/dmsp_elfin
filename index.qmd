@@ -67,7 +67,7 @@ The total precipitating number flux ($J$) and energy flux ($J_E$) are calculated
 
 ## Results
 
-We identified 2,754 conjunction events, yielding a total of 36,380 individual spectral fits from 2020 to 2022. @fig-n illustrates the spatial distribution of these data samples binned by MLT and MLAT. To investigate the influence of geomagnetic activity, the dataset is stratified into three AE index regimes: quiet ($0 \le \text{AE} < 100$ nT), moderate ($100 \le \text{AE} < 300$ nT), and active ($\text{AE} \ge 300$ nT). Owing to the orbital configuration of the ELFIN spacecraft, the available observations are concentrated primarily in the dusk sector, followed by the dawn sector.
+We identified 2,754 conjunction events, yielding a total of 36,380 individual spectral fits from 2020 to 2022. @fig-n illustrates the spatial distribution of these data samples binned by MLT and MLAT. To investigate the influence of geomagnetic activity, the dataset is stratified into three AE index regimes: quiet ($0 \le \text{AE} < 100$ nT), moderate ($100 \le \text{AE} < 300$ nT), and active ($\text{AE} \ge 300$ nT). Owing to the orbital configuration of the DMSP and ELFIN missions, the available observations are concentrated primarily in the dusk sector, followed by the dawn sector.
 
 :::{#fig-n}
 ![](./figures/n_mlt_mlat.png)
@@ -199,24 +199,24 @@ An example demonstrating the usage of this library in Julia is shown below:
 using DEEEP # DmspElfinEnergeticElectronPrecipitation
 
 # Initialize the model
-model = load_flux_model()
+model = load_model()
 
 # Evaluate flux at specific geophysical conditions:
 # Location: 65° MLat, 6 MLT (dawn sector)
 # Activity: Moderate (AE = 150 nT)
-j_Efunc = model(; mlat=65.0, mlt=6.0, ae=150.0) # Returns a function of energy
+j_func = model(; mlat=65.0, mlt=6.0, ae=150.0) # Returns a function of energy
 
 # Calculate flux at a specific energy (e.g., 10 keV)
 E = 10.0 # [keV]
-flux_10keV = j_Efunc(E)
+flux_10keV = j_func(E)
 
 # Generate the full energy spectrum
 energies = 10 .^ range(log10(0.03), log10(1000), length=100)  # 0.03 - 1000 keV
-spectrum = j_Efunc.(energies)
+spectrum = j_func.(energies)
 
 # Compute integrated fluxes across the spectrum
 Emin = 0.03
 Emax = 100.0
-J  = n_flux(j_Efunc, Emin, Emax)  # Number flux [cm⁻² s⁻¹ sr⁻¹]
-JE = e_flux(j_Efunc, Emin, Emax)  # Energy flux [keV cm⁻² s⁻¹ sr⁻¹]
+J  = n_flux(j_func, Emin, Emax)  # Number flux [cm⁻² s⁻¹ sr⁻¹]
+JE = e_flux(j_func, Emin, Emax)  # Energy flux [keV cm⁻² s⁻¹ sr⁻¹]
 ```
