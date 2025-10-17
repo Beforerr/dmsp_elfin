@@ -1,16 +1,20 @@
 ---
-title: "Pecularities of precipitating electron spectra : DMPS & ELFIN combined dataset"
+title: "Peculiarities of precipitating electron spectra : DMPS & ELFIN combined dataset"
 format:
   pptx: default
 ---
 
 ## Introduction
 
-Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input @wangIonosphericConductancesDue2024. Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns @zouKeyRoleMagnetic2024.
+Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input @wangIonosphericConductancesDue2024.
+
+Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns @zouKeyRoleMagnetic2024.
 
 This work combines ELFIN precipitating electron measurements with DMSP spectra at close conjunction to extend the DMSP‑based precipitation picture toward higher energies. The goal is an empirical description of spectral parameters and integrated fluxes across MLT/MLAT and geomagnetic activity, with attention to distinct scattering mechanisms.
 
 ## Data and Methods
+
+> The particle data were obtained from the Special Sensor for Precipitating Particles (SSJ/4) flown on board the DMSP suite of polar-orbiting spacecraft. The DMSP satellites operate in circular, sun-synchronous orbits at altitudes of ∼800 km, with orbital inclinations of ∼ 99◦ and orbital periods of ∼100 min. The SSJ/4 particle detector [Hardy et al., 1984] measures the flux of precipitating ions and electrons in the energy range of 30 eV to 30 keV.  @mcintoshMapsPrecipitatingElectron2014 
 
 - Missions: ELFIN precipitating fluxes and DMSP electron spectra during 2020–2022.
 - Activity: We tag each conjunction by the maximum AE value during the ELFIN window and analyze three AE ranges: [0,100], [100,300], and [300,1498] nT.
@@ -33,10 +37,16 @@ We first identify continuous ELFIN intervals and, for each, search DMSP satellit
 At each valid MLAT bin we jointly fit a two‑component spectrum to DMSP+ELFIN data. A low‑energy exponential cutoff power law (ExpPow) and a high‑energy kappa tail share a transition energy `Emin`:
 
 ExpPow
-$$f(E) = A\,E^{-\gamma}\,\exp(-E/E_c)$$
+
+$$
+j_{ep}(E) = A_1 (\frac{E}{E_0})^{-γ}\,\exp(-\frac{E}{E_c})
+$$
 
 Kappa @espinozaIonElectronDistribution2018
-$$f(E) = A\,E\,\bigl(1 + E/(\kappa E_c)\bigr)^{-(\kappa+1)}$$
+
+$$
+j_κ(E) = A_2 \frac{E}{E_0} (1 + \frac{E}{κ E_h})^{-κ-1}
+$$
 
 ![](./figures/flux_with_fit.png)
 
@@ -47,6 +57,8 @@ We compute integrated number flux and energy flux from each component and from t
 Using ELFIN spin‑resolved fluxes we form the ratio R = |j_para − j_anti|/j_perp to diagnose scattering. We classify each ELFIN MLAT bin as dominated by whistler‑mode waves or by field‑line curvature scattering (FLCS) using simple, threshold‑based rules implemented (night‑side and higher‑latitude preference for FLCS; low‑latitude, softer‑with‑energy behavior for whistlers).
 
 ## Results
+
+![Superposed energy flux](./figures/energy_spectra_mlt_mlat.png)
 
 ### Sampling and parameters
 
@@ -63,6 +75,8 @@ Mean fitted parameters across MLT/MLAT and AE bins:
 The combined model reproduces coherent spatial patterns that intensify with AE. Rows show AE ranges; columns show number and energy flux from the ExpPow and Kappa components and the total energy flux above 10 keV:
 
 ![](./figures/flux_mlt_mlat.png)
+
+![](./figures/flux_ratio_mlt_mlat_mean.png)
 
 Across activity levels we find enhanced precipitation in the premidnight–postmidnight sector and concentrated between roughly 65–75° MLAT, with poleward expansion and intensification during higher AE.
 

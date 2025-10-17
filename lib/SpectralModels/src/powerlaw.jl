@@ -36,7 +36,7 @@ Power-law with exponential cutoff.
 
 # Model
 ```math
-f(E) = A ⋅ E^{-γ} ⋅ \\exp(-E/E_c)
+f(E) = A ⋅ (E/E_0)^{-γ} ⋅ \\exp(-E/E_c)
 ```
 
 # Fields
@@ -109,7 +109,7 @@ function math_show(m::PowerLawExpCutoff2; sigdigits = 2)
     _γ = @sprintf("%.2g", m.γ) |> _clean_text
 
     return L"""
-    $A ⋅ E^{-γ} ⋅ e^{-E/E_c}$
+    $A ⋅ (E/E_0)^{-γ} ⋅ \exp(-E/E_c)$
     \\
     A:%$_A, γ:%$_γ, E_c:%$_E_c
     """

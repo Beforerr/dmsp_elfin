@@ -29,6 +29,7 @@ baremodule YLabel
     ΔV = "ΔV (km/s)"
     T = "T (eV)"
     J = "J (nA m⁻²)"
+    const ae = "AE (nT)"
 end
 
 const 𝒀 = YLabel
@@ -155,38 +156,40 @@ function plot_spectra!(ax, energies, model)
     return lines!(ax, energies, model; label = SM.math_show(model), linestyle = :dot)
 end
 
-function plot_spectra!(ax, energies, model::TwoStepModel)
+function plot_spectra!(ax, energies, model::TwoStepModel; legend = (;))
     Emin = model.Emin
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 2, color = :red)
-    vlines!(ax, Emin; label = "Transition Energy", color = :black, linestyle = :dash)
+    vlines!(ax, Emin; label = "Transition Energy", color = :grey, linestyle = :dash)
     # axislegend(ax)
 
     # Plot individual components with parameters in labels
     l1 = plot_spectra!(ax, energies, model.model1)
     l2 = plot_spectra!(ax, energies, model.model2)
-    axislegend(ax, [l1, l2], [l1.label, l2.label])
+    axislegend(ax, [l1], [l1.label]; position = (0, 0.3), legend...)
+    axislegend(ax, [l2], [l2.label]; position = :rt, legend...)
     return ax
 end
 
-function plot_spectra!(ax, flux, flux_1, model; plot_model = true)
+function plot_spectra!(ax, flux, flux_1, model; plot_model = true, kw...)
     scatterlines!(ax, flux)
     scatterlines!(ax, flux_1)
     plot_model && begin
         energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
-        plot_spectra!(ax, energies, model)
+        plot_spectra!(ax, energies, model; kw...)
     end
     return ax
 end
 
-function plot_spectra(f, args...; kw...)
-    ax = Axis(f; xlabel = 𝒀.E, ylabel = 𝒀.nflux, xscale = log10, yscale = log10)
+function plot_spectra(f, args...; title = "", kw...)
+    ax = Axis(f; xlabel = 𝒀.E, ylabel = 𝒀.nflux, xscale = log10, yscale = log10, title)
     plot_spectra!(ax, args...; kw...)
     return ax
 end
 
 function plot_spectra(f, df::DataFrame; kw...)
     axs = map(enumerate(eachrow(df))) do (i, row)
-        ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model; kw...)
+        title = "MLAT: $(row.mlat), MLT: $(round(row.mlt_elx, digits = 1))"
+        ax = plot_spectra(f[1, i], row.flux_dmsp, row.flux_elx, row.model; title, kw...)
         i == 1 || hideydecorations!(ax; grid = false)
         ax
     end

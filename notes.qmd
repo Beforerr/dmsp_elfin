@@ -10,3 +10,6 @@ Investigate the following:
 
 Ovation Prime 2010 auroral precipitation model
 - [Code](https://github.com/lkilcommons/OvationPyme): Ovation Prime 2010 in Python
+- [2.3 - CCMC](https://ccmc.gsfc.nasa.gov/models/Ovation-Prime~2.3/)
+
+> Ovation Prime provides statistical distribution of auroral precipitation in the ionosphere obtained from 11 years of DMSP electrostatic analyzer data.

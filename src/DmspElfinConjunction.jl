@@ -15,7 +15,7 @@ using SPEDAS
 using GeoCotrans
 
 export energies
-export dist, mlt_dist, local_mlt_mean
+export dist, mlt_dist, local_mlt_mean, Δtrange
 export maxAE
 export extend
 
@@ -38,6 +38,20 @@ function maxAE(trange, dt = Hour(3))
     ae = Speasy.get_data("cda/OMNI_HRO_1MIN/AE_INDEX", pre_range...)
     # CDAWeb.get_data("OMNI_HRO_1MIN/AE_INDEX", pre_range...; orig=true, clip=true)
     return isempty(ae) ? missing : maximum(ae), ae
+end
+
+function Δtrange(trange1, trange2)
+    # Return 0 if ranges overlap, otherwise return distance between them
+    t1_start, t1_end = DateTime.(extrema(trange1))
+    t2_start, t2_end = DateTime.(extrema(trange2))
+
+    # Check for overlap: ranges overlap if one starts before the other ends
+    if t1_start <= t2_end && t2_start <= t1_end
+        return Millisecond(0)
+    end
+
+    # No overlap: return distance between closest endpoints
+    return min(abs(t1_start - t2_end), abs(t2_start - t1_end))
 end
 
 function integrate_diff_flux(flux)
