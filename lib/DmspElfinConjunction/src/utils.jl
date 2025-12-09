@@ -31,8 +31,14 @@ end
 cos24(x) = cos(x * 2π / 24)
 sin24(x) = sin(x * 2π / 24)
 
-function local_mlt_mean(x)
+function mlt_mean(x)
     real = mean(cos24, x)
     imag = mean(sin24, x)
+    return mod(angle(real + imag * im) * 24 / 2π, 24)
+end
+
+function mlt_mean(x1, x2)
+    real = mean(cos24, (x1, x2))
+    imag = mean(sin24, (x1, x2))
     return mod(angle(real + imag * im) * 24 / 2π, 24)
 end

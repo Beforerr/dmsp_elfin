@@ -42,10 +42,11 @@ id, trange = 16, [DateTime("2020-07-04T22"), DateTime("2020-07-04T22:30")]
 # id, trange, mlats = 17, [DateTime("2021-04-12T01:33"), DateTime("2021-04-12T01:42")], -68:0.5:-67
 
 # Pretty good example with overlapping time and mlt
-id, trange, mlats, Δt = 17, [DateTime("2021-12-01T22:19:00"), DateTime("2021-12-01T22:28")], [-69., -65.], Minute(5)
+# id, trange, mlats, Δt = 17, [DateTime("2021-12-01T22:19:00"), DateTime("2021-12-01T22:28")], [-63., -65.], Minute(5)
+id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:06")]
 
 # id, trange = 17, [DateTime("2021-11-08T22:28"), DateTime("2021-11-08T22:32")]
-
+config = (; probe, id, trange, t0, t1)
 t0, t1 = trange
 # Load ELFIN EPD data
 begin
@@ -90,7 +91,6 @@ axs = quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dms
 ylims!(axs[3], -84, -54)
 f
 easy_save("quicklook")
-config = (; probe, id, trange, t0, t1)
 easy_save(savename("quicklook", config))
 ```
 
@@ -103,7 +103,7 @@ using DmspElfinConjunction: PowerLawExpCutoff2, TransformKappaDistribution
 
 elx_df = @chain get_trange_by_mlat(tview(elx_mlat, zoom_tr)) begin
     @rtransform! begin
-        :mlt = local_mlt_mean(tview(elx_mlt, :trange))
+        :mlt = mlt_mean(tview(elx_mlt, :trange))
         :flux = tmean(tview(elx_flux.prec, :trange)) |> sanitize_elfin_flux
     end
 end
@@ -115,7 +115,7 @@ join_df = leftjoin(elx_df, dmsp_df, on=:mlat, makeunique=true, renamecols="_elx"
 @chain join_df begin
     dropmissing!()
     @rtransform! @astable begin # Add MLT values for each MLAT bin
-        :mlt_dmsp = local_mlt_mean(tview(dmsp_mlt, :trange_dmsp))
+        :mlt_dmsp = mlt_mean(tview(dmsp_mlt, :trange_dmsp))
         :Δmlt = mlt_dist(:mlt_dmsp, :mlt_elx)
     end
     @rtransform! $AsTable = fit_two_flux(:flux_dmsp, :flux_elx)
@@ -131,11 +131,17 @@ We treat 0 as 0 for averaging, 0 for NaN for fitting.
 
 ```{julia}
 using StatsBase: counts
-# mlats = nothing
-demo_plot(Figure(; size=(900, 700)), zoom_tr, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:cividis)
+mlats = [-70, -68.5]
+f = Figure(; size=(900, 700))
+demo_plot(f, zoom_tr, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:cividis, mlt_offset=-3)
+ax1 = f.content[1]
+ylims!(ax1, 0.8, 6.8)
 add_labels!(; position=Right(), padding=(0, 0, 0, 0))
-easy_save("flux_with_fit")
-# easy_save(savename("flux_with_fit", config))
+# add_topbar(f[0, 1], [(-70, -68.5)])
+intervals = [(-70.5, -67)]
+add_topbar!(ax1, intervals)
+# easy_save("flux_with_fit")
+easy_save(savename("flux_with_fit", config))
 ```
 
 ![flux_with_fit](../figures/flux_with_fit.png)

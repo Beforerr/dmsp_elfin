@@ -99,8 +99,8 @@ function check_matched_mlat_Δmlt(elx_mlt, elx_mlat, dmsp_mlt, dmsp_mlat; δmlat
         dmsp_tranges = dmsp_bins[mlat_bin]
         any(Base.Iterators.product(elx_tranges, dmsp_tranges)) do (elx_trange, dmsp_trange)
             mlt_dist(
-                local_mlt_mean(tview(elx_mlt, elx_trange)), # todo what is the mean of [1,23]
-                local_mlt_mean(tview(dmsp_mlt, dmsp_trange))
+                mlt_mean(tview(elx_mlt, elx_trange)), # todo what is the mean of [1,23]
+                mlt_mean(tview(dmsp_mlt, dmsp_trange))
             ) < Δmlt_max
         end
     end

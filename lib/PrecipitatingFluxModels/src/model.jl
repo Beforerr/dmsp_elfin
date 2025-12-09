@@ -1,113 +1,61 @@
 """
-Model creation and parameter extraction functions.
-"""
+    get_model(model::EmpiricalFluxModel; mlat=nothing, mlt=nothing, ae=nothing)
 
-"""
-    get_ae_bin(ae_value, ae_bins::Vector{String}) -> String
+Query subset of models matching spatial bin criteria.
 
-Find the appropriate AE bin for a given AE index value.
+Returns an `EmpiricalFluxModel` containing only rows within the specified bins.
+The returned model can be called with energy `E` to compute mean flux.
 
 # Example
 ```julia
-bins = ["[0, 100)", "[100, 300)", "[300, Inf)"]
-get_ae_bin(150, bins)  # Returns "[100, 300)"
+model = load_model()
+subset = get_model(model; mlat=70, ae=200)  # Models in mlat bin containing 70°, AE bin containing 200
+flux = subset(50.0)  # Mean flux at 50 keV across matching models
 ```
 """
-function get_ae_bin(ae_value, ae_bins::Vector{String})
-    for bin in ae_bins
-        # Parse bin string like "[0, 100)" or "[300, Inf)"
-        m = match(r"\[(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?|Inf)\)", bin)
-        if m !== nothing
-            lower = parse(Float64, m.captures[1])
-            upper = m.captures[2] == "Inf" ? Inf : parse(Float64, m.captures[2])
-            if lower <= ae_value < upper
-                return bin
-            end
-        end
+function get_model(m; mlat = nothing, mlt = nothing, ae = nothing)
+    df = m.parameters
+    bins = m.spatial_bins
+
+    if !isnothing(mlat)
+        lo, hi = _find_bin_edges(abs(mlat), bins.mlat)
+        df = @subset(df, lo .<= abs.(:mlat) .< hi; view = true)
     end
-    # Return closest bin if exact match not found
-    return ae_bins[end]  # Default to highest AE bin
+    if !isnothing(mlt)
+        lo, hi = _find_bin_edges(mlt, bins.mlt)
+        df = @subset(df, lo .<= :mlt .< hi; view = true)
+    end
+    if !isnothing(ae)
+        lo, hi = _find_bin_edges(ae, bins.ae)
+        df = @subset(df, lo .<= :ae .< hi; view = true)
+    end
+
+    return EmpiricalFluxModel(df, bins, m.energy_range, m.description, m.version)
+end
+
+# Find bin edges [lo, hi) containing val
+function _find_bin_edges(val, bins)
+    for i in 1:(length(bins) - 1)
+        bins[i] <= val < bins[i + 1] && return (bins[i], bins[i + 1])
+    end
+    # Handle edge case: val >= last bin edge
+    return (bins[end - 1], bins[end])
 end
 
 """
-    interpolate_parameters(model::EmpiricalFluxModel, mlat::Real, mlt::Real, ae::Real;
-                          stat::Symbol=:median) -> FluxParameters
+    n_flux(model::EmpiricalFluxModel, Emin, Emax)
 
-Interpolate model parameters for arbitrary geophysical conditions.
-
-Uses nearest-neighbor interpolation in (MLat, MLT, AE) space.
-
-# Arguments
-- `model`: The empirical flux model
-- `mlat`: Magnetic latitude in degrees
-- `mlt`: Magnetic local time in hours
-- `ae`: AE index in nT
-- `stat`: Which statistic to use (`:median`, `:q25`, `:q75`)
-
-# Returns
-`FluxParameters` object containing all spectral model parameters.
+Compute mean number flux across all models in the collection.
 """
-function interpolate_parameters(
-        model::EmpiricalFluxModel, mlat::Real, mlt::Real, ae::Real;
-        stat::Symbol = :median
-    )
-    # Get appropriate AE bin
-    ae_bin = get_ae_bin(ae, model.spatial_bins.ae)
-
-    # Filter for AE bin
-    df_ae = @rsubset(model.parameters, :ae_bin == ae_bin)
-
-    if nrow(df_ae) == 0
-        error("No data available for AE bin: $ae_bin")
-    end
-
-    # Find nearest neighbor in (MLat, MLT) space
-    # Normalize coordinates for distance calculation
-    mlat_norm = abs(mlat)
-    mlt_norm = mod(mlt, 24.0)
-
-    # Handle MLT wrapping (0h ≈ 24h)
-    distances = map(eachrow(df_ae)) do row
-        Δmlat = row.mlat_bin - mlat_norm
-        Δmlt = min(
-            abs(row.mlt_bin - mlt_norm),
-            abs(row.mlt_bin - mlt_norm + 24),
-            abs(row.mlt_bin - mlt_norm - 24)
-        )
-        sqrt(Δmlat^2 + (Δmlt * 2)^2)  # Weight MLT less than MLat
-    end
-
-    nearest_idx = argmin(distances)
-    row = df_ae[nearest_idx, :]
-
-    # Extract parameters with requested statistic
-    suffix = stat == :median ? "_median" : (stat == :q25 ? "_q25" : "_q75")
-
-    return FluxParameters(
-        row[Symbol("log_A1" * suffix)],
-        row[Symbol("E_c1" * suffix)],
-        row[Symbol("γ" * suffix)],
-        row[Symbol("log_A2" * suffix)],
-        row[Symbol("E_c2" * suffix)],
-        row[Symbol("κ" * suffix)],
-        row[Symbol("Emin" * suffix)],
-        row[Symbol("J1" * suffix)],
-        row[Symbol("J2" * suffix)],
-        row[Symbol("JE1" * suffix)],
-        row[Symbol("JE2" * suffix)],
-        row.mlat_bin,
-        row.mlt_bin,
-        ae,
-        row.n_samples
-    )
+function n_flux(m::EmpiricalFluxModel, Emin, Emax)
+    return mean(x -> SpectralModels.n_flux(x, Emin, Emax), m.parameters.model)
 end
 
 """
-    flux_parameters(model::EmpiricalFluxModel; mlat, mlt, ae, stat=:median) -> FluxParameters
+    e_flux(model::EmpiricalFluxModel, Emin, Emax)
 
-Get flux model parameters for specified conditions.
-
-Convenience wrapper around `interpolate_parameters`.
+Compute mean energy flux across all models in the collection.
 """
-flux_parameters(model::EmpiricalFluxModel; mlat::Real, mlt::Real, ae::Real, stat::Symbol = :median) =
-    interpolate_parameters(model, mlat, mlt, ae; stat = stat)
+function e_flux(m::EmpiricalFluxModel, Emin, Emax)
+    return mean(x -> SpectralModels.e_flux(x, Emin, Emax), m.parameters.model)
+end

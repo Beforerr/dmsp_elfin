@@ -140,7 +140,7 @@ end
 
 function classify_precipitation!(df, flux, mlt; trange = :trange, flux_threshold = 100, kw...)
     return @rtransform! df @astable begin
-        local_mlt = local_mlt_mean(tview(mlt, $trange))
+        local_mlt = mlt_mean(tview(mlt, $trange))
         ratio = valid_flux_ratio(flux, $trange, flux_threshold)
         :spins_mechanism = classify_precipitation(ratio, local_mlt)
         :mechanism = classify(:spins_mechanism)

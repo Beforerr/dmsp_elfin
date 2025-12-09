@@ -11,5 +11,8 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 SpectralModels = "8cde0a7b-b49c-424d-892f-63d9ca9e3520"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
+[sources]
+SpectralModels = {path = "../SpectralModels"}
+
 [compat]
 julia = "1.10"

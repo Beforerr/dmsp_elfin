@@ -26,7 +26,7 @@ includet("../src/analysis.jl")
 
 ```{julia}
 # tr = Date("2020-07-01"), Date("2020-12-01")
-tr = Date("2020-01-01"), Date("2022-08-01")
+tr = Date("2020-01-01"), Date("2022-10-01")
 # rm("docs/data/ELFIN=a_t0=2022-07-01_t1=2022-08-01_ids=16-17-18.jld2")
 ids = 16:18
 df_a = produce(tsplit(tr, Month), "a", ids)
@@ -37,7 +37,19 @@ df = vcat(df_a, df_b)
 
 unique(df.mechanism), counts(Int.(df.mechanism))
 
-find_continuous_timeranges(sort!(first.(df.trange_elx)), Minute(2)) # 2754-element
+tranges = @chain df begin
+    @groupby(:elfin, :id)
+    @combine $AsTable = (trs = find_continuous_timeranges(sort!(DateTime.(first.(:trange_elx))), Minute(2)); (t0=first.(trs), t1=last.(trs)))
+    @orderby(:elfin, :id, :t0)
+end
+
+tranges_summary = @chain tranges begin
+    @groupby(:elfin, :id)
+    combine(nrow => :n, :t0 => minimum => :t0_min, :t1 => maximum => :t1_max)
+    sort([:elfin, :id])
+end
+
+tranges_summary
 ```
 
 <!--
@@ -75,7 +87,7 @@ cut_AE(df; breaks=[0, 100, 300]) = @transform(df, :maxAE_bin = cut(:maxAE, break
 make_gdf(df; mlat_binedges=52.5:1:80.5, Δmlt=1) = @chain df begin
     cut_AE
     @transform(
-        :mlt_bin = demlt.(bin.(:mlt_elx, Δmlt)),
+        :mlt_bin = demlt.(bin.(mlt_mean.(:mlt_elx, :mlt_dmsp), Δmlt)),
         :mlat_bin = Array(cut(abs.(:mlat), mlat_binedges; extend=missing, labels=fmt)),
     )
     @groupby(:mlt_bin, :mlat_bin, :maxAE_bin)
@@ -84,6 +96,15 @@ end
 gdf = make_gdf(sdf)
 
 size(sdf, 1) # 28739
+```
+
+## Output the dataset as a CSV file
+
+```{julia}
+let colnames = [:elfin, :id, :mlat, :mlt_elx, :mlt_dmsp, :maxAE, :trange_elx, :trange_dmsp, :flux_elx, :flux_dmsp, :model]
+    select!(sdf, colnames, Not(colnames))
+    CSV.write("events.csv", sdf)
+end
 ```
 
 ## Check some events
@@ -208,13 +229,10 @@ easy_save("params_mlt_ae_mean")
 
 ```{julia}
 const m2axis = (; xtickformat=mlt_tickformat, xticks=0:3:24)
-let df = combine(gdf, nrow => :n, renamecols=false) |> dropmissing!
+f = let df = combine(gdf, nrow => :n, renamecols=false) |> dropmissing!
     plt = data(df) * mapping(:mlt_bin => mlt2x => "MLT", :mlat_bin => "MLAT", :n) * visual(Heatmap) * mapping(col=:maxAE_bin)
     fg = draw(plt; figure=(; size=(1000, 300)), axis=m2axis)
-    orig_yticks = fg.grid[1].axis.yticks[]
-    # do not print odd numbers
-    step = 3
-    fg.grid[1].axis.yticks[] = orig_yticks[1][1:step:end], orig_yticks[2][1:step:end]
+    fg.grid[1].axis.yticks[] = 53:3:80
     easy_save("n_mlt_mlat")
 end
 ```

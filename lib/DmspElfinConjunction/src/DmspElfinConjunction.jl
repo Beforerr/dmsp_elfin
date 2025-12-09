@@ -14,7 +14,7 @@ using SPEDAS
 using GeoCotrans
 
 export energies
-export dist, mlt_dist, local_mlt_mean, Δtrange
+export dist, mlt_dist, mlt_mean, Δtrange
 export extend
 
 # Import and re-export from SpectralModels

@@ -7,6 +7,7 @@ using UnPack
 using TimeseriesUtilities: times, tinterp
 using DimensionalData: set
 
+using AlgebraOfGraphics
 # Set better default colormap for wide dynamic range (10^3 to 10^11)
 set_theme!(colormap = :turbo)  # Excellent perceptual uniformity and high contrast
 set_aog_theme!()

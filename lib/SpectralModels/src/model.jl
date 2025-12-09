@@ -212,3 +212,11 @@ else
 end
 
 (m::TwoStepModel)(E) = m.model1(E) + m.model2(E)
+
+e_flux(m::TwoStepModel, Emin, Emax) =
+    e_flux(m.model1, Emin, Emax) +
+    e_flux(m.model2, Emin, Emax)
+
+n_flux(m::TwoStepModel, Emin, Emax) =
+    n_flux(m.model1, Emin, Emax) +
+    n_flux(m.model2, Emin, Emax)

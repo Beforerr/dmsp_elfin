@@ -1,6 +1,6 @@
 # PrecipitatingFluxModels.jl
 
-A Julia package for modeling precipitating electron flux using empirical statistical models derived from DMSP and ELFIN satellite observations.
+A Julia package for modeling precipitating electron flux using empirical statistical models derived from DMSP and ELFIN observations.
 
 ## Features and Roadmap
 
@@ -20,7 +20,7 @@ Pkg.add(url="https://github.com/beforerr/dmsp_elfin", subdir="lib/PrecipitatingF
 ## Usage Examples
 
 ```julia
-using DEEEP # DmspElfinEnergeticElectronPrecipitation
+using PrecipitatingFluxModels
 
 # Load the default model
 model = load_model()
@@ -40,32 +40,3 @@ Emax = 100.0
 J = n_flux(j_Efunc, Emin, Emax)  # cm⁻² s⁻¹ sr⁻¹
 JE = e_flux(j_Efunc, Emin, Emax)  # keV cm⁻² s⁻¹ sr⁻¹
 ```
-
-### Uncertainty Quantification
-
-```julia
-# Get median and uncertainty bounds
-flux_median = evaluate_flux(model, 50.0; mlat=67.0, mlt=8.0, ae=50.0, stat=:median)
-flux_lower = evaluate_flux(model, 50.0; mlat=67.0, mlt=8.0, ae=50.0, stat=:q25)
-flux_upper = evaluate_flux(model, 50.0; mlat=67.0, mlt=8.0, ae=50.0, stat=:q75)
-
-println("Flux: $flux_median [$flux_lower - $flux_upper]")
-```
-
-### Spectral Components
-
-```julia
-# Examine contributions from different populations
-components = flux_components(model, 50.0; mlat=67.0, mlt=8.0, ae=150.0)
-
-println("Low-energy (thermal): ", components.low_energy)
-println("High-energy (tail): ", components.high_energy)
-println("Total: ", components.total)
-```
-
-## API Reference
-
-### Core Functions
-
-- `flux_parameters(model; mlat, mlt, ae, stat)`: Get raw parameters
-- `flux_components(model, energy; kwargs...)`: Get spectral components

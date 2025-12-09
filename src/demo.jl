@@ -71,7 +71,8 @@ function quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, 
     return axs
 end
 
-function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colormap = :batlow, colorrange = (1.0e2, 2.0e11), add_ratios = true, add_elx_ratio = false)
+# mlt_offset is used to shift the MLT axis to the left by mlt_offset hours (without gap between 24 and 0)
+function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colormap = :batlow, colorrange = (1.0e2, 2.0e11), add_ratios = true, add_elx_ratio = false, mlt_offset = 0)
     mlat_limits = extrema(df.mlat)
 
     sdf = @rsubset(df, :Δmlt < 1)
@@ -83,8 +84,10 @@ function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_m
     let layout = GridLayout(f[1, 1])
 
         ax = Axis(layout[1, 1]; ylabel = "MLT")
-        scatter!(ax, set_mlat_dim(dmsp_mlt, dmsp_mlat); label = "DMSP")
-        scatter!(ax, set_mlat_dim(elx_mlt, elx_mlat); label = "ELFIN")
+        scatter!(ax, set_mlat_dim(mod.(dmsp_mlt .- mlt_offset, 24), dmsp_mlat); label = "DMSP")
+        scatter!(ax, set_mlat_dim(mod.(elx_mlt .- mlt_offset, 24), elx_mlat); label = "ELFIN")
+        # update the y axis ticklabels
+        ax.ytickformat[] = (x -> string.(mod.(x .+ mlt_offset, 24)))
         Legend(layout[1, 2], ax; padding = (30, 0, 0, 0), tellheight = false, tellwidth = false)
 
         p1 = plot_flux_by_mlat(layout[2, 1], tview(elx_flux.prec, trange), elx_mlat; colorrange, colormap)

@@ -54,16 +54,22 @@ We first identify time intervals with continuous ELFIN electron fluxes. Then for
 ::: {#fig-conjunction}
 ![](./figures/flux_with_fit.png)
 
-Example of a satellite conjunction event observed between 2021-12-01T22:19 and 2021-12-01T22:28. Panels (a-c) are plotted against magnetic latitude (MLAT): (a) the magnetic local time (MLT); (b) the precipitating electron flux measured by ELFIN; and (c) the electron flux measured by DMSP. Panels (d-e) display the precipitating flux spectra from both satellites, averaged over 0.5° MLAT bins. Scatter points represent the measured fluxes (blue for DMSP, yellow for ELFIN). The curves denote the fitted spectral models: dashed blue for the low-energy component ($j_{EP}$), dashed yellow for the high-energy component ($j_κ$), and solid red for the total composite model. The transition energy $E_{trans}$ is indicated by the vertical grey dashed line, and the flux threshold $j_{th}$ is marked by the horizontal black dashed line. The best-fit parameters are provided in the figure labels.
+Example of a satellite conjunction event observed between 2021-12-01T22:19 and 2021-12-01T22:28. Panels (a–c) are plotted as functions of magnetic latitude (MLAT): (a) magnetic local time (MLT); (b) precipitating electron flux measured by ELFIN; and (c) electron flux measured by DMSP. Panels (d–e) show the precipitating electron spectra from both satellites, averaged over 0.5° MLAT bins. The gray bar at the top of Panel (a) indicates the MLAT range over which the conjunction condition is satisfied. Scatter points in Panels (d–e) represent the measured fluxes (blue for DMSP, yellow for ELFIN). The curves denote the fitted spectral models: dashed blue for the low-energy component ($j_{\mathrm{EP}}$), dashed yellow for the high-energy component ($j_κ$), and solid red for the total composite model. The transition energy $E_{trans}$ is indicated by the vertical grey dashed line, and the flux threshold $j_{th}$ is marked by the horizontal black dashed line.
 
 :::
 <!-- Related notebooks: [](notebooks/demo.qmd#demo-plotting) -->
 
-MLAT is used as the primary spatial parameter for characterizing electron precipitation. For each conjunction event, we subdivide the spectral data into 0.5° MLAT bins, average the fluxes within each bin, and combine the measurements from ELFIN and DMSP into a single composite electron flux spectrum. The resulting spectra are fitted using a two-component distribution model, $j(E) = j_{EP}(E) + j_κ(E)$, where the reference energy $E_0$ is set to 1 keV. The low-to-intermediate energy population is represented by an exponential cutoff power-law distribution, which provides greater flexibility than a pure exponential or power-law form alone: $j_{EP}(E) = A_{EP} \left(\frac{E}{E_0}\right)^{-γ}\,\exp\left(-\frac{E}{E_{EP}}\right)$. The high-energy population is modeled using a kappa distribution to capture suprathermal tails [@espinozaIonElectronDistribution2018; @lazarKappaDistributionsObservational2021]: $j_κ(E) = A_κ \frac{E}{E_0} \left(1 + \frac{E}{κ E_κ}\right)^{-κ-1}$. The fitting procedure minimizes deviations in logarithmic flux space to accurately represent the overall spectral shape. 
+MLAT is used as the primary spatial parameter for characterizing electron precipitation. For each conjunction event, we subdivide the spectral data into 0.5° MLAT bins, average the fluxes within each bin, and combine the measurements from ELFIN and DMSP into a single composite electron flux spectrum. The resulting spectra are fitted using a two-component distribution model, $j(E) = j_{EP}(E) + j_κ(E)$. The low-to-intermediate energy population is represented by an exponential cutoff power-law distribution, which provides greater flexibility than a pure exponential or power-law form alone: 
+
+$$
+j_{EP}(E) = A_{EP} \left(\frac{E}{E_0}\right)^{-γ}\,\exp\left(-\frac{E}{E_{EP}}\right)
+$$ 
+
+where the reference energy $E_0$ is set to 1 keV. The high-energy population is modeled using a kappa distribution to capture suprathermal tails [@espinozaIonElectronDistribution2018; @lazarKappaDistributionsObservational2021]: $j_κ(E) = A_κ \frac{E}{E_0} \left(1 + \frac{E}{κ E_κ}\right)^{-κ-1}$. The fitting procedure minimizes deviations in logarithmic flux space to accurately represent the overall spectral shape. 
 During this process, we exclude the highest‑energy channel of DMSP, which is occasionally spurious, as well as data points with flux values below the noise threshold $j_{th} = 200 \, \text{cm}^{-2} \cdot \text{s}^{-1} \cdot \text{sr}^{-1} \cdot \text{MeV}^{-1}$. Because direct nonlinear fitting of the full two-component model is numerically unstable, we employ a sequential fitting procedure. First, the high-energy portion of the observed spectrum is fitted independently using the kappa function. After fixing the parameters of this energetic component, the composite model is fitted to the full energy range.
 To identify the optimal transition between the two components, we introduce a variable boundary energy, denoted as $E_{\mathrm{trans}}$, which separates the low-energy and high-energy populations. The fitting routine systematically varies $E_{\mathrm{trans}}$ across the available precipitating energy range to evaluate the goodness of fit. The final fit is selected by minimizing the loss function, yielding the best overall representation of the measured spectrum.
 
-The total precipitating number flux ($J$) and energy flux ($J_E$) are calculated by integrating the fitted analytic composite distribution over the energy range: $J = \int j(E) dE$ and $J_E = \int j(E) E dE$. The averaged electron energy is then derived as the ratio of total energy flux to total number flux, $\bar{E} = J_E / J$. Fitting the spectral shape allows for reliable interpolation across energy gaps. This method is more robust than direct numerical integration, which is susceptible to bias caused by intermittent instrumental gaps in the observational data. Because the electron spectra also depend on geomagnetic activity, we characterize the magnetospheric conditions using the AE index. Specifically, for each conjunction we consider the AE index within a three-hour window before the observation time and adopt the maximum value within that interval as a representative measure of substorm activity. 
+To characterize energetic electron contribution to precipitation, we use the total precipitating number flux ($J$) and energy flux ($J_E$) are calculated by integrating the fitted analytic composite distribution over the energy range: $J = \int j(E) dE$ and $J_E = \int j(E) E dE$. The averaged electron energy is then derived as the ratio of total energy flux to total number flux, $\bar{E} = J_E / J$. Fitting the spectral shape allows for reliable interpolation across energy gaps. This method is more robust than direct numerical integration, which is susceptible to bias caused by intermittent instrumental gaps in the observational data. Because the electron spectra also depend on geomagnetic activity, we characterize the magnetospheric conditions using the AE index. Specifically, for each conjunction we consider the AE index within a three-hour window before the observation time and adopt the maximum value within that interval as a representative measure of substorm activity. 
 
 ## Results
 
@@ -196,7 +202,7 @@ This study provides two primary data products for community use:
 An example demonstrating the usage of this library in Julia is shown below:
 
 ```julia
-using DEEEP # DmspElfinEnergeticElectronPrecipitation
+using PrecipitatingFluxModels
 
 # Initialize the model
 model = load_model()
@@ -204,19 +210,30 @@ model = load_model()
 # Evaluate flux at specific geophysical conditions:
 # Location: 65° MLat, 6 MLT (dawn sector)
 # Activity: Moderate (AE = 150 nT)
-j_func = model(; mlat=65.0, mlt=6.0, ae=150.0) # Returns a function of energy
+submodel = model(; mlat=65.0, mlt=6.0, ae=150.0) # Returns a function of energy
 
 # Calculate flux at a specific energy (e.g., 10 keV)
 E = 10.0 # [keV]
-flux_10keV = j_func(E)
+flux_10keV = submodel(E)
 
 # Generate the full energy spectrum
 energies = 10 .^ range(log10(0.03), log10(1000), length=100)  # 0.03 - 1000 keV
-spectrum = j_func.(energies)
+spectrum = submodel.(energies)
 
 # Compute integrated fluxes across the spectrum
 Emin = 0.03
 Emax = 100.0
-J  = n_flux(j_func, Emin, Emax)  # Number flux [cm⁻² s⁻¹ sr⁻¹]
-JE = e_flux(j_func, Emin, Emax)  # Energy flux [keV cm⁻² s⁻¹ sr⁻¹]
+J  = n_flux(submodel, Emin, Emax)  # Number flux [cm⁻² s⁻¹ sr⁻¹]
+JE = e_flux(submodel, Emin, Emax)  # Energy flux [keV cm⁻² s⁻¹ sr⁻¹]
+```
+
+```{julia}
+using CSV
+using PrecipitatingFluxModels
+
+CSV.write("files/tranges.csv", tranges)
+
+PrecipitatingFluxModels.save(
+    PrecipitatingFluxModels.create_model_from_stats(sdf)
+)
 ```

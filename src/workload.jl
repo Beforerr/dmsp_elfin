@@ -1,7 +1,7 @@
 using Statistics: mean
 using Speasy
 import TimeseriesUtilities
-using SpaceDataModel: tdimnum
+using SpaceDataModel: tdimnum, setmeta
 using TimeseriesUtilities: tresample, tview, tsort, find_continuous_timeranges
 using DrWatson
 using Logging
@@ -12,6 +12,7 @@ import ELFINData as ELFIN
 using DimensionalData: NoMetadata
 import DimensionalData as DD
 using SpectralModels: fit_two_flux
+using GeoAACGM: geo2aacgm
 
 include("./conjugation.jl")
 include("./mechanisms.jl")
@@ -43,7 +44,7 @@ gei2mlt_mlat(gei) = begin
     geo = gei2geo(gei)
     mlt = get_mlt(geo)
     aacgm = geo2aacgm(geo)
-    mlat = aacgm.mlat
+    mlat = _mlat(aacgm)
     return (
         mlt = setmeta(mlt, :ylabel => "MLT", :label => "ELFIN"),
         mlat = setmeta(mlat, :label => "ELFIN", :ylabel => "MLAT"),
@@ -100,7 +101,7 @@ function process_dmsp_conjunction(id, trange, elx_df; Δmlt_max = 1, kw...)
         dropmissing!()
         @rtransform! @astable begin
             :success = false
-            :mlt_dmsp = local_mlt_mean(tview(mlt, :trange_dmsp))
+            :mlt_dmsp = mlt_mean(tview(mlt, :trange_dmsp))
             :Δmlt = mlt_dist(:mlt_dmsp, :mlt_elx)
             :id = id
         end
@@ -179,7 +180,7 @@ function workload(trange, ids, elx_flux, elx_gei; Δt = Minute(10), kw...)
 
     elx_df = @chain get_trange_by_mlat(elx_mlat) begin
         @rtransform! begin
-            :mlt = local_mlt_mean(tview(elx_mlt, :trange))
+            :mlt = mlt_mean(tview(elx_mlt, :trange))
             :flux = tmean(tview(elx_flux.prec, :trange)) |> sanitize_elfin_flux
         end
         @rsubset! length(:flux) >= 3 && all(view(:flux, 1:3) .> FLUX_THRESHOLD)
@@ -231,8 +232,8 @@ function produce(trange, probe, ids; Δt = Minute(10), Δmlt_max = 1, force = fa
     filename = "ELFIN=$(probe)_t0=$(trange[1])_t1=$(trange[2])_ids=$(join(ids, "-"))"
     return produce_or_load(conf, datadir(); filename, force) do c
         trange, probe = c["trange"], c["probe"]
-        elx_gei = ELFIN.gei(trange, probe)
-        elx_flux = tsort(permutedims(ELFIN.epd(trange, probe)))
+        elx_gei = DimArray(ELFIN.GEI(probe)(trange))
+        elx_flux = tsort(permutedims(ELFIN.epd_spectral(trange; probe)))
         continuous_ranges = find_continuous_timeranges(elx_flux, Second(60))
         # filter very short ranges
         filter!(x -> tspan(x) > Second(5), continuous_ranges)
