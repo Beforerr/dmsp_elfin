@@ -34,24 +34,49 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
-[sources]
-Beforerr = {path = "/Users/zijin/.julia/dev/Beforerr"}
-DMSP = {path = "lib/DMSP"}
-DMSPData = {path = "/Users/zijin/.julia/dev/DMSPData"}
-DmspElfinConjunction = {path = "lib/DmspElfinConjunction"}
-ELFINData = {path = "/Users/zijin/.julia/dev/ELFINData"}
-GeoAACGM = {path = "/Users/zijin/.julia/dev/GeoAACGM"}
-IRBEM = {path = "/Users/zijin/.julia/dev/IRBEM"}
-PrecipitatingFluxModels = {path = "lib/PrecipitatingFluxModels"}
-SpaceDataModel = {path = "/Users/zijin/.julia/dev/SpaceDataModel"}
-SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
-Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}
-SpectralModels = {path = "lib/SpectralModels"}
-TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}
+[sources.Beforerr]
+path = "/Users/zijin/.julia/dev/Beforerr"
+
+[sources.DMSP]
+path = "lib/DMSP"
+
+[sources.DMSPData]
+path = "/Users/zijin/.julia/dev/DMSPData"
+
+[sources.DmspElfinConjunction]
+path = "lib/DmspElfinConjunction"
+
+[sources.ELFINData]
+path = "/Users/zijin/.julia/dev/ELFINData"
+
+[sources.GeoAACGM]
+path = "/Users/zijin/.julia/dev/GeoAACGM"
+
+[sources.IRBEM]
+path = "/Users/zijin/.julia/dev/IRBEM"
+
+[sources.PrecipitatingFluxModels]
+path = "lib/PrecipitatingFluxModels"
+
+[sources.SpaceDataModel]
+path = "/Users/zijin/.julia/dev/SpaceDataModel"
+
+[sources.SpacePhysicsMakie]
+path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"
+
+[sources.Speasy]
+path = "/Users/zijin/.julia/dev/Speasy"
+
+[sources.SpectralModels]
+path = "lib/SpectralModels"
+
+[sources.TimeseriesUtilities]
+path = "/Users/zijin/.julia/dev/TimeseriesUtilities"
 
 [compat]
 DataFramesMeta = "0.15.4"
 DimensionalData = "0.29.16"
+ELFINData = "0.1"
 GeoCotrans = "0.1.2"
 IRBEM = "0.1.4"
 Speasy = "0.4"
