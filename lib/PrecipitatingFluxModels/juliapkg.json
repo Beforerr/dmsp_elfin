@@ -1,0 +1,10 @@
+{
+  "julia": "1.10",
+  "packages": {
+    "PrecipitatingFluxModels": {
+      "dev": true,
+      "uuid": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      "path": "."
+    }
+  }
+}

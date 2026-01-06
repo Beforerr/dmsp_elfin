@@ -197,7 +197,7 @@ This study provides two primary data products for community use:
 
 1. Event Catalog: We provide a tabulated catalog of all identified conjunction events. For each event, the table includes the observation time, the corresponding measurements from DMSP and ELFIN, the precipitating electron fluxes observed by both satellites, and the parameters of the fitted composite spectral model.
 
-2. DEEEP Software Library: To facilitate the application of our results, we developed the DEEEP (Dmsp Elfin Energetic Electron Precipitation) software library. This tool allows users to predict precipitating electron energy flux under specified geophysical conditions. Given inputs of Magnetic Local Time (MLT), Magnetic Latitude (MLAT), and the AE index, the library returns a spectral function mapping electron energy to differential number flux.
+2. Software Library: To facilitate the application of our results, we developed the DEEEP (Dmsp Elfin Energetic Electron Precipitation) software library. This tool allows users to predict precipitating electron energy flux under specified geophysical conditions. Given inputs of Magnetic Local Time (MLT), Magnetic Latitude (MLAT), and the AE index, the library returns a spectral function mapping electron energy to differential number flux. The library is implemented in Julia with Python bindings available.
 
 An example demonstrating the usage of this library in Julia is shown below:
 

@@ -1,0 +1,37 @@
+[project]
+name = "precipitating-flux-models"
+version = "0.1.0"
+description = "Python wrapper for PrecipitatingFluxModels.jl - empirical precipitating electron flux models"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "juliacall>=0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "precipitating_flux_models.py",
+    "juliapkg.json",
+    "README.md",
+    "src/**/*.jl",
+    "Project.toml",
+    "release/*.jld2",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "precipitating_flux_models.py",
+    "juliapkg.json",
+    "src/**/*.jl",
+    "Project.toml",
+    "release/*.jld2",
+]

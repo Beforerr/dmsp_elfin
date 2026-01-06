@@ -7,7 +7,7 @@ A Julia package for modeling precipitating electron flux using empirical statist
 - 🌍 **Spatial Coverage**: Models flux as a function of magnetic latitude (MLat), magnetic local time (MLT), and geomagnetic activity (AE index)
 - 📊 **Statistical Uncertainty**: Provides median values plus 25th and 75th percentiles for all parameters
 - 🔬 **Two-Component Spectra**: Combines exponential power-law (thermal) and kappa distribution (suprathermal) models
-- [ ] Python bindings (PyCall.jl)
+- Python bindings
 
 ## Installation
 
@@ -39,4 +39,23 @@ Emin = 0.03
 Emax = 100.0
 J = n_flux(j_Efunc, Emin, Emax)  # cm⁻² s⁻¹ sr⁻¹
 JE = e_flux(j_Efunc, Emin, Emax)  # keV cm⁻² s⁻¹ sr⁻¹
+```
+
+## Python Usage
+
+### Installation
+
+```bash
+pip install -e lib/PrecipitatingFluxModels
+```
+
+### Example
+
+```python
+from precipitating_flux_models import load_model, get_model, flux, n_flux
+
+model = load_model()
+subset = get_model(model, mlat=70, ae=200)
+flux(subset, 50.0)  # Mean flux at 50 keV
+n_flux(subset, 30, 1000)  # Number flux 30-1000 keV
 ```

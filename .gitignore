@@ -19,3 +19,8 @@ site_libs
 /.luarc.json
 overleaf/
 _extensions
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+__pycache__
+pixi.lock
