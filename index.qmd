@@ -24,7 +24,6 @@ format:
   # agu-pdf:
     # cite-method: natbib # biblatex is not supported
     # keep-tex: true
-draft: true
 date: "2026"
 abstract: |
   Electron precipitation from the equatorial magnetosphere into Earth’s ionosphere constitutes a primary energy source for ionospheric ionization and for the chemistry of the upper atmosphere. Existing datasets describing this precipitation are largely based on DMSP measurements of plasma sheet electrons with energies below 30 keV and therefore do not adequately capture the energetic electron population that plays a dominant role in lower-ionosphere dynamics.
@@ -42,8 +41,6 @@ This work combines ELFIN precipitating electron measurements with DMSP spectra a
 Despite the recognized importance of energetic ((>30) keV) electron precipitation in magnetosphere–ionosphere coupling, no precipitation flux dataset currently exists for these energies that is directly compatible with the well-established DMSP flux dataset below 30 keV \cite{newellOVATIONPrime2013Extension2014}. In this study, we address this gap by constructing a dataset of precipitating electron fluxes spanning energies from 50 eV to 5 MeV, parameterized by geomagnetic activity and spatial location.
 
 The dataset is derived from conjugate measurements obtained by DMSP and the recently launched ELFIN mission \cite{angelopoulosELFINMission2020}. We present an overview of the combined DMSP–ELFIN dataset, which comprises approximately (3.6 \times 10^{4}) individual electron spectra, and we describe in detail the software tools developed to facilitate access to and analysis of this dataset.
-
-<!-- This paper is organized as follows. Section 2 describes the methodology and datasets used in this study. Section 3 presents the statistical results obtained from all conjunction events, Section 4 discusses the implications of our findings and Appendix A provides the compiled dataset and package for community use. -->
 
 ## Data and Methods
 
