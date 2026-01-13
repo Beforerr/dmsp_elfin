@@ -26,3 +26,134 @@ Conditioning on ELFIN‑only mechanism tags clarifies two regimes—whistler‑m
 ![](./figures/flux_mlt_mlat_OTHER.png)
 
 These partitions highlight complementary sources: whistlers mapping to the inner magnetosphere at lower latitudes and FLCS along more poleward field lines.
+
+## Parametric pdf model conditioned on (MLAT, MLT)
+
+Fitted a cyclic linear model for the conditional mean and log-variance plus a Normal pdf evaluator, then compared model vs empirical densities with RMSE/KL metrics and slice-by-slice line plots.
+
+- The design matrix X includes a constant, |MLAT|, |MLAT|^2, and diurnal harmonics cos(θ), sin(θ) plus their interactions with |MLAT|, where θ = 2π·MLT/24. Solving X \ log_A1 gives β coefficients that predict the conditional mean μ(mlat, mlt).
+    - Mean surface: with θ = 2π·(MLT mod 24)/24 and m = |MLAT|, the model sets $μ(m, θ) = β₀ + β₁ m + β₂ m² + β₃ cos θ + β₄ sin θ + β₅ m cos θ + β₆ m sin θ$. The coefficients β are found by least squares: β = argmin‖Xβ - log_A1‖², where the rows of X contain the seven basis functions above.
+- Residuals from that mean fit are used to model heteroscedasticity. Another matrix Z (constant, |MLAT|, |MLAT|^2, cos, sin) regresses log(residual^2 + ε) to estimate a log-variance surface γ, keeping the variance positive via the exponential transform.
+    - Variance surface: residuals r = log_A1 - μ̂ are used to fit $log σ²(m, θ) = γ₀ + γ₁ m + γ₂ m² + γ₃ cos θ + γ₄ sin θ$, with γ estimated via least squares on the features matrix Z. The model enforces positivity by taking $σ(m, θ) = √(exp(log σ²))$.
+- Given μ and σ derived from β and γ, the code assumes a Gaussian conditional density: `pdf_logA1_model(P, mlat, mlt)` evaluates the Normal pdf with those parameter
+    - Conditional pdf (notebooks/stats.qmd:341–353): assuming log_A1 | m, θ ∼ Normal(μ(m, θ), σ²(m, θ)), the fitted density evaluates as $pdf(P | m, θ) = (1 / (σ √(2π))) · exp[ -½ ((P - μ)/σ)² ]$.
+
+```{julia}
+using LinearAlgebra
+
+# 2π * :elfin_mlt / 24
+
+emp = logA1_empirical
+emp.df.angle .= @. 2π * emp.df.elfin_mlt / 24
+θ = emp.df.angle
+abs_mlat_vals = emp.df.abs_mlat
+
+X = hcat(
+    ones(size(emp.df, 1)),
+    abs_mlat_vals,
+    abs_mlat_vals .^ 2,
+    cos.(θ),
+    sin.(θ),
+    abs_mlat_vals .* cos.(θ),
+    abs_mlat_vals .* sin.(θ),
+)
+β_logA1 = X \ emp.df.log_A1
+μ_hat = X * β_logA1
+residuals = emp.df.log_A1 .- μ_hat
+
+Z = hcat(
+    ones(size(emp.df, 1)),
+    abs_mlat_vals,
+    abs_mlat_vals .^ 2,
+    cos.(θ),
+    sin.(θ),
+)
+γ_logA1 = Z \ log.(residuals .^ 2 .+ 1e-6)
+
+predict_logA1(mlat, mlt) = begin
+    abs_mlat = abs(mlat)
+    φ = 2π * mod(mlt, 24) / 24
+    cosφ, sinφ = cos(φ), sin(φ)
+    μ = dot(β_logA1, (1.0, abs_mlat, abs_mlat^2, cosφ, sinφ, abs_mlat * cosφ, abs_mlat * sinφ))
+    logσ2 = dot(γ_logA1, (1.0, abs_mlat, abs_mlat^2, cosφ, sinφ))
+    σ = sqrt(exp(logσ2))
+    σ = max(σ, 1e-3)
+    return μ, σ
+end
+
+pdf_logA1_model(P, mlat, mlt) = begin
+    μ, σ = predict_logA1(mlat, mlt)
+    coeff = 1 / (σ * sqrt(2π))
+    expo = -0.5 * ((P - μ) / σ)^2
+    return coeff * exp(expo)
+end
+
+model_density = similar(emp.cond_density)
+@views for j in axes(model_density, 2), k in axes(model_density, 3)
+    mlat = emp.mlat_centers[j]
+    mlt = emp.mlt_centers[k]
+    model_density[:, j, k] .= pdf_logA1_model.(emp.p_centers, Ref(mlat), Ref(mlt))
+end
+
+logA1_model = (; β_logA1, γ_logA1, model_density, predict_logA1, pdf_logA1_model)
+logA1_model
+```
+
+#### Model evaluation
+
+```{julia}
+emp = logA1_empirical
+model = logA1_model
+
+widths_P = emp.widths_P
+diff_density = model.model_density .- emp.cond_density
+rmse = sqrt(mean(diff_density .^ 2))
+mae = mean(abs.(diff_density))
+
+eps = 1e-9
+kl = Matrix{Float64}(undef, length(emp.mlat_centers), length(emp.mlt_centers))
+fill!(kl, NaN)
+@views for j in axes(emp.cond_density, 2), k in axes(emp.cond_density, 3)
+    p = emp.cond_density[:, j, k]
+    q = model.model_density[:, j, k]
+    mask = p .> 0
+    if any(mask)
+        kl[j, k] = sum(p[mask] .* (log.(p[mask] .+ eps) .- log.(q[mask] .+ eps)) .* widths_P[mask])
+    end
+end
+
+println("RMSE across pdf grid = $(round(rmse, digits=4))")
+println("Mean absolute difference = $(round(mae, digits=4))")
+println("Median KL divergence (per bin) = $(round(median(skipmissing(vec(kl))), digits=4))")
+
+comparison_mlat = [60.0, 65.0, 70.0]
+comparison_mlt = [0.0, 12.0, 18.0]
+
+index_of(values, target) = findmin(abs.(values .- target))[2]
+
+f = Figure(size=(900, 720))
+for (i, mlat_target) in enumerate(comparison_mlat)
+    mlat_idx = index_of(emp.mlat_centers, mlat_target)
+    for (j, mlt_target) in enumerate(comparison_mlt)
+        mlt_idx = index_of(emp.mlt_centers, mlt_target)
+        ax = Axis(
+            f[i, j];
+            title="|MLAT| ~ $(round(emp.mlat_centers[mlat_idx], digits=1)) deg, MLT ~ $(round(emp.mlt_centers[mlt_idx], digits=1)) h",
+            xlabel="log10(A1)",
+            ylabel=i == length(comparison_mlat) ? "pdf" : "",
+            yscale=log10
+        )
+        empirical = emp.cond_density[:, mlat_idx, mlt_idx]
+        modeled = model.model_density[:, mlat_idx, mlt_idx]
+        lines_emp = lines!(ax, emp.p_centers, empirical; color=:steelblue, linewidth=2)
+        lines_mod = lines!(ax, emp.p_centers, modeled; color=:orange, linestyle=:dash, linewidth=2)
+        ylims!(ax, (1e-6, 1))
+        i != length(comparison_mlat) && hidexdecorations!(ax)
+        j != 1 && hideydecorations!(ax)
+        if i == 1 && j == 1
+            axislegend(ax, [lines_emp, lines_mod], ["Empirical", "Model"]; position=:rt)
+        end
+    end
+end
+f
+```

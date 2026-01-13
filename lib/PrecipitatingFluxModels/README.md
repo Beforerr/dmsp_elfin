@@ -2,12 +2,11 @@
 
 A Julia package for modeling precipitating electron flux using empirical statistical models derived from DMSP and ELFIN observations.
 
-## Features and Roadmap
+## Features
 
-- 🌍 **Spatial Coverage**: Models flux as a function of magnetic latitude (MLat), magnetic local time (MLT), and geomagnetic activity (AE index)
-- 📊 **Statistical Uncertainty**: Provides median values plus 25th and 75th percentiles for all parameters
-- 🔬 **Two-Component Spectra**: Combines exponential power-law (thermal) and kappa distribution (suprathermal) models
-- Python bindings
+- **Spatial Coverage**: Models flux as a function of magnetic latitude (MLAT), magnetic local time (MLT), and geomagnetic activity (AE index)
+- **Two-Component Spectra**: Combines exponential power-law (thermal) and kappa distribution (suprathermal) models
+- **Python Bindings**
 
 ## Installation
 

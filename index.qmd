@@ -1,5 +1,5 @@
 ---
-title: "Peculiarities of precipitating electron spectra : DMPS & ELFIN combined dataset"
+title: "Peculiarities of precipitating electron spectra: a combined DMPS-ELFIN dataset"
 author:
   - name: Zijin Zhang
     email: zijin@ucla.edu
@@ -15,14 +15,20 @@ author:
     email: vassilis@ucla.edu
     orcid: 0000-0001-7024-1561
     affiliation: University of California, Los Angeles
+  - name: Xiao-Jia Zhang
+    email: xjzhang@utdallas.edu
+    affiliation: University of Texas at Dallas
+    orcid: 0000-0002-4185-5465
 format:
   html: default
-  agu-pdf:
-    cite-method: natbib # biblatex is not supported
-    keep-tex: true
-date: "2025"
+  # agu-pdf:
+    # cite-method: natbib # biblatex is not supported
+    # keep-tex: true
+draft: true
+date: "2026"
 abstract: |
-  ELFIN and DMSP electron spectra at close conjunction
+  Electron precipitation from the equatorial magnetosphere into Earth’s ionosphere constitutes a primary energy source for ionospheric ionization and for the chemistry of the upper atmosphere. Existing datasets describing this precipitation are largely based on DMSP measurements of plasma sheet electrons with energies below 30 keV and therefore do not adequately capture the energetic electron population that plays a dominant role in lower-ionosphere dynamics.
+  In this technical report, we present a new dataset that combines DMSP measurements with ELFIN observations of energetic electrons exceeding 50 keV. Using conjugate DMSP–ELFIN measurements, we identify approximately (3.6 \times 10^{4}) individual electron spectra and fit each spectrum with an analytical model. We summarize the primary results derived from this combined DMSP–ELFIN dataset, with particular emphasis on the relative contribution of energetic ((>30) keV) electrons to the precipitating energy flux. In addition, we describe the software routines developed to facilitate access to and use of the DMSP–ELFIN dataset.
 ---
 
 ## Introduction
@@ -33,13 +39,11 @@ Substorm‑time injections and scattering in the plasma sheet drive strong, stru
 
 This work combines ELFIN precipitating electron measurements with DMSP spectra at close conjunction to extend the DMSP‑based precipitation picture toward higher energies. The goal is an empirical description of spectral parameters and integrated fluxes across MLT/MLAT and geomagnetic activity, with attention to distinct scattering mechanisms.
 
-<!-- AI
-In this study, we perform a conjunction analysis of precipitating electron flux using observations from the DMSP and ALFED satellites. DMSP provides measurements of the all-energy electron flux up to approximately 30 keV, while ALFED extends the accessible energy range to about 1 MeV. The contribution of the high-energy component of jet electrons to the total number flux and energy flux of electron precipitation has not been well constrained.
+Despite the recognized importance of energetic ((>30) keV) electron precipitation in magnetosphere–ionosphere coupling, no precipitation flux dataset currently exists for these energies that is directly compatible with the well-established DMSP flux dataset below 30 keV \cite{newellOVATIONPrime2013Extension2014}. In this study, we address this gap by constructing a dataset of precipitating electron fluxes spanning energies from 50 eV to 5 MeV, parameterized by geomagnetic activity and spatial location.
 
-We identify conjunction intervals during which the two satellites sample comparable regions, requiring that their observation bands overlap in magnetic latitude (MLAT) and remain closely aligned in magnetic local time (MLT), with a temporal separation of less than 10 minutes. Applying these criteria yields approximately 3,000 conjunction events.
--->
+The dataset is derived from conjugate measurements obtained by DMSP and the recently launched ELFIN mission \cite{angelopoulosELFINMission2020}. We present an overview of the combined DMSP–ELFIN dataset, which comprises approximately (3.6 \times 10^{4}) individual electron spectra, and we describe in detail the software tools developed to facilitate access to and analysis of this dataset.
 
-This paper is organized as follows. Section 2 describes the methodology and datasets used in this study. Section 3 presents the statistical results obtained from all conjunction events, Section 4 discusses the implications of our findings and Appendix A provides the compiled dataset and package for community use.
+<!-- This paper is organized as follows. Section 2 describes the methodology and datasets used in this study. Section 3 presents the statistical results obtained from all conjunction events, Section 4 discusses the implications of our findings and Appendix A provides the compiled dataset and package for community use. -->
 
 ## Data and Methods
 
@@ -138,7 +142,13 @@ end
 Median distributions of (a) averaged energy ($\bar{E}$) [$\text{keV}$] and (b) kappa parameter ($\kappa$) as functions of MLT and MLAT, sorted by AE index levels.
 :::
 
-To interpret the spatial variability of spectral properties in MLT–MLAT space, we examine probability density functions (PDFs) for selected combinations of MLT and MLAT. Specifically, we define four representative regions: two MLT sectors (0–9 and 12–21) and two MLAT bands ($60^{\circ}$–$65^{\circ}$ and $>65^{\circ}$), evaluated across the three previously defined AE index ranges. For each region, we analyze the PDFs of the fractional contribution of energetic particles to the total energy flux ($J_E^{>30 \text{keV}} / J_E$), the average electron energy ($\bar{E}$), and the kappa parameter ($\kappa$), as shown in @fig-param-pdf. 
+To better interpret the spatial variability of energetic electron spectral properties in MLAT–MLT space, we examine probability density functions (PDFs for four ranges of MLT and MLAT). Specifically, we define four representative regions: two MLT sectors, post-midnight and dusk (0–9 and 12–21), and two MLAT ranges ((60^{\circ})–(65^{\circ}) and (>65^{\circ})), corresponding to sub-auroral and auroral latitudes, respectively. These four MLAT–MLT regions are analyzed for three ranges of the AE index. For each (MLAT, MLT, AE) combination, we evaluate PDFs of (i) the fractional contribution of energetic electrons to the total energy flux ((J_E^{>30,\mathrm{keV}} / J_E)), (ii) the average electron energy ((\bar{E})), and (iii) the kappa parameter ((\kappa)), as shown in @fig-param-pdf.
+
+Under conditions of low geomagnetic activity, the distribution of (J_E^{>30,\mathrm{keV}} / J_E) is strongly peaked at small values at auroral latitudes in the post-midnight sector, where plasma sheet electrons with energies below 30 keV dominate the precipitating energy flux. In contrast, for other MLAT and MLT regions, the distributions are broader and largely similar. With increasing geomagnetic activity, the contribution of energetic electrons to the total energy flux remains nearly unchanged—or even increases—in the dusk sector, whereas in the post-midnight sector it decreases at both sub-auroral and auroral latitudes. Overall, @fig-param-pdf (top row) demonstrates that energetic electron precipitation should not be neglected in the sub-auroral region and can also be significant in the auroral region on the dusk side, where it may account for up to 80% of the total precipitating energy flux.
+
+Average-energy distributions are generally concentrated at low values, with (\bar{E} < 3) keV, but they exhibit distinct responses to geomagnetic activity in the post-midnight sector and on the dusk flank. On the dusk flank, increasing AE is associated with the development of a pronounced long tail in the (\bar{E}) distribution, extending up to (\bar{E} \sim 10) keV. In contrast, in the post-midnight sector, the (\bar{E}) distribution remains confined to (\bar{E} < 5) keV as AE increases, although it becomes flatter within the (\bar{E} < 3) keV range. Overall, Figure~\ref{fig-param-pdf} (middle row) indicates that, across all MLAT and MLT sectors, there is a non-negligible—particularly during geomagnetically active periods—probability of observing (\bar{E} > 5) keV. In such cases, the DMSP energy range ((<30) keV) alone is insufficient to fully capture the precipitating energy flux.
+
+The distributions of (\kappa) values vary primarily with AE and show pronounced differences between auroral and sub-auroral latitudes, whereas differences between the post-midnight sector and the dusk flank are comparatively modest. At auroral latitudes ((>65^\circ)), the (\kappa) distributions are broader, indicating a higher probability of large (\kappa) values, than at sub-auroral latitudes. Moreover, increasing AE leads to broader (\kappa) distributions across all latitudinal ranges. We note that, given the limited energy range used to fit the energetic electron population, spectra with (\kappa > 4) (corresponding to (\kappa > 5) for phase-space density) can be regarded as approximately Maxwellian.
 
 As geomagnetic activity increases, the distributions of $J_E^{>30 \text{keV}} / J_E$ shift toward lower values in the MLT 0–9 sector, whereas this shift is less pronounced in the MLT 12–21 sector. Similarly, with increasing AE, the distributions of average energy ($\bar{E}$) shift substantially toward higher energies in the MLT 0–9 sector, while only a slight increase is observed in the MLT 12–21 sector.
 
@@ -181,9 +191,21 @@ Probability density functions of (a) the energy flux ratio $J_E^{>30\text{keV}}/
 
 ## Summary
 
-In this study, we investigate precipitating electron fluxes across an extended energy range by leveraging conjunction observations from two ELFIN satellites and three DMSP satellites. Our analysis reveals that energetic flux, number flux, average energy and kappa parameter exhibit a strong dependence on MLAT, MLT, and geomagnetic activity (quantified by the AE index). Specifically, we find that although the strongest energy and number fluxes occur in the dawn sector at high magnetic latitudes ($65^∘$–$75^∘$), the relative contribution of energetic particles exhibits an anti-correlated behavior. The spectral composition varies markedly with magnetic local time and magnetic latitude and is further modulated by geomagnetic activity. Notably, our results show that the energetic ($>30$ keV) component makes a substantial contribution to the total energy flux in the dusk sector, emphasizing the importance of accounting for this population to accurately characterize magnetosphere–ionosphere coupling.
+In this study, we present a new dataset of precipitating electron fluxes spanning an extended energy range of $10^2$--$10^6$ eV.
+The dataset is constructed using conjunction observations from two ELFIN CubeSats and three DMSP satellites during the period 2020–2022. It comprises approximately $3.6 \times 10^{4}$ individual electron spectra, each fitted with a combination of Maxwellian and power-law distributions to interpolate the energy gap between the DMSP and ELFIN measurements.
 
-Building on these results, we developed an empirical, data-driven model (detailed in the Appendix) to characterize precipitating electron fluxes from the thermal regime ($\sim1$ keV, DMSP) to relativistic energies ($\sim1$ MeV, ELFIN). This model extends the energy range of previous frameworks, such as @newellOVATIONPrime2013Extension2014, to provide a comprehensive representation of the full electron spectrum.
+Building on this dataset, we developed an empirical, data-driven model (described in detail in the Appendix) to characterize precipitating electron fluxes from the thermal regime ((\sim 100) eV, DMSP) to relativistic energies ((\sim 1) MeV, ELFIN). This model extends the energy coverage of previous frameworks \cite{newellOVATIONPrime2013Extension2014} and provides a more comprehensive representation of the full spectrum of precipitating electrons.
+
+We also analyzed the basic properties of the combined DMSP–ELFIN precipitating electron spectra. Our main findings are summarized as follows:
+
+- The contribution of energetic electrons to the total precipitating energy flux can reach, on average, (\sim 40%), and for individual events can be as high as (\sim 80%). Such large contributions are most frequently observed on the dusk flank at sub-auroral latitudes, while a significant average contribution is also present in the post-midnight sector.
+- The average electron energy is maximized in the post-midnight sector and reaches, on average, (\sim 5) keV, whereas for individual events on the dusk flank it can be as large as (\sim 10) keV.
+- The energetic component of precipitating electron spectra is well described by a power-law distribution with (\kappa < 3) at sub-auroral latitudes and (\kappa > 3) (corresponding to nearly Maxwellian spectra) at auroral latitudes.
+
+Overall, these results underscore the importance of accounting for energetic electron contributions in studies of magnetosphere–ionosphere coupling. Accurate modeling of this component is essential, as its contribution varies with MLAT, MLT, and geomagnetic activity in ways that differ substantially from those of electrons with energies below 30 keV.
+
+<!-- In this study, we investigate precipitating electron fluxes across an extended energy range by leveraging conjunction observations from two ELFIN satellites and three DMSP satellites. Our analysis reveals that energetic flux, number flux, average energy and kappa parameter exhibit a strong dependence on MLAT, MLT, and geomagnetic activity (quantified by the AE index). Specifically, we find that although the strongest energy and number fluxes occur in the dawn sector at high magnetic latitudes ($65^∘$–$75^∘$), the relative contribution of energetic particles exhibits an anti-correlated behavior. The spectral composition varies markedly with magnetic local time and magnetic latitude and is further modulated by geomagnetic activity. Notably, our results show that the energetic ($>30$ keV) component makes a substantial contribution to the total energy flux in the dusk sector, emphasizing the importance of accounting for this population to accurately characterize magnetosphere–ionosphere coupling.
+ -->
 
 ## Data Availability
 
