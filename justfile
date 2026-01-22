@@ -32,8 +32,3 @@ flux-model-test:
     #!/usr/bin/env -S julia --threads=auto --project=lib/PrecipitatingFluxModels
     using Pkg
     Pkg.test()
-
-flux-model-examples:
-    #!/usr/bin/env -S julia --threads=auto --project=lib/PrecipitatingFluxModels
-    include("lib/PrecipitatingFluxModels/examples/basic_usage.jl")
-

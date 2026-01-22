@@ -15,5 +15,3 @@ platforms = ["osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
 precipitating-flux-models = { path = "lib/PrecipitatingFluxModels", editable = true }
-
-[tool.pixi.tasks]
