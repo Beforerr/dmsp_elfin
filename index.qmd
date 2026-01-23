@@ -33,6 +33,8 @@ abstract: |
 
 ## Introduction
 
+The energy flux of precipitating magnetospheric electrons is a critical factor governing ionospheric dynamics and the coupling processes among the magnetosphere, ionosphere, and thermosphere. In the nightside magnetosphere, where photoionization from solar radiation is minimal, electron precipitation becomes a dominant source of ionization and conductance—two key parameters in space-weather models. Variations in ionization and conductance can, in turn, modify magnetospheric convection, establishing a feedback loop that further influences precipitation from the magnetosphere. Accurately quantifying the distribution and properties of precipitating electrons therefore remains a key challenge in understanding magnetosphere–ionosphere coupling \cite<see, e.g., reviews by>[and references therein]{robinsonStatisticalRelationsAuroral2020,heelisChallengesUnderstandingEarths2020}.
+
 Energetic electron precipitation (EEP) couples the magnetosphere and ionosphere by creating ionization and controlling high‑latitude conductances. Empirical conductance models often rely on DMSP particle spectra as input [@wangIonosphericConductancesDue2024].
 
 Substorm‑time injections and scattering in the plasma sheet drive strong, structured precipitation that imprints on magnetic latitude (MLAT) and magnetic local time (MLT) patterns [@zouKeyRoleMagnetic2024].
