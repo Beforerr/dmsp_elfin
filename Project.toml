@@ -78,7 +78,7 @@ path = "/Users/zijin/.julia/dev/TimeseriesUtilities"
 [compat]
 CDFDatasets = "0.1"
 DataFramesMeta = "0.15.4"
-DimensionalData = "0.29.16"
+DimensionalData = "0.29.16, 0.30"
 GeoCotrans = "0.1.2"
 IRBEM = "0.1.4"
 LoggingExtras = "1"
