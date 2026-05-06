@@ -1,0 +1,39 @@
+{
+  "title": "DMSP-ELFIN Conjunction Study",
+  "upload_type": "software",
+  "description": "Processing and analysis software for the manuscript \"Peculiarities of precipitating electron spectra revealed through a combined DMSP-ELFIN dataset\".",
+  "creators": [
+    {
+      "name": "Zhang, Zijin",
+      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA"
+    },
+    {
+      "name": "Artemyev, Anton V.",
+      "affiliation": "Department of Physics, University of Texas at Arlington, USA"
+    },
+    {
+      "name": "Angelopoulos, Vassilis",
+      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA"
+    },
+    {
+      "name": "Zhang, Xiao-Jia",
+      "affiliation": "Department of Physics, University of Texas at Dallas, USA"
+    }
+  ],
+  "access_right": "open",
+  "license": "mit",
+  "keywords": [
+    "DMSP",
+    "ELFIN",
+    "electron precipitation",
+    "space physics",
+    "Julia"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://doi.org/10.5281/zenodo.20132654",
+      "relation": "references",
+      "resource_type": "dataset"
+    }
+  ]
+}

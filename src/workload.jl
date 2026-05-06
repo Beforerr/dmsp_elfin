@@ -74,7 +74,7 @@ get_mlt_mlat(id, t0, t1) = begin
     _geo = get_geo(id, t0, t1 + dt)
     # Upsample to 1 second
     geo = tinterp(_geo, t0:dt:t1)
-    mlt = get_mlt(geo)
+    mlt = GeoCotrans.get_mlt(geo)
     aacgm = geo2aacgm(geo)
     mlat = _mlat(aacgm)
     return mlt, mlat

@@ -8,12 +8,8 @@ export load
 
 include("hdf5.jl")
 
-function download(timerange, id)
-    return SSJ_dataset_files(id, timerange...)
-end
-
 function load(timerange, id, params)
-    files = download(timerange, id)
+    files = SSJ_dataset_files(id, timerange...)
     sts = map(files) do file
         read2dimstack(file, params, timerange)
     end

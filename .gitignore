@@ -17,7 +17,7 @@ _manuscript/
 **/*.quarto_ipynb
 site_libs
 /.luarc.json
-overleaf/
+
 _extensions
 # pixi environments
 .pixi/*

@@ -5,7 +5,7 @@ using DmspElfinConjunction, DMSP
 using Dates
 using TimeseriesUtilities
 using DimensionalData, DataFrames, DataFramesMeta
-using GeoCotrans, IRBEM
+using GeoCotrans
 using Accessors
 using AlgebraOfGraphics
 using CairoMakie
@@ -21,35 +21,6 @@ includet("../src/statplot.jl")
 include("../src/statplot.jl")
 includet("../src/demo.jl")
 includet("../src/analysis.jl")
-```
-
-
-```{julia}
-# tr = Date("2020-07-01"), Date("2020-12-01")
-tr = Date("2020-01-01"), Date("2022-10-01")
-# rm("docs/data/ELFIN=a_t0=2022-07-01_t1=2022-08-01_ids=16-17-18.jld2")
-ids = 16:18
-df_a = produce(tsplit(tr, Month), "a", ids)
-df_b = produce(tsplit(tr, Month), "b", ids)
-df_a.elfin .= :a
-df_b.elfin .= :b
-df = vcat(df_a, df_b)
-
-unique(df.mechanism), counts(Int.(df.mechanism))
-
-tranges = @chain df begin
-    @groupby(:elfin, :id)
-    @combine $AsTable = (trs = find_continuous_timeranges(sort!(DateTime.(first.(:trange_elx))), Minute(2)); (t0=first.(trs), t1=last.(trs)))
-    @orderby(:elfin, :id, :t0)
-end
-
-tranges_summary = @chain tranges begin
-    @groupby(:elfin, :id)
-    combine(nrow => :n, :t0 => minimum => :t0_min, :t1 => maximum => :t1_max)
-    sort([:elfin, :id])
-end
-
-tranges_summary
 ```
 
 <!--
@@ -98,15 +69,6 @@ gdf = make_gdf(sdf)
 size(sdf, 1) # 28739
 ```
 
-## Output the dataset as a CSV file
-
-```{julia}
-let colnames = [:elfin, :id, :mlat, :mlt_elx, :mlt_dmsp, :maxAE, :trange_elx, :trange_dmsp, :flux_elx, :flux_dmsp, :model]
-    select!(sdf, colnames, Not(colnames))
-    CSV.write("events.csv", sdf)
-end
-```
-
 ## Check some events
 
 ```{julia}
@@ -132,6 +94,7 @@ begin
 
     # quicklook(trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
     f = Figure(; size=(800, 600))
+    # TODO: update
     demo_plot(f, trange, tdf, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:batlow)
     f
 end
@@ -186,7 +149,7 @@ end
 ```{julia}
 using Statistics
 
-vars = [:log_A1 => "Log A (ExpPow)", :E_c1 => "E_c (ExpPow)", :γ => "γ (ExpPow)", :Emin => "Transition Energy", :log_A2 => "Log A (Kappa)", :E_c2 => "E_c (Kappa)", :κ => "κ (Kappa)]
+vars = [:log_A1 => "Log A (ExpPow)", :E_c1 => "E_c (ExpPow)", :γ => "γ (ExpPow)", :Emin => "Transition Energy", :log_A2 => "Log A (Kappa)", :E_c2 => "E_c (Kappa)", :κ => "κ (Kappa)"]
 ```
 
 ### MLT, maxAE space

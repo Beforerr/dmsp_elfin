@@ -5,7 +5,7 @@ using DmspElfinConjunction, DMSP, ELFIN
 using Dates
 using TimeseriesUtilities
 using DimensionalData, DataFrames, DataFramesMeta
-using GeoCotrans, IRBEM
+using GeoCotrans
 using SPEDAS
 using Accessors
 

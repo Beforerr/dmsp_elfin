@@ -20,7 +20,7 @@ export extend
 # Import and re-export from SpectralModels
 using SpectralModels: SpectralModel, TwoStepModel, PowerLaw, PowerLawExpCutoff, PowerLawExpCutoff2
 using SpectralModels: TransformKappaDistribution
-using SpectralModels: init_guess, fit, fit_flux_two_step, fit_two_flux
+using SpectralModels: init_guess, fit, fit_two_step, fit_two_flux
 
 include("utils.jl")
 

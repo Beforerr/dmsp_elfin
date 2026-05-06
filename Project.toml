@@ -8,7 +8,6 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 DMSP = "18f86b58-c793-4198-b447-5463fba1ecf3"
-DMSPData = "d5333723-18be-412f-8474-053889153fe2"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -20,12 +19,12 @@ FHist = "68837c9b-b678-4cd5-9925-8a54edc8f695"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoAACGM = "7d0bd8ea-8a67-4204-9dfc-7af11c683dec"
 GeoCotrans = "4624b3bc-fe35-44f8-bfa8-722ff9c0e307"
-IRBEM = "d0b46c7b-8a8f-4d20-a1b4-6e9a4a1e4e5f"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 PrecipitatingFluxModels = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+SPEDAS = "3930f61c-4d81-4846-ab8f-357babe068a6"
 SpaceDataModel = "0b37b92c-f0c5-4a52-bd5c-390dec20857c"
 SpacePhysicsMakie = "0c28ffd8-ae30-4a56-b2e4-f8332c621ad2"
 Speasy = "09b745ad-c67d-442f-94a6-c7f4d1e4d861"
@@ -35,48 +34,22 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
-[sources.Beforerr]
-path = "/Users/zijin/.julia/dev/Beforerr"
-
-[sources.DMSP]
-path = "lib/DMSP"
-
-[sources.DmspElfinConjunction]
-path = "lib/DmspElfinConjunction"
-
-[sources.ELFINData]
-path = "/Users/zijin/.julia/dev/ELFINData"
-
-[sources.GeoAACGM]
-path = "/Users/zijin/.julia/dev/GeoAACGM"
-
-[sources.IRBEM]
-path = "/Users/zijin/.julia/dev/IRBEM"
-
-[sources.PrecipitatingFluxModels]
-path = "lib/PrecipitatingFluxModels"
-
-[sources.SpaceDataModel]
-path = "/Users/zijin/.julia/dev/SpaceDataModel"
-
-[sources.SpacePhysicsMakie]
-path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"
-
-[sources.Speasy]
-path = "/Users/zijin/.julia/dev/Speasy"
-
-[sources.SpectralModels]
-path = "lib/SpectralModels"
-
-[sources.TimeseriesUtilities]
-path = "/Users/zijin/.julia/dev/TimeseriesUtilities"
+[sources]
+Beforerr = {path = "/Users/zijin/.julia/dev/Beforerr"}
+DMSP = {path = "lib/DMSP"}
+DmspElfinConjunction = {path = "lib/DmspElfinConjunction"}
+ELFINData = {path = "/Users/zijin/.julia/dev/ELFINData"}
+PrecipitatingFluxModels = {path = "lib/PrecipitatingFluxModels"}
+SpaceDataModel = {path = "/Users/zijin/.julia/dev/SpaceDataModel"}
+SpacePhysicsMakie = {path = "/Users/zijin/.julia/dev/SpacePhysicsMakie"}
+Speasy = {path = "/Users/zijin/.julia/dev/Speasy"}
+SpectralModels = {path = "lib/SpectralModels"}
+TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}
 
 [compat]
 CDFDatasets = "0.1"
 DataFramesMeta = "0.15.4"
-DimensionalData = "0.29.16"
-GeoCotrans = "0.1.2"
-IRBEM = "0.1.4"
+GeoCotrans = "0.2"
 LoggingExtras = "1"
 Speasy = "0.4"
 Statistics = "1"

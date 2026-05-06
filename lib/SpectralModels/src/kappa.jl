@@ -21,15 +21,21 @@ Setting κ approach infinity leads to the Maxwellian distribution.
 """
 abstract type AbstractKappaDistribution{T} <: SpectralModel{T} end
 
+(m::AbstractKappaDistribution)(E) = A(m) * E * (1 + E / (κ(m) * E_c(m)))^(-κ(m) - 1)
+
+function log_eval(m::AbstractKappaDistribution, E)
+    return logA(m) + log(E) + log1p(E / (κ(m) * E_c(m))) * (-κ(m) - 1)
+end
+
 """
     KappaDistribution{T} <: AbstractKappaDistribution{T}
 
 Kappa distribution spectral model for suprathermal particle populations.
 
 # Fields
-- `A::T`: Normalization amplitude
-- `κ::T`: Kappa parameter controlling tail behavior (κ > 0)
-- `E_c::T`: Characteristic energy scale (keV)
+- `A`: Normalization amplitude
+- `κ`: Kappa parameter controlling tail behavior (κ > 0)
+- `E_c`: Characteristic energy scale (keV)
 
 # Examples
 ```julia
@@ -44,17 +50,9 @@ flux = model.(10.0:10.0:100.0)
     E_c::T
 end
 
-(m::KappaDistribution)(E) = m.A * E * (1 + E / (m.κ * m.E_c))^(-m.κ - 1)
+KappaDistribution(m::AbstractKappaDistribution) = KappaDistribution(A(m), κ(m), E_c(m))
 
-@inline function log_eval(m::KappaDistribution, E)
-    return nm.log(m.A) + log(E) + nm.log(1 + E / (m.κ * m.E_c)) * (-m.κ - 1)
-end
-
-# Accessor functions
-A(m::KappaDistribution) = m.A
-E_c(m::KappaDistribution) = m.E_c
 κ(m::KappaDistribution) = m.κ
-logA(m::KappaDistribution) = log(m.A)
 
 # Analytical integrals for number and energy flux
 # https://www.wolframalpha.com/input?i=A+x+%281%2Bx%2F%28c+%CE%BA%29%29%5E%28-%CE%BA-1%29
@@ -73,10 +71,6 @@ function _integral1(m::KappaDistribution, E)
     return -num / den
 end
 
-# ============================================================================
-# Transformed Kappa Distributions
-# ============================================================================
-
 """
     TransformKappaDistribution{T} <: AbstractKappaDistribution{T}
 
@@ -89,9 +83,9 @@ valid physical ranges:
 - `E_c`: ℝ → [0.01, 100] keV (typical particle energies)
 
 # Fields
-- `u_A::T`: Transformed amplitude parameter
-- `u_κ::T`: Transformed kappa parameter
-- `u_E_c::T`: Transformed energy parameter
+- `u_A`: Transformed amplitude parameter
+- `u_κ`: Transformed kappa parameter
+- `u_E_c`: Transformed energy parameter
 
 # Examples
 ```julia
@@ -116,37 +110,26 @@ const as_A = asℝ₊                    # A > 0
 const as_κ = as(Real, 1, 20)         # κ ∈ [1, 20]
 const as_Ec = as(Real, 0.01, 100)    # E_c ∈ [0.01, 100] keV
 
-# Accessor functions with transformations
 @inline A(m::TransformKappaDistribution) = transform(as_A, m.u_A)
 @inline κ(m::TransformKappaDistribution) = transform(as_κ, m.u_κ)
 @inline E_c(m::TransformKappaDistribution) = transform(as_Ec, m.u_E_c)
+logA(m::TransformKappaDistribution) = log(transform(as_A, m.u_A))
 
-# Evaluation
-(m::TransformKappaDistribution)(E) = KappaDistribution(m)(E)
-KappaDistribution(m::TransformKappaDistribution) = KappaDistribution(A(m), κ(m), E_c(m))
-
-@inline function log_eval(m::TransformKappaDistribution, E)
-    return log_eval(KappaDistribution(m), E)
+TransformKappaDistribution(m::AbstractKappaDistribution) = begin
+    u1 = inverse(as_A, A(m))
+    u2 = inverse(as_κ, κ(m))
+    u3 = inverse(as_Ec, min(E_c(m), 100))
+    return TransformKappaDistribution(u1, u2, u3)
 end
-
-# ============================================================================
-# Log-Transformed Kappa Distribution
-# ============================================================================
 
 """
     KappaDistribution2{T} <: AbstractKappaDistribution{T}
 
-Kappa distribution with log-transformed parameters for unconstrained optimization.
+Kappa distribution with log-transformed parameters `logA`, `logκ`, and `logE_c`.
 
 Where `A = exp(logA)`, `κ = exp(logκ)`, and `E_c = exp(logE_c)`.
 
-# Fields
-- `logA::T`: Log of normalization amplitude
-- `logκ::T`: Log of kappa parameter
-- `logE_c::T`: Log of characteristic energy
-
-This parametrization ensures all physical parameters remain positive during
-unconstrained optimization over ℝ³.
+This parametrization ensures all physical parameters remain positive during optimization.
 
 # Examples
 ```julia
@@ -168,20 +151,11 @@ struct KappaDistribution2{T} <: AbstractKappaDistribution{T}
     logE_c::T
 end
 
-(m::KappaDistribution2)(E) = A(m) * E * (1 + E / (κ(m) * E_c(m)))^(-κ(m) - 1)
-
-function log_eval(m::KappaDistribution2, E)
-    return m.logA + log(E) + log(1 + E / (κ(m) * E_c(m))) * (-κ(m) - 1)
-end
-
-# Accessor functions
-A(m::KappaDistribution2) = exp(m.logA)
-logA(m::KappaDistribution2) = m.logA
 κ(m::KappaDistribution2) = exp(m.logκ)
-E_c(m::KappaDistribution2) = exp(m.logE_c)
 
-# Convert to base KappaDistribution for integrals
-KappaDistribution(m::KappaDistribution2) = KappaDistribution(A(m), κ(m), E_c(m))
+KappaDistribution2(m::AbstractKappaDistribution) = KappaDistribution2(logA(m), log(κ(m)), logE_c(m))
+
+
 _integral0(m::AbstractKappaDistribution, E) = _integral0(KappaDistribution(m), E)
 _integral1(m::AbstractKappaDistribution, E) = _integral1(KappaDistribution(m), E)
 
@@ -209,30 +183,4 @@ function math_show(m::AbstractKappaDistribution; sigdigits = 2)
     \\
     $A_κ$:%$_A, $κ$:%$_κ, $E_κ$:%$_E_c
     """
-end
-
-"""
-    log_jacobian(model::KappaDistribution, E) -> Vector{Float64}
-
-Compute the Jacobian of log(f(E)) with respect to model parameters [A, κ, E_c].
-
-Used for gradient-based optimization and uncertainty quantification.
-
-# Returns
-Vector [∂log(f)/∂A, ∂log(f)/∂κ, ∂log(f)/∂E_c]
-"""
-function log_jacobian(m::KappaDistribution, E)
-    A_val = m.A
-    κ_val = m.κ
-    E_c_val = m.E_c
-
-    u = E / (κ_val * E_c_val)  # Normalized energy
-    g = nm.log(1 + u)
-
-    # Partial derivatives
-    dA = 1 / A_val
-    dκ = -g + (κ_val + 1) * E / (κ_val * (κ_val * E_c_val + E))
-    dEc = (κ_val + 1) * E / (E_c_val * (κ_val * E_c_val + E))
-
-    return [dA, dκ, dEc]
 end

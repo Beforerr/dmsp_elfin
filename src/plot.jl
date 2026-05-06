@@ -1,5 +1,5 @@
 import SpacePhysicsMakie
-using SpacePhysicsMakie: set_if_valid!
+using SpacePhysicsMakie: set_if_valid!, degap
 using DmspElfinConjunction: TwoStepModel
 using SpectralModels: math_show
 import SpectralModels as SM
@@ -155,23 +155,24 @@ function plot_conjunction(event, dmsp_interp, elfin_interp)
     return p
 end
 
-function plot_spectra!(ax, energies, model)
-    return lines!(ax, energies, model; label = SM.math_show(model), linestyle = :dot)
-end
+function plot_model!(ax, energies, model::TwoStepModel; legend = (;))
+    _plot1!(x, model) = lines!(ax, x, model; label = SM.math_show(model), linestyle = :dot)
 
-function plot_spectra!(ax, energies, model::TwoStepModel; legend = (;))
     Emin = model.Emin
     lines!(ax, energies, model.(energies); label = "Combined Model", linewidth = 2, color = :red)
     vlines!(ax, Emin; label = "Transition Energy", color = :grey, linestyle = :dash)
     # axislegend(ax)
 
     # Plot individual components with parameters in labels
-    l1 = plot_spectra!(ax, energies, model.model1)
-    l2 = plot_spectra!(ax, energies, model.model2)
+    l1 = _plot1!(energies, model.model1)
+    l2 = _plot1!(energies, model.model2)
 
     line_element = (; linewidth = 3)
-    axislegend(ax, [l1 => line_element], [l1.label[]]; position = (0, 0.3), legend...)
-    axislegend(ax, [l2 => line_element], [l2.label[]]; position = :rt, legend...)
+
+    !isnothing(legend) && begin
+        axislegend(ax, [l1 => line_element], [l1.label[]]; position = (0, 0.3), legend...)
+        axislegend(ax, [l2 => line_element], [l2.label[]]; position = :rt, legend...)
+    end
     return ax
 end
 
@@ -180,7 +181,7 @@ function plot_spectra!(ax, flux, flux_1, model; plot_model = true, kw...)
     scatterlines!(ax, flux_1)
     plot_model && begin
         energies = vcat(flux.dims[1].val, flux_1.dims[1].val)
-        plot_spectra!(ax, energies, model; kw...)
+        plot_model!(ax, energies, model; kw...)
     end
     return ax
 end

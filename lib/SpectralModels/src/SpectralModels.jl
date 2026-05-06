@@ -16,7 +16,6 @@ and fitting routines for particle flux measurements.
 - `KappaDistribution2`: Log-transformed kappa distribution
 - `TransformKappaDistribution`: Bounded kappa distribution for optimization
 - `SmoothBrokenPowerlaw`: Smooth broken power-law model
-- `SmoothBrokenPowerlawFixed`: Fixed smoothness parameter version
 - `TwoStepModel`: Combined two-component model
 
 # Main Functions
@@ -24,7 +23,7 @@ and fitting routines for particle flux measurements.
 ## Fitting
 - `fit(ModelType, energies, flux)`: Fit spectral model to data
 - `init_guess(ModelType, energies, flux)`: Generate initial parameter guess
-- `fit_flux_two_step`: Fit two-component model with transition energy
+- `fit_two_step`: Fit two-component model with transition energy
 - `fit_two_flux`: Fit combined flux from two instruments
 
 ## Flux Integration
@@ -71,7 +70,7 @@ two_step = fit(TwoStepModel{PowerLawExpCutoff2, TransformKappaDistribution},
 # References
 
 - Gammapy spectral models: https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/
-- SpectralFitting.jl: https://fjebaker.github.io/SpectralFitting.jl/dev/
+- SpectralFitting.jl: https://juliaastro.org/SpectralFitting/
 - sherpa: https://github.com/sherpa/sherpa : a Python package for modeling and fitting data.
 """
 module SpectralModels
@@ -79,28 +78,23 @@ module SpectralModels
 # Standard library
 using Printf
 using Statistics: mean
+import Base: iterate, show
 
 # External dependencies
 using LaTeXStrings
 using TransformVariables: transform, as, inverse, asℝ₊
-using NaNMath
-import NaNMath as nm
-using LsqFit
 using StaticArrays
-using NonlinearSolve
-using CurveFit
+using NonlinearSolveFirstOrder
 using SpecialFunctions: gamma
-import Base: iterate, show
 
 export SpectralModel, AbstractKappaDistribution
 export PowerLaw, PowerLawExpCutoff, PowerLawExpCutoff2
 export KappaDistribution, KappaDistribution2, TransformKappaDistribution
-export SmoothBrokenPowerlaw, SmoothBrokenPowerlawFixed
+export SmoothBrokenPowerlaw
 export TwoStepModel
 
 export fit, init_guess
-export fit_flux_two_step, fit_two_flux
-export sciml_log_fit, LsqFit_log_fit
+export fit_two_step, fit_two_flux
 
 export paramcount, raw_vec, log_eval
 export n_flux, e_flux
@@ -109,7 +103,10 @@ export A, logA, E_c, κ, math_show
 include("model.jl")
 include("kappa.jl")
 include("powerlaw.jl")
+include("smooth_broken_powerlaw.jl")
+include("two_step.jl")
 include("fit.jl")
 include("sciml.jl")
+# include("LsqFit.jl")
 
 end

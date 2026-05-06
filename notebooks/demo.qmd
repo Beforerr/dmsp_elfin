@@ -4,12 +4,11 @@
 using DmspElfinConjunction
 import DmspElfinConjunction as DE
 using DMSP, ELFINData
-# using SPEDAS
 using SpaceDataModel: setmeta
 using GLMakie, SpacePhysicsMakie
 using Dates, TimeseriesUtilities
 using DataFrames, DataFramesMeta, DimensionalData
-using IRBEM, GeoCotrans, GeoAACGM
+using GeoCotrans, GeoAACGM
 using Beforerr
 using Beforerr: add_labels!
 
@@ -46,8 +45,8 @@ id, trange = 16, [DateTime("2020-07-04T22"), DateTime("2020-07-04T22:30")]
 id, trange = 16, [DateTime("2022-07-02T05:00"), DateTime("2022-07-02T05:06")]
 
 # id, trange = 17, [DateTime("2021-11-08T22:28"), DateTime("2021-11-08T22:32")]
-config = (; probe, id, trange, t0, t1)
 t0, t1 = trange
+config = (; probe, id, trange, t0, t1)
 # Load ELFIN EPD data
 begin
     elx_flux = ELFINData.epd_spectral(trange; probe) |> permutedims
@@ -61,7 +60,7 @@ begin
     elx_aacgm = gei2aacgm(elx_gei)
     elx_mlat = _mlat(elx_aacgm)
     elx_geo = gei2geo(elx_gei)
-    elx_mlt = get_mlt(elx_geo)
+    elx_mlt = GeoCotrans.get_mlt(elx_geo)
     ae_max, ae = maxAE(elx_gei_trange)
     elx_flux_ratio = ELFINData.flux_ratio(elx_flux)
 end
@@ -129,26 +128,11 @@ We treat 0 as 0 for averaging, 0 for NaN for fitting.
 
 ## Demo Plotting
 
-```{julia}
-using StatsBase: counts
-mlats = [-70, -68.5]
-f = Figure(; size=(900, 700))
-demo_plot(f, zoom_tr, join_df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:cividis, mlt_offset=-3)
-ax1 = f.content[1]
-ylims!(ax1, 0.8, 6.8)
-add_labels!(; position=Right(), padding=(0, 0, 0, 0))
-# add_topbar(f[0, 1], [(-70, -68.5)])
-intervals = [(-70.5, -67)]
-add_topbar!(ax1, intervals)
-# easy_save("flux_with_fit")
-easy_save(savename("flux_with_fit", config))
-```
-
 ![flux_with_fit](../figures/flux_with_fit.png)
 
-![Good example with close MLT](../figures/flux_with_fit_id=17_probe=a_t0=2021-12-01T22:19:00_t1=2021-12-01T22:28:00.png)
+![Good example with close MLT](../figures/flux_with_fit_id=17_probe=a_t0=2021-12-01T22:19:00_t1=2021-12-01T22:28:00.pdf)
 
-![Bad example with close MLT](../figures/flux_with_fit_id=16_probe=a_t0=2020-07-04T22:00:00_t1=2020-07-04T22:30:00.png)
+![Bad example with close MLT](../figures/flux_with_fit_id=16_probe=a_t0=2020-07-04T22:00:00_t1=2020-07-04T22:30:00.pdf)
 
 ## Mechanisms
 

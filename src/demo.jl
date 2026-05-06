@@ -16,14 +16,6 @@ function _heatmap!(ax, data; kw...)
     return heatmap!(ax, x, y, z; kw...)
 end
 
-function simplify_axis_datetime_ticks!(ax)
-    orig_ticks = ax.xticks[]
-    tick_texts = map(enumerate(orig_ticks[2])) do (i, t)
-        i == 1 ? t : split(t, "T")[2] # replace text before "T" with space
-    end
-    return ax.xticks[] = orig_ticks[1], tick_texts
-end
-
 function quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colorrange = (1.0e2, 2.0e11), colormap = :turbo, add_ae = true)
     tvars = map((elx_flux.prec, dmsp_flux)) do f
         tview(f, trange)
@@ -71,31 +63,30 @@ function quicklook(f, trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, 
     return axs
 end
 
-# mlt_offset is used to shift the MLT axis to the left by mlt_offset hours (without gap between 24 and 0)
-function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats = nothing, colormap = :batlow, colorrange = (1.0e2, 2.0e11), add_ratios = true, add_elx_ratio = false, mlt_offset = 0)
+# mlt_offset shifts the MLT y-axis by mlt_offset hours (without gap between 24 and 0)
+function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat, elx_flux_ratio = nothing; mlats = nothing, colormap = :batlow, colorrange = (1.0e2, 2.0e11), mlt_offset = 0, legend = (; labelsize = 12))
+    _label(x, default) = get(x.metadata, :label, default)
+
     mlat_limits = extrema(df.mlat)
 
     sdf = @rsubset(df, :Δmlt < 1)
     mlats = @something mlats rand(sdf.mlat, 2)
     _sdf = @rsubset(sdf, :mlat ∈ mlats)
 
-    elx_flux_ratio = ELFIN.flux_ratio(elx_flux)
-
     let layout = GridLayout(f[1, 1])
-
         ax = Axis(layout[1, 1]; ylabel = "MLT")
-        scatter!(ax, set_mlat_dim(mod.(dmsp_mlt .- mlt_offset, 24), dmsp_mlat); label = "DMSP")
-        scatter!(ax, set_mlat_dim(mod.(elx_mlt .- mlt_offset, 24), elx_mlat); label = "ELFIN")
+        scatter!(ax, set_mlat_dim(mod.(dmsp_mlt .- mlt_offset, 24), dmsp_mlat); label = _label(dmsp_mlt, "DMSP"))
+        scatter!(ax, set_mlat_dim(mod.(elx_mlt .- mlt_offset, 24), elx_mlat); label = _label(elx_mlt, "ELFIN"))
         # update the y axis ticklabels
         ax.ytickformat[] = (x -> string.(mod.(x .+ mlt_offset, 24)))
         Legend(layout[1, 2], ax; padding = (30, 0, 0, 0), tellheight = false, tellwidth = false)
 
-        p1 = plot_flux_by_mlat(layout[2, 1], tview(elx_flux.prec, trange), elx_mlat; colorrange, colormap)
+        p1 = plot_flux_by_mlat(layout[2, 1], tview(elx_flux, trange), elx_mlat; colorrange, colormap)
         p2 = plot_flux_by_mlat(layout[3, 1], dmsp_flux, dmsp_mlat; colorrange, colormap)
         Colorbar(layout[2:3, 2], p1.plot; label = 𝒀.nflux)
         mlat_axes = (ax, p1.axis, p2.axis)
 
-        add_elx_ratio && begin
+        isnothing(elx_flux_ratio) || begin
             p3 = plot_flux_by_mlat(layout[4, 1], tview(elx_flux_ratio, trange), elx_mlat)
             Colorbar(layout[4, 2], p3.plot; label = L"j_{prec}/j_{trap}")
             mlat_axes = (mlat_axes..., p3.axis)
@@ -112,11 +103,11 @@ function demo_plot(f, trange, df, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_m
 
     let layout = GridLayout(f[2, 1])
 
-        axs = plot_spectras(layout[1, 1:2], _sdf; legend = (; labelsize = 12))
+        axs = plot_spectras(layout[1, 1:2], _sdf; legend)
 
         hlines!.(axs, FLUX_THRESHOLD; color = :black, linestyle = :dash)
 
-        if add_ratios
+        if !isnothing(elx_flux_ratio)
             hidexdecorations!.(axs; grid = false, ticklabels = false)
 
             fg = layout[2, 1:2]

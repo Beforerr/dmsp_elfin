@@ -1,6 +1,6 @@
 # Spectral Models
 
-Some spectral models for fitting particle flux data.
+Spectral models for fitting particle flux data.
 
 [Spectral analysis - gammapy](https://docs.gammapy.org/dev/tutorials/analysis-1d/spectral_analysis.html)
 

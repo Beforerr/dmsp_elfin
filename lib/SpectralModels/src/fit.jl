@@ -1,115 +1,43 @@
-using NaNMath
-import NaNMath as nm
-using Statistics: mean
-using LsqFit
-using StaticArrays
-export init_guess
-
 # https://discourse.julialang.org/t/comparing-non-linear-least-squares-solvers/104752
 # https://juliapackagecomparisons.github.io/comparisons/math/nonlinear_solvers/
 # https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/index.html
-# https://docs.gammapy.org/dev/user-guide/model-gallery/spectral/plot_exp_cutoff_powerlaw.html
-# https://fjebaker.github.io/SpectralFitting.jl/dev/
 
-# Helper functions for DimensionalData compatibility
-# These will be overridden when used with DimensionalData types
-energies(x) = hasfield(typeof(x), :dims) ? parent(x.dims[1].val) : x
-parent(x) = x  # Default fallback
+using Statistics: mean
+export init_guess, fit_two_step, fit_two_flux
+using SciMLBase: FullSpecialize
+using NonlinearSolveFirstOrder: TrustRegion
 
-# https://github.com/JuliaNLSolvers/LsqFit.jl
-function LsqFit_log_fit(Model, E, y; kw...)
-    f = (E, p) -> (m = Model(p); log_eval.(m, E))
-    p0 = init_guess(Model, E, y)
-    log_y = log.(y)
-    try
-        fit = LsqFit.curve_fit(f, E, log_y, p0; kw...)
-        return Model(fit.param)
-    catch e
-        @info log_y p0
-        throw(e)
+# IIP + FullSpecialize avoids FunctionWrappersWrapper (which locks IIP to chunk_size=1)
+const _FS = FullSpecialize
+
+energies(x) = hasfield(typeof(x), :dims) ? Base.parent(x.dims[1].val) : x
+
+init_guess(M, flux) = init_guess(M, energies(flux), Base.parent(flux))
+
+function init_guess(M::Type{<:AbstractPowerLawExpCutoff}, E, y)
+    function _init_guess(E, y)
+        i = argmax(y)
+        γ = -1.5 # Like Maxwellian distribution
+        E_c = E[i]
+        A = y[i] * E[i]^γ * exp(E[i] / E_c)
+        return PowerLawExpCutoff(A, γ, E_c)
     end
-end
 
-init_guess(M, flux) = init_guess(M, energies(flux), parent(flux))
-
-function unbound_fit(M::Type{<:PowerLawExpCutoff}, E, y)
-    N = length(E)
-    # Log-transform the data and build the design matrix
-    yln = log.(y)
-    X = hcat(ones(N), -log.(E), -E)
-
-    # Solve the normal equations via backslash \(x, y)
-    # For rectangular A the result is the minimum-norm least squares solution computed by a pivoted QR factorization of A and a rank estimate of A based on the R factor.
-    θ = X \ yln
-    α, γ, φ = θ
-
-    # Back-transform to original parameters
-    A = exp(α)
-    E_c = 1 / φ
-    return M(A, γ, E_c)
-end
-
-"""
-    init_guess(PowerLawExpCutoff, E, y)
-
-Note that the result may not be a valid PowerLawExpCutoff model (i.e. E_c <= 0)
-"""
-function init_guess(M::Type{<:PowerLawExpCutoff}, E, y)
-    m = unbound_fit(M, E, y)
-    return if m.E_c > 0
-        raw_vec(m)
-    else
-        _init_guess(M, E, y)
-    end
-end
-
-function init_guess(::Type{<:PowerLawExpCutoff2}, E, y)
     m = unbound_fit(PowerLawExpCutoff, E, y)
-    A, γ, E_c = if m.E_c > 0
-        raw_vec(m)
-    else
-        _init_guess(PowerLawExpCutoff, E, y)
+    return M(m.E_c > 0 ? m : _init_guess(E, y))
+end
+
+function init_guess(M::Type{<:AbstractKappaDistribution}, energies, flux)
+    function _init_guess(energies, flux)
+        i = argmax(flux)
+        κ0 = 5.0  # Typical kappa value
+        E0 = energies[i]
+        E_c0 = energies[i] / 1.1
+        A = flux[i] / E0 * (1.0 + E0 / (κ0 * E_c0))^(κ0 + 1.0)
+        return KappaDistribution(A, κ0, E_c0)
     end
-    return [log(A), γ, log(E_c)]
-end
 
-function _init_guess(::Type{<:PowerLawExpCutoff}, E, y)
-    i = argmax(y)
-    γ = -1.5 # Like Maxwellian distribution
-    E_c = E[i]
-    A = y[i] * E[i]^γ * exp(E[i] / E_c)
-    return [A, γ, E_c]
-end
-
-function init_guess(::Type{<:KappaDistribution}, energies, flux)
-    i = argmax(flux)
-    κ0 = 5.0  # Typical kappa value
-    E0 = energies[i]
-    E_c0 = energies[i] / 1.1
-    A = flux[i] / E0 * (1. + E0 / (κ0 * E_c0))^(κ0 + 1.)
-    return [A, κ0, E_c0]
-end
-
-function init_guess(::Type{<:KappaDistribution2}, energies, flux)
-    A, κ0, E_c0 = init_guess(KappaDistribution, energies, flux)
-    return [log(A), log(κ0), log(E_c0)]
-end
-
-function init_guess(M::Type{<:TransformKappaDistribution}, energies, flux)
-    A, κ0, E_c0 = init_guess(KappaDistribution, energies, flux)
-    u1 = inverse(as_A, A)
-    u2 = inverse(as_κ, κ0)
-    u3 = inverse(as_Ec, min(E_c0, 100))
-    return [u1, u2, u3]
-end
-
-function init_guess(::Type{<:SmoothBrokenPowerlawFixed}, energies, flux)
-    i = argmax(flux)
-    γ1, γ2 = -5.0, 3.0
-    E0 = energies[i]
-    Eb = 1.0e3
-    A = flux[i] / exp(log_sbpl_model(E0, [1, γ1, γ2, Eb]))
-    return [A, γ1, γ2, Eb]
+    return M(_init_guess(energies, flux))
 end
 
 """
@@ -122,11 +50,11 @@ function fit(M::Type{<:PowerLawExpCutoff}, E, y)
     # return M(init_guess(M, E, y))
     lower = SA[0, -Inf, 0]
     method = :sciml
-    if method == :sciml
-        alg = NonlinearSolve.TrustRegion()
-        return sciml_log_fit(M, E, y; alg)
+    return if method == :sciml
+        alg = TrustRegion()
+        sciml_log_fit(M, E, y; alg)
     elseif method == :lsqfit
-        return LsqFit_log_fit(M, E, y; lower)
+        LsqFit_log_fit(M, E, y; lower)
     end
 end
 
@@ -152,7 +80,7 @@ end
 
 function fit(M::Type{<:AbstractKappaDistribution}, E, y; method = :sciml, kw...)
     return if method == :sciml
-        alg = NonlinearSolve.TrustRegion() # this is much faster than the default `FastShortcutNLLSPolyalg()` and `LeastSquaresOptimJL()`
+        alg = TrustRegion() # this is much faster than the default `FastShortcutNLLSPolyalg()` and `LeastSquaresOptimJL()`
         sciml_log_fit(M, E, y; alg, kw...)
     elseif method == :jso
         jso_nls_fit(M, E, y; kw...)
@@ -165,118 +93,92 @@ function fit(M, flux; kw...)
     return fit(M, energies(flux), parent(flux); kw...)
 end
 
-export remove_nan, fit_flux_two_step, jso_nls_fit
+# convert model to avoid repeated transformation
+_eval_model(m) = m
+_eval_model(m::PowerLawExpCutoff2) = PowerLawExpCutoff(A(m), m.γ, E_c(m))
+_eval_model(m::TransformKappaDistribution) = KappaDistribution(m)
+
 
 """
-    fit_flux_two_step(M1, M2, energies, flux, E_tran; kw...)
+    fit_two_step(m1_init, m2_init, x, y; high, kw...)
 
-First fit high energy part (E > E_tran) with M2
-Then fit low energy part (E <= E_tran) with M1
+Fit M2 (seeded from `m2_init`) to `x[high], y[high]`, then fit M1 (seeded from `m1_init`)
+to all of (x, y) with M2 as additive background. Returns `(model1, model2, score)`.
 """
-function fit_flux_two_step(M1, M2, energies, flux, E_tran; kw...)
-    high_energy_idx = energies .> E_tran
-    flux_high = flux[high_energy_idx]
-    Es_high = energies[high_energy_idx]
-    model2 = fit(M2, Es_high, flux_high; kw...)
+function fit_two_step(m1_init::M1, m2_init::M2, x, y; high, logy = log.(y), refine = false, kw...) where {M1, M2}
+    alg = TrustRegion()
 
-    # fit low energy part
-    low_energy_idx = energies .<= E_tran
-    flux_low = flux[low_energy_idx]
-    Es_low = energies[low_energy_idx]
+    model2 = fit(M2, x[high], y[high]; u0 = raw_vec(m2_init), kw...)
+    m2_vals = model2.(x)
 
-    alg = NonlinearSolve.TrustRegion()
-    u1_0 = init_guess(M1, Es_low, flux_low)
-    function f(u, E)
-        m1 = M1(u)
-        return @. log(m1(E) + model2(E))
+    model1 = begin
+        f! = (r, u, E) -> (m1 = _eval_model(M1(u)); @. r = log(m1(E) + m2_vals) - logy)
+        nf = NonlinearFunction{true, _FS}(f!; resid_prototype = similar(x))
+        prob = NonlinearLeastSquaresProblem(nf, raw_vec(m1_init), x)
+        sol = solve(prob, alg; kw...)
+        M1(sol.u)
     end
-    prob = NonlinearCurveFitProblem(f, u1_0, energies, log.(flux))
-    sol = solve(prob, alg; kw...)
-    model1 = M1(sol.u)
 
+    if refine
+        n1 = paramcount(M1)
+        u0_joint = vcat(raw_vec(model1), raw_vec(model2))
+        f_joint! = (r, u, E) -> (
+            m1 = _eval_model(M1(@view u[1:n1]));
+            m2 = _eval_model(M2(@view u[(n1 + 1):end]));
+            @. r = log(m1(E) + m2(E)) - logy
+        )
+        nf_joint = NonlinearFunction{true, _FS}(f_joint!; resid_prototype = similar(x))
+        prob_joint = NonlinearLeastSquaresProblem(nf_joint, u0_joint, x)
+        sol = solve(prob_joint, alg; kw...)
+        model1 = M1(@view sol.u[1:n1])
+        model2 = M2(@view sol.u[(n1 + 1):end])
+    end
 
-
-    model = TwoStepModel(model1, model2, E_tran)
     score = mean(abs2, sol.resid)
-    return model, score
-end
-
-
-# This does not work very well as quite nonlinear without constraints
-function fit_flux_one_step(M1, M2, energies, flux, E_tran; kw...)
-    high_energy_idx = energies .> E_tran
-    flux_high = flux[high_energy_idx]
-    Es_high = energies[high_energy_idx]
-    model2 = fit(M2, Es_high, flux_high; kw...)
-
-    # fit low energy part
-    low_energy_idx = energies .<= E_tran
-    flux_low = flux[low_energy_idx]
-    Es_low = energies[low_energy_idx]
-    δflux_low = flux_low .- model2.(Es_low)
-    if any(<(0), δflux_low) # Not a valid fit for low energy part
-        return missing, Inf
-    end
-
-    alg = NonlinearSolve.TrustRegion()
-    u1_0 = init_guess(M1, Es_low, δflux_low)
-    f = (u, E) -> begin
-        m1 = M1(u[1:paramcount(M1)])
-        m2 = M2(u[(paramcount(M1) + 1):end])
-        @. nm.log(m1(E) + m2(E))
-    end
-    u0 = vcat(u1_0, raw_vec(model2))
-    prob = NonlinearCurveFitProblem(f, u0, energies, log.(flux))
-    sol = solve(prob, alg; kw...)
-    model = TwoStepModel(M1(sol.u[1:paramcount(M1)]), M2(sol.u[(paramcount(M1) + 1):end]), E_tran)
-    score = msd_log(model, energies, flux)
-    return model, score
+    return model1, model2, score
 end
 
 """
-    msd_log(a, b)
+    fit(TwoStepModel, flux, energies; kw...)
 
-Return the mean squared deviation between the log-transformed two arrays: `mean(abs2, log(a) - log(b))`.
-"""
-msd_log(a, b) = mean(abs2, log.(a) .- log.(b))
-msd_log(model, x, y) = mean(abs2, log.(y) .- log.(model.(x)))
-
-
-"""
-    fit(flux, energies; kw...)
-
-Fit two-step model with optimized transition energy Emin.
-Uses actual energy channel values as candidates for Emin.
+Fit two-step model with optimized transition energy.
 
 Returns:
 - TwoStepModel: Combined model structure
-- best_Emin: Optimal transition energy
 - best_score: Fit quality score (lower is better)
 """
-function fit(t::Type{<:TwoStepModel{M1, M2}}, flux, energies; EMAX = 60, verbose = false, kw...) where {M1, M2}
-    # Use actual energy values as candidates (instrument channels)
-    # Filter to reasonable range and ensure enough points on both sides
-    best_model = missing
-    best_score = Inf
+function fit(t::Type{<:TwoStepModel{M1, M2}}, flux, energies; EMAX = 60, kw...) where {M1, M2}
+    if !issorted(energies)
+        p = sortperm(energies)
+        return fit(t, flux[p], energies[p]; EMAX, kw...)
+    end
+
+    best_model, best_score = missing, Inf
 
     n_low = paramcount(M1)
     n_high = paramcount(M2)
+    n = length(energies)
+    logy = log.(flux)
 
-    for E_tran in energies
-        if E_tran > EMAX || count(<=(E_tran), energies) < n_low || count(>(E_tran), energies) < n_high
+    # Warm-start: store fitted models and reuse as init for adjacent E_tran candidates
+    m1_warm = nothing
+    m2_warm = nothing
+    @views for (i, E_tran) in enumerate(energies)
+        if E_tran > EMAX || i < n_low || n - i < n_high
             continue
         end
-        combined_model, score = fit_flux_two_step(M1, M2, energies, flux, E_tran; kw...)
-        verbose && @info combined_model
+        high = (i + 1):n
+        m1_init = @something m1_warm init_guess(M1, energies[1:i], flux[1:i])
+        m2_init = @something m2_warm init_guess(M2, energies[high], flux[high])
+        model1, model2, score = fit_two_step(m1_init, m2_init, energies, flux; high, logy, kw...)
         if score < best_score
-            best_score = score
-            best_model = combined_model
+            best_model, best_score = TwoStepModel(model1, model2, E_tran), score
         end
+        m1_warm = model1
+        m2_warm = model2
     end
     return best_model, best_score
 end
-
-export fit_two_flux
 
 const FLUX_THRESHOLD = 150
 
@@ -287,7 +189,7 @@ function fit_two_flux(modelType, flux1, flux2; threshold = FLUX_THRESHOLD, kw...
     valid_idx = @. !isnan(flux) & (flux >= threshold)
     clean_flux = flux[valid_idx]
     n_points = length(clean_flux)
-    model, score = fit(modelType, parent(clean_flux), energies(clean_flux); kw...)
+    model, score = fit(modelType, Base.parent(clean_flux), energies(clean_flux); kw...)
     return (; success = !ismissing(model), model, n_points, score)
 end
 

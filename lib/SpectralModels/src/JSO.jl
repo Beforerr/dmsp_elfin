@@ -24,7 +24,7 @@ model = jso_nls_fit(KappaDistribution, energies, flux, solver=trunk)
 """
 function jso_nls_fit(Model, E, y; bounds = nothing, kw...)
     # Residual function for nonlinear least squares
-    observed = nm.log.(y)
+    observed = log.(y)
     function F(x)
         m = Model(x)
         return observed .- log_eval.(m, E)
