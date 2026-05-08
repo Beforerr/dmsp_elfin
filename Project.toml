@@ -76,6 +76,7 @@ path = "lib/SpectralModels"
 path = "/Users/zijin/.julia/dev/TimeseriesUtilities"
 
 [compat]
+Accessors = "0.1"
 CDFDatasets = "0.1"
 DataFramesMeta = "0.15.4"
 DimensionalData = "0.29.16"
