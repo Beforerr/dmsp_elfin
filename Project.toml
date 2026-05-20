@@ -48,6 +48,7 @@ TimeseriesUtilities = {path = "/Users/zijin/.julia/dev/TimeseriesUtilities"}
 
 [compat]
 CDFDatasets = "0.1"
+CSV = "0.10"
 DataFramesMeta = "0.15.4"
 GeoCotrans = "0.2"
 LoggingExtras = "1"
