@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
     <meta charset="utf-8">
-    <meta name="generator" content="quarto-1.9.12">
+    <meta name="generator" content="quarto-1.9.22">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
     <title>stats</title>
     <style>
+      /* Default styles provided by pandoc.
+      ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+      */
       code{white-space: pre-wrap;}
       span.smallcaps{font-variant: small-caps;}
       div.columns{display: flex; gap: min(4vw, 1.5em);}
@@ -155,10 +158,10 @@
 <script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-cdaacfc258cb6f151192107f105ac881.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-e7fd89eb10c6ed14e7244b08785b4b10.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-a74871fe4945b66d259aafc266475145.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-8ffd5f67044e5306d9846f29df41dda5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
 <link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
 <link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
@@ -205,8 +208,7 @@
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#output-the-dataset-as-a-csv-file" id="toc-output-the-dataset-as-a-csv-file" class="nav-link active" data-scroll-target="#output-the-dataset-as-a-csv-file">Output the dataset as a CSV file</a></li>
-  <li><a href="#check-some-events" id="toc-check-some-events" class="nav-link" data-scroll-target="#check-some-events">Check some events</a>
+  <li><a href="#check-some-events" id="toc-check-some-events" class="nav-link active" data-scroll-target="#check-some-events">Check some events</a>
   <ul class="collapse">
   <li><a href="#multiple-peaks-in-kappa-distribution" id="toc-multiple-peaks-in-kappa-distribution" class="nav-link" data-scroll-target="#multiple-peaks-in-kappa-distribution">Multiple peaks in kappa distribution</a></li>
   </ul></li>
@@ -237,7 +239,7 @@
 using Dates
 using TimeseriesUtilities
 using DimensionalData, DataFrames, DataFramesMeta
-using GeoCotrans, IRBEM
+using GeoCotrans
 using Accessors
 using AlgebraOfGraphics
 using CairoMakie
@@ -254,37 +256,10 @@ include("../src/statplot.jl")
 includet("../src/demo.jl")
 includet("../src/analysis.jl")</code></pre>
 </div></div>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="4" class="cell" data-execution_count="0">
-<pre><code># tr = Date("2020-07-01"), Date("2020-12-01")
-tr = Date("2020-01-01"), Date("2022-10-01")
-# rm("docs/data/ELFIN=a_t0=2022-07-01_t1=2022-08-01_ids=16-17-18.jld2")
-ids = 16:18
-df_a = produce(tsplit(tr, Month), "a", ids)
-df_b = produce(tsplit(tr, Month), "b", ids)
-df_a.elfin .= :a
-df_b.elfin .= :b
-df = vcat(df_a, df_b)
-
-unique(df.mechanism), counts(Int.(df.mechanism))
-
-tranges = @chain df begin
-    @groupby(:elfin, :id)
-    @combine $AsTable = (trs = find_continuous_timeranges(sort!(DateTime.(first.(:trange_elx))), Minute(2)); (t0=first.(trs), t1=last.(trs)))
-    @orderby(:elfin, :id, :t0)
-end
-
-tranges_summary = @chain tranges begin
-    @groupby(:elfin, :id)
-    combine(nrow =&gt; :n, :t0 =&gt; minimum =&gt; :t0_min, :t1 =&gt; maximum =&gt; :t1_max)
-    sort([:elfin, :id])
-end
-
-tranges_summary</code></pre>
-</div></div>
 <!--
  18988 for ELFIN A, 17392 for ELFIN B
 -->
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="6" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="4" class="cell" data-execution_count="0">
 <pre><code>using SpectralModels: A, κ, E_c, n_flux, e_flux
 
 const γ_len = @optic _.γ
@@ -325,18 +300,9 @@ gdf = make_gdf(sdf)
 
 size(sdf, 1) # 28739</code></pre>
 </div></div>
-<section id="output-the-dataset-as-a-csv-file" class="level2">
-<h2 class="anchored" data-anchor-id="output-the-dataset-as-a-csv-file">Output the dataset as a CSV file</h2>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="8" class="cell" data-execution_count="0">
-<pre><code>let colnames = [:elfin, :id, :mlat, :mlt_elx, :mlt_dmsp, :maxAE, :trange_elx, :trange_dmsp, :flux_elx, :flux_dmsp, :model]
-    select!(sdf, colnames, Not(colnames))
-    CSV.write("events.csv", sdf)
-end</code></pre>
-</div></div>
-</section>
 <section id="check-some-events" class="level2">
 <h2 class="anchored" data-anchor-id="check-some-events">Check some events</h2>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="10" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="6" class="cell" data-execution_count="0">
 <pre><code>begin
     #  find a good example for demostration purpose in the sense overlapping time,mlt and mlat at the same time
     row = @rsubset(sdf, :Δt &lt; Millisecond(100000), :Δmlt &lt; 0.1)[75, :]
@@ -359,6 +325,7 @@ end</code></pre>
 
     # quicklook(trange, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat)
     f = Figure(; size=(800, 600))
+    # TODO: update
     demo_plot(f, trange, tdf, elx_flux, elx_mlt, elx_mlat, dmsp_flux, dmsp_mlt, dmsp_mlat; mlats, add_ratios=false, colormap=:batlow)
     f
 end</code></pre>
@@ -366,7 +333,7 @@ end</code></pre>
 <section id="multiple-peaks-in-kappa-distribution" class="level3">
 <h3 class="anchored" data-anchor-id="multiple-peaks-in-kappa-distribution">Multiple peaks in kappa distribution</h3>
 <p>Related to <span class="citation" data-cites="fig-param-pdf">(<a href="#ref-fig-param-pdf" role="doc-biblioref"><strong>fig-param-pdf?</strong></a>)</span>. Three examples of electron flux spectra.</p>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="12" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="8" class="cell" data-execution_count="0">
 <pre><code># Find examples with kappa ≈ 2, 5, 8 for AE &gt; 300, MLAT &gt; 65, and 0 &lt; MLT &lt; 9
 target_kappas = [2, 5, 8]
 
@@ -409,14 +376,14 @@ end</code></pre>
 </section>
 <section id="dependence-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="dependence-analysis">Dependence analysis</h2>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="14" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="10" class="cell" data-execution_count="0">
 <pre><code>using Statistics
 
-vars = [:log_A1 =&gt; "Log A (ExpPow)", :E_c1 =&gt; "E_c (ExpPow)", :γ =&gt; "γ (ExpPow)", :Emin =&gt; "Transition Energy", :log_A2 =&gt; "Log A (Kappa)", :E_c2 =&gt; "E_c (Kappa)", :κ =&gt; "κ (Kappa)]</code></pre>
+vars = [:log_A1 =&gt; "Log A (ExpPow)", :E_c1 =&gt; "E_c (ExpPow)", :γ =&gt; "γ (ExpPow)", :Emin =&gt; "Transition Energy", :log_A2 =&gt; "Log A (Kappa)", :E_c2 =&gt; "E_c (Kappa)", :κ =&gt; "κ (Kappa)"]</code></pre>
 </div></div>
 <section id="mlt-maxae-space" class="level3">
 <h3 class="anchored" data-anchor-id="mlt-maxae-space">MLT, maxAE space</h3>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="16" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="12" class="cell" data-execution_count="0">
 <pre><code>tdf = let binedges_ae = [0, 100, 300], binedges_mlt = 0:2:24
     @chain sdf begin
         @transform(
@@ -448,7 +415,7 @@ easy_save("params_mlt_ae_mean")</code></pre>
 </section>
 <section id="mlt-mlat-space-separately-for-three-maxae-ranges" class="level2">
 <h2 class="anchored" data-anchor-id="mlt-mlat-space-separately-for-three-maxae-ranges">MLT, MLAT space, separately for three MaxAE ranges</h2>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="18" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="14" class="cell" data-execution_count="0">
 <pre><code>const m2axis = (; xtickformat=mlt_tickformat, xticks=0:3:24)
 f = let df = combine(gdf, nrow =&gt; :n, renamecols=false) |&gt; dropmissing!
     plt = data(df) * mapping(:mlt_bin =&gt; mlt2x =&gt; "MLT", :mlat_bin =&gt; "MLAT", :n) * visual(Heatmap) * mapping(col=:maxAE_bin)
@@ -460,7 +427,7 @@ end</code></pre>
 <p><a href="../figures/n_mlt_mlat.png" class="lightbox" data-gallery="quarto-lightbox-gallery-2"><img src="../figures/n_mlt_mlat.png" class="img-fluid"></a></p>
 <section id="superposed-energy-flux-analysis" class="level3">
 <h3 class="anchored" data-anchor-id="superposed-energy-flux-analysis">* Superposed energy flux analysis</h3>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="20" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="16" class="cell" data-execution_count="0">
 <pre><code>mlt_mlat_ranges = [((2, 4), (70, 72)), ((6, 8), (68, 70)), ((6, 8), (61, 63)), ((12, 14), (62, 64)), ((16, 18), (65.5, 67.5))]
 f = Figure(size=(1000, 1200))
 E_grid = 10 .^ range(log10(0.03), log10(300), length=200)
@@ -480,7 +447,7 @@ easy_save("energy_spectra_mlt_mlat")</code></pre>
 </section>
 <section id="model-parameters-variation" class="level3">
 <h3 class="anchored" data-anchor-id="model-parameters-variation">Model parameters variation</h3>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="22" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="18" class="cell" data-execution_count="0">
 <pre><code>f = Figure(; size=(1500, 700))
 tdf_spatial = combine(gdf, _variable.(vars) .=&gt; mean, renamecols=false) |&gt; dropmissing!
 plot_params_variation(f, tdf_spatial, vars)
@@ -496,7 +463,7 @@ easy_save("params_mlt_mlat_median")</code></pre>
 </section>
 <section id="total-number-flux-and-energy-flux-variation" class="level2">
 <h2 class="anchored" data-anchor-id="total-number-flux-and-energy-flux-variation">* Total number flux and energy flux variation</h2>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="24" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="20" class="cell" data-execution_count="0">
 <pre><code>J_vars = [:J1 =&gt; "(a) Number flux (ExpPow)", :J2 =&gt; "(b) Number flux (Kappa)", :JE1 =&gt; "(c) Energy flux (ExpPow)", :JE2 =&gt; "(d) Energy flux (Kappa)"]
 let vars = J_vars
     f = Figure(; size=(1200, 700))
@@ -505,7 +472,7 @@ let vars = J_vars
     easy_save("flux_mlt_mlat")
 end</code></pre>
 </div></div>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="26" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="22" class="cell" data-execution_count="0">
 <pre><code>for func in (median, mean)
     let vars = [:J2 =&gt; L"(a) $J_κ$: Number flux (Kappa)", :JE2 =&gt; L"(b) $JE_κ$: Energy flux (Kappa)", :R_J2 =&gt; L"(c) $J_κ / J_{total}$", :R_JE2 =&gt; L"(d) $JE_κ / JE_{total}$"]
         f = Figure(; size=(1000, 700))
@@ -519,7 +486,7 @@ end</code></pre>
 <p><img src="../figures/flux_mlt_mlat.png" class="img-fluid">
 <img src="../figures/flux_ratio_mlt_mlat_median.png" class="img-fluid"></p>
 <p>Since in fitting, the parameters are not independent, we check the most probable values of parameter for each models.</p>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="28" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="24" class="cell" data-execution_count="0">
 <pre><code>using FHist
 
 model1s = m1.(df.model)
@@ -580,7 +547,7 @@ end
 <h3 class="anchored" data-anchor-id="fitting-of-probability-distributions">Fitting of probability distributions</h3>
 <section id="empirical-pdf-for-log_a1" class="level4">
 <h4 class="anchored" data-anchor-id="empirical-pdf-for-log_a1">Empirical pdf for <code>log_A1</code></h4>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="30" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="26" class="cell" data-execution_count="0">
 <pre><code>using StatsBase
 using FHist
 includet("../src/statmodel.jl")
@@ -603,7 +570,7 @@ end</code></pre>
 </section>
 <section id="visualizing-the-empirical-pdf" class="level4">
 <h4 class="anchored" data-anchor-id="visualizing-the-empirical-pdf">Visualizing the empirical pdf</h4>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="32" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="28" class="cell" data-execution_count="0">
 <pre><code>f = Figure(size=(1200, 900))
 
 mlt_idxs = 1:2:12
@@ -613,7 +580,7 @@ plot_empirical_conditional_density(f, tdf, vars; mlt_idxs)
 f</code></pre>
 </div></div>
 <p><a href="../figures/empirical_pdf.png" class="lightbox" data-gallery="quarto-lightbox-gallery-5"><img src="../figures/empirical_pdf.png" class="img-fluid"></a></p>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="34" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="30" class="cell" data-execution_count="0">
 <pre><code>using Measurements
 
 # Fix for AlgebraOfGraphics
@@ -657,7 +624,7 @@ end</code></pre>
 <section id="joint-probability-distributions" class="level3">
 <h3 class="anchored" data-anchor-id="joint-probability-distributions">Joint probability distributions</h3>
 <p>Probability distributions of observations in (Mlat, Ec) and (Mlat, gamma) spaces?</p>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="36" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="32" class="cell" data-execution_count="0">
 <pre><code>includet("../src/statplot.jl")
 using PairPlots, AlgebraOfGraphics
 using StatsBase
@@ -674,7 +641,7 @@ plot_parameter_distributions_aog(dropmissing(df), :maxAE; normalization=:pdf, x_
 # plot_parameter_distributions_aog(dropmissing(df), :maxAE; normalization=:column, x_binedges=(0:20:1000))
 </code></pre>
 </div></div>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="38" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="34" class="cell" data-execution_count="0">
 <pre><code># Use PairPlots for comprehensive parameter analysis
 function plot_parameter_pairplots(df)
     # Create analysis DataFrame with all relevant parameters
@@ -702,7 +669,7 @@ end
 # Plot comprehensive pairwise analysis
 plot_parameter_pairplots(df)</code></pre>
 </div></div>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="40" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="36" class="cell" data-execution_count="0">
 <pre><code># Advanced AlgebraOfGraphics visualization with faceting and grouping
 function plot_advanced_parameter_analysis(df)
     # Create comprehensive analysis DataFrame
@@ -771,7 +738,7 @@ end
 # Create advanced multi-panel analysis
 plot_advanced_parameter_analysis(df)</code></pre>
 </div></div>
-<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="42" class="cell" data-execution_count="0">
+<div class="cell-container"><div class="cell-decorator"><pre>In [0]:</pre></div><div id="38" class="cell" data-execution_count="0">
 <pre><code># Statistical summary of the distributions
 function summarize_parameter_distributions(df)
     successful_df = @subset(df, :success)
@@ -818,68 +785,68 @@ summarize_parameter_distributions(df)</code></pre>
 </section>
 <section id="parameter-statistics-and-correlations" class="level2">
 <h2 class="anchored" data-anchor-id="parameter-statistics-and-correlations">Parameter Statistics and Correlations</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co">#TODO: update this part</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate parameter statistics and correlations</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Create summary statistics</span></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>param_stats <span class="op">=</span> (</span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    plec_A_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_A for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    plec_A_std<span class="op">=</span><span class="fu">std</span>([p.plec_A for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    plec_γ_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_γ for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>    plec_γ_std<span class="op">=</span><span class="fu">std</span>([p.plec_γ for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    plec_E_c_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_E_c for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    plec_E_c_std<span class="op">=</span><span class="fu">std</span>([p.plec_E_c for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    sbpl_A_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_A for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    sbpl_A_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_A for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">1</span>_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">1</span>_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">2</span>_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">2</span>_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>    sbpl_Eb_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_Eb for p <span class="kw">in</span> param_analysis]),</span>
-<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>    sbpl_Eb_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_Eb for p <span class="kw">in</span> param_analysis])</span>
-<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a><span class="pp">@info</span> <span class="st">"Parameter Statistics:"</span> param_stats</span>
-<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Create correlation plot between key parameters</span></span>
-<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>f_corr <span class="op">=</span> <span class="fu">Figure</span>(size<span class="op">=</span>(<span class="fl">1200</span>, <span class="fl">900</span>))</span>
-<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a><span class="co"># PowerLawExpCutoff γ vs E_c</span></span>
-<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a>ax_corr1 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">1</span>, <span class="fl">1</span>], xlabel<span class="op">=</span><span class="st">"Power Index γ (PowerLawExpCutoff)"</span>,</span>
-<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Cutoff Energy E_c (keV)"</span>, yscale<span class="op">=</span>log10,</span>
-<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"PowerLawExpCutoff: γ vs E_c"</span>)</span>
-<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr1, [p.plec_γ for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>    [p.plec_E_c for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
-<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a><span class="co"># PowerLawExpCutoff A vs γ  </span></span>
-<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a>ax_corr2 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">1</span>, <span class="fl">2</span>], xlabel<span class="op">=</span><span class="st">"Amplitude A (PowerLawExpCutoff)"</span>,</span>
-<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Power Index γ"</span>, xscale<span class="op">=</span>log10,</span>
-<span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"PowerLawExpCutoff: A vs γ"</span>)</span>
-<span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr2, [p.plec_A for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a>    [p.plec_γ for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
-<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a><span class="co"># SmoothBrokenPowerlaw γ1 vs γ2</span></span>
-<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a>ax_corr3 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">2</span>, <span class="fl">1</span>], xlabel<span class="op">=</span><span class="st">"Power Index γ₁ (SBPL)"</span>,</span>
-<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Power Index γ₂ (SBPL)"</span>,</span>
-<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"SmoothBrokenPowerlaw: γ₁ vs γ₂"</span>)</span>
-<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr3, [p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a>    [p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-50"><a href="#cb22-50" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
-<span id="cb22-51"><a href="#cb22-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-52"><a href="#cb22-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Break energy vs MLAT colored by PowerLawExpCutoff cutoff</span></span>
-<span id="cb22-53"><a href="#cb22-53" aria-hidden="true" tabindex="-1"></a>ax_corr4 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">2</span>, <span class="fl">2</span>], xlabel<span class="op">=</span><span class="st">"MLAT"</span>, ylabel<span class="op">=</span><span class="st">"Break Energy Eb (keV)"</span>,</span>
-<span id="cb22-54"><a href="#cb22-54" aria-hidden="true" tabindex="-1"></a>    yscale<span class="op">=</span>log10, title<span class="op">=</span><span class="st">"Break Energy vs MLAT"</span>)</span>
-<span id="cb22-55"><a href="#cb22-55" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr4, mlats_all, [p.sbpl_Eb for p <span class="kw">in</span> param_analysis],</span>
-<span id="cb22-56"><a href="#cb22-56" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>[p.plec_E_c for p <span class="kw">in</span> param_analysis], colormap<span class="op">=:</span>plasma, markersize<span class="op">=</span><span class="fl">8</span>)</span>
-<span id="cb22-57"><a href="#cb22-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-58"><a href="#cb22-58" aria-hidden="true" tabindex="-1"></a><span class="co"># Add colorbars</span></span>
-<span id="cb22-59"><a href="#cb22-59" aria-hidden="true" tabindex="-1"></a><span class="fu">Colorbar</span>(f_corr[<span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="fl">3</span>], colormap<span class="op">=:</span>viridis, colorrange<span class="op">=</span><span class="fu">extrema</span>(mlats_all),</span>
-<span id="cb22-60"><a href="#cb22-60" aria-hidden="true" tabindex="-1"></a>    label<span class="op">=</span><span class="st">"MLAT"</span>)</span>
-<span id="cb22-61"><a href="#cb22-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-62"><a href="#cb22-62" aria-hidden="true" tabindex="-1"></a>f_corr</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">#TODO: update this part</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate parameter statistics and correlations</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Create summary statistics</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>param_stats <span class="op">=</span> (</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    plec_A_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_A for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    plec_A_std<span class="op">=</span><span class="fu">std</span>([p.plec_A for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>    plec_γ_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_γ for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    plec_γ_std<span class="op">=</span><span class="fu">std</span>([p.plec_γ for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    plec_E_c_mean<span class="op">=</span><span class="fu">mean</span>([p.plec_E_c for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>    plec_E_c_std<span class="op">=</span><span class="fu">std</span>([p.plec_E_c for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>    sbpl_A_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_A for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>    sbpl_A_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_A for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">1</span>_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">1</span>_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">2</span>_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>    sbpl_γ<span class="fl">2</span>_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>    sbpl_Eb_mean<span class="op">=</span><span class="fu">mean</span>([p.sbpl_Eb for p <span class="kw">in</span> param_analysis]),</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>    sbpl_Eb_std<span class="op">=</span><span class="fu">std</span>([p.sbpl_Eb for p <span class="kw">in</span> param_analysis])</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a><span class="pp">@info</span> <span class="st">"Parameter Statistics:"</span> param_stats</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Create correlation plot between key parameters</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>f_corr <span class="op">=</span> <span class="fu">Figure</span>(size<span class="op">=</span>(<span class="fl">1200</span>, <span class="fl">900</span>))</span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a><span class="co"># PowerLawExpCutoff γ vs E_c</span></span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>ax_corr1 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">1</span>, <span class="fl">1</span>], xlabel<span class="op">=</span><span class="st">"Power Index γ (PowerLawExpCutoff)"</span>,</span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Cutoff Energy E_c (keV)"</span>, yscale<span class="op">=</span>log10,</span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"PowerLawExpCutoff: γ vs E_c"</span>)</span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr1, [p.plec_γ for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a>    [p.plec_E_c for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a><span class="co"># PowerLawExpCutoff A vs γ  </span></span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a>ax_corr2 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">1</span>, <span class="fl">2</span>], xlabel<span class="op">=</span><span class="st">"Amplitude A (PowerLawExpCutoff)"</span>,</span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Power Index γ"</span>, xscale<span class="op">=</span>log10,</span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"PowerLawExpCutoff: A vs γ"</span>)</span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr2, [p.plec_A for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>    [p.plec_γ for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a><span class="co"># SmoothBrokenPowerlaw γ1 vs γ2</span></span>
+<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a>ax_corr3 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">2</span>, <span class="fl">1</span>], xlabel<span class="op">=</span><span class="st">"Power Index γ₁ (SBPL)"</span>,</span>
+<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a>    ylabel<span class="op">=</span><span class="st">"Power Index γ₂ (SBPL)"</span>,</span>
+<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a>    title<span class="op">=</span><span class="st">"SmoothBrokenPowerlaw: γ₁ vs γ₂"</span>)</span>
+<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr3, [p.sbpl_γ<span class="fl">1</span> for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-49"><a href="#cb20-49" aria-hidden="true" tabindex="-1"></a>    [p.sbpl_γ<span class="fl">2</span> for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>mlats_all, colormap<span class="op">=:</span>viridis, markersize<span class="op">=</span><span class="fl">8</span>)</span>
+<span id="cb20-51"><a href="#cb20-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-52"><a href="#cb20-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Break energy vs MLAT colored by PowerLawExpCutoff cutoff</span></span>
+<span id="cb20-53"><a href="#cb20-53" aria-hidden="true" tabindex="-1"></a>ax_corr4 <span class="op">=</span> <span class="fu">Axis</span>(f_corr[<span class="fl">2</span>, <span class="fl">2</span>], xlabel<span class="op">=</span><span class="st">"MLAT"</span>, ylabel<span class="op">=</span><span class="st">"Break Energy Eb (keV)"</span>,</span>
+<span id="cb20-54"><a href="#cb20-54" aria-hidden="true" tabindex="-1"></a>    yscale<span class="op">=</span>log10, title<span class="op">=</span><span class="st">"Break Energy vs MLAT"</span>)</span>
+<span id="cb20-55"><a href="#cb20-55" aria-hidden="true" tabindex="-1"></a><span class="fu">scatter!</span>(ax_corr4, mlats_all, [p.sbpl_Eb for p <span class="kw">in</span> param_analysis],</span>
+<span id="cb20-56"><a href="#cb20-56" aria-hidden="true" tabindex="-1"></a>    color<span class="op">=</span>[p.plec_E_c for p <span class="kw">in</span> param_analysis], colormap<span class="op">=:</span>plasma, markersize<span class="op">=</span><span class="fl">8</span>)</span>
+<span id="cb20-57"><a href="#cb20-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-58"><a href="#cb20-58" aria-hidden="true" tabindex="-1"></a><span class="co"># Add colorbars</span></span>
+<span id="cb20-59"><a href="#cb20-59" aria-hidden="true" tabindex="-1"></a><span class="fu">Colorbar</span>(f_corr[<span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="fl">3</span>], colormap<span class="op">=:</span>viridis, colorrange<span class="op">=</span><span class="fu">extrema</span>(mlats_all),</span>
+<span id="cb20-60"><a href="#cb20-60" aria-hidden="true" tabindex="-1"></a>    label<span class="op">=</span><span class="st">"MLAT"</span>)</span>
+<span id="cb20-61"><a href="#cb20-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-62"><a href="#cb20-62" aria-hidden="true" tabindex="-1"></a>f_corr</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
      </main>
 <!-- /main column -->  <script id="quarto-html-after-body" type="application/javascript">

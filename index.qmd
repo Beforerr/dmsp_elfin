@@ -91,23 +91,6 @@ Related: [](notebooks/stats.qmd#mlt-mlat-space-separately-for-three-maxae-ranges
 The results indicate that both total number and energy fluxes exhibit a strong dependence on MLAT, MLT, and geomagnetic activity. The majority of electron precipitation occurs at high magnetic latitudes ($66^{\circ}$ -- $80^{\circ}$). Furthermore, precipitation is most intense in the dusk sector, where the overall flux magnitude is largest. However, while the absolute flux in the dawn sector is dominated by the low-energy component, the relative contribution of the energetic population is systematically enhanced in the dusk sector.
 Additionally, as shown in the figure, increases in the AE index are accompanied by enhanced total energy and number fluxes, with the region of significant precipitation expanding toward lower magnetic latitudes and a broader MLT range. In contrast, the fractional contribution of the energetic component decreases during periods of high AE activity relative to quieter intervals.
 
-```{julia}
-_make_tdf(gdf, func, vars; n=6) = @chain gdf begin
-    combine(_variable.(vars) .=> func, nrow => :n, renamecols=false)
-    dropmissing!
-    @rsubset(:n >= n)
-end
-
-let vars = [:JE_tot => log10 => L"(a) $J_E$: Energy flux", :J_tot => log10 => L"(b) $J$: Number flux", :R_JE_e30 => L"(c) $J_E^{>30 \text{keV}} / J_E$", :R_J_e30 => L"(d) $J^{>30 \text{keV}} / J$"], axis = m2axis, func = median
-    f = Figure(; size=(720, 540))
-    tdf = _make_tdf(gdf, func, vars)
-    plot_params_variation(f, tdf, vars; axis)
-    colgap!(f.layout, 4)
-    rowgap!(f.layout, 4)
-    easy_save("e30_flux_ratio_mlt_mlat_$(func)")
-end
-```
-
 :::{#fig-e30-ratio}
 
 ![](./figures/e30_flux_ratio_mlt_mlat_median.png)
@@ -150,34 +133,6 @@ The distributions of (\kappa) values vary primarily with AE and show pronounced 
 As geomagnetic activity increases, the distributions of $J_E^{>30 \text{keV}} / J_E$ shift toward lower values in the MLT 0–9 sector, whereas this shift is less pronounced in the MLT 12–21 sector. Similarly, with increasing AE, the distributions of average energy ($\bar{E}$) shift substantially toward higher energies in the MLT 0–9 sector, while only a slight increase is observed in the MLT 12–21 sector.
 
 The distributions of $\kappa$ are generally broader and centered at higher values at high latitudes ($>65^{\circ}$) compared to lower latitudes. Notably, in the MLT 0–9 sector, $\kappa$ exhibits a bimodal distribution, which may be interpreted as [... ANTON HELP]. As the AE index increases, this bimodality becomes more pronounced, and even the low-latitude region ($60^{\circ}$–$65^{\circ}$) begins to exhibit a bimodal structure during periods of enhanced geomagnetic activity (AE $> 300$ nT). In contrast, the $\kappa$ distribution in the MLT 12–21 sector remains relatively stable and unimodal, showing only slight broadening with increasing AE.
-
-```{julia}
-# Transform dataframe with range categories
-let params = [:R_JE_e30 => L"$J_E^{>30 \text{keV}} / J_E$", :E => L"$\bar{E}$ [keV]", :κ => L"$κ$",]
-    labels = last.(params)
-    pdf_df = @chain cut_AE(sdf) begin
-        @rtransform(
-            :MLT = ifelse(12 <= :mlt_elx <= 21, "12-21", :mlt_elx < 9 ? "0-9" : missing),
-            :MLAT = 60 <= abs(:mlat) < 65 ? "60-65" : (abs(:mlat) >= 65 ? ">65" : missing)
-        )
-        dropmissing([:maxAE_bin, :MLT, :MLAT])
-    end
-
-    plt = data(pdf_df) *
-          mapping(params, color=:MLAT, linestyle=:MLT) *
-          mapping(col=:maxAE_bin, row=AlgebraOfGraphics.dims(1) => renamer(labels)) *
-          visual(Lines; linewidth=2) *
-          AlgebraOfGraphics.density(; datalimits=x -> quantile(x, [0.04, 0.96]))
-
-    fg = draw(plt; facet=(; linkxaxes=:none, linkyaxes=:minimal), axis=(xlabel="", yscale=log10))
-
-    Makie.xlims!.(fg.grid[1, :], -0.05, 0.9)
-    Makie.xlims!.(fg.grid[2, :], -0.2, 12)
-    Makie.ylims!.(fg.grid[2, :], 10^(-2.4), 10^(-0.2))
-    Makie.xlims!.(fg.grid[3, :], 1, 7.8)
-    easy_save("pdf_params_ae_mlt_mlat")
-end
-```
 
 :::{#fig-param-pdf}
 
