@@ -17,24 +17,3 @@ Existing precipitation datasets rest on DMSP measurements below 30 keV and so mi
 | --- | --- |
 | Event catalog (conjunctions, fluxes, fitted spectral parameters) | [Zenodo 10.5281/zenodo.20132654](https://doi.org/10.5281/zenodo.20132654) |
 | DEEEP flux model (Julia + Python) | [`lib/PrecipitatingFluxModels`](./lib/PrecipitatingFluxModels/README.md) |
-
-### Packages in `lib/`
-
-- [`PrecipitatingFluxModels`](./lib/PrecipitatingFluxModels/README.md) — DEEEP empirical precipitating flux model, the end-user product of this study
-- [`SpectralModels`](./lib/SpectralModels/README.qmd) — spectral forms (kappa, power law, smooth broken power law, two-step) and their fitting
-- [`DMSP`](./lib/DMSP/README.md) — DMSP SSJ flux loading from the CEDAR Madrigal database
-- [`DmspElfinConjunction`](./lib/DmspElfinConjunction/README.md) — conjunction finding in MLT/MLAT space
-
-## Reproducing
-
-```bash
-just install-julia-deps      # develop unregistered dependencies, then instantiate
-julia --project=. scripts/fig1.jl
-```
-
-Reproduction from a clean clone is only partial: the root `Project.toml` resolves several
-dependencies (`Beforerr`, `ELFINData`, `SpaceDataModel`, `SpacePhysicsMakie`, `Speasy`,
-`TimeseriesUtilities`, `DMSPData`) from local development paths under `~/.julia/dev`, and raw
-DMSP/ELFIN data is downloaded into the gitignored `data/` and `elfin_data/` directories on
-first run. `lib/PrecipitatingFluxModels` and `lib/SpectralModels` depend only on registered
-packages and are installable on their own.

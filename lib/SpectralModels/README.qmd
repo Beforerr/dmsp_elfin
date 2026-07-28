@@ -34,9 +34,6 @@ $$
 
 - [Overview of broken power law functions and fitting them to data](https://gist.github.com/cgobat/12595d4e242576d4d84b1b682476317d)
 
-### Kappa distribution
-
-
 
 ### Fit Fluxes
 

@@ -35,7 +35,7 @@ TimeseriesUtilities = "31d49243-0742-49c1-b8d2-db113b74581e"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [sources]
-Beforerr = {path = "/Users/zijin/.julia/dev/Beforerr"}
+Beforerr = {url = "https://github.com/Beforerr/Beforerr.jl"}
 DMSP = {path = "lib/DMSP"}
 DmspElfinConjunction = {path = "lib/DmspElfinConjunction"}
 PrecipitatingFluxModels = {path = "lib/PrecipitatingFluxModels"}

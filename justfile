@@ -1,11 +1,6 @@
 default:
     just --list
 
-install-julia-deps:
-    #!/usr/bin/env -S julia --threads=auto --project=.
-    using Pkg
-    Pkg.instantiate()
-
 figures:
     #!/usr/bin/env -S julia --threads=auto --project=.
     foreach(i -> include("scripts/fig$i.jl"), 1:5)
