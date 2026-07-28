@@ -1,5 +1,5 @@
 ---
-title: "Peculiarities of precipitating electron spectra: a combined DMPS-ELFIN dataset"
+title: "Peculiarities of Precipitating Electron Spectra Revealed Through a Combined DMSP-ELFIN Data Set"
 author:
   - name: Zijin Zhang
     email: zijin@ucla.edu
@@ -19,16 +19,18 @@ author:
     email: xjzhang@utdallas.edu
     affiliation: University of Texas at Dallas
     orcid: 0000-0002-4185-5465
-format:
-  html: default
-  # agu-pdf:
-    # cite-method: natbib # biblatex is not supported
-    # keep-tex: true
-date: "2026"
+date: 2026-06-15
 abstract: |
   Electron precipitation from the equatorial magnetosphere into Earth’s ionosphere constitutes a primary energy source for ionospheric ionization and for the chemistry of the upper atmosphere. Existing datasets describing this precipitation are largely based on DMSP measurements of plasma sheet electrons with energies below 30 keV and therefore do not adequately capture the energetic electron population that plays a dominant role in lower-ionosphere dynamics.
-  In this technical report, we present a new dataset that combines DMSP measurements with ELFIN observations of energetic electrons exceeding 50 keV. Using conjugate DMSP–ELFIN measurements, we identify approximately (3.6 \times 10^{4}) individual electron spectra and fit each spectrum with an analytical model. We summarize the primary results derived from this combined DMSP–ELFIN dataset, with particular emphasis on the relative contribution of energetic ((>30) keV) electrons to the precipitating energy flux. In addition, we describe the software routines developed to facilitate access to and use of the DMSP–ELFIN dataset.
+  In this technical report, we present a new dataset that combines DMSP measurements with ELFIN observations of energetic electrons exceeding 50 keV. Using conjugate DMSP–ELFIN measurements, we identify approximately $3.6 \times 10^{4}$ individual electron spectra and fit each spectrum with an analytical model. We summarize the primary results derived from this combined DMSP–ELFIN dataset, with particular emphasis on the relative contribution of energetic ($>30$ keV) electrons to the precipitating energy flux. In addition, we describe the software routines developed to facilitate access to and use of the DMSP–ELFIN dataset.
 ---
+
+::: {.callout-note}
+Published in *Journal of Geophysical Research: Space Physics*, 131(6), e2026JA035299 —
+version of record at <https://doi.org/10.1029/2026JA035299>.
+
+This page is a working draft and may not reflect the published text.
+:::
 
 ## Introduction
 

@@ -1,26 +1,31 @@
 Manifest.toml
 .vscode
+.DS_Store
+
+# raw + derived data (regenerate with scripts/, see README)
 data
 elfin_data
-
-# pixi environments
-.pixi
-*.egg-info
-.CondaPkg
-
 ssjread
+files/events.csv
 logfile.txt
-/.quarto/
-_site/
-release
-_manuscript/
-**/*.quarto_ipynb
-site_libs
-/.luarc.json
 
-_extensions
-# pixi environments
+# manuscript source, tracked in its own repo
+overleaf/
+
+# python / pixi environments
 .pixi/*
 !.pixi/config.toml
+.CondaPkg
+.venv
+*.egg-info
 __pycache__
 pixi.lock
+
+# quarto build output
+/.quarto/
+_site/
+_manuscript/
+_extensions
+site_libs
+**/*.quarto_ipynb
+/.luarc.json

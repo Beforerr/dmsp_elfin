@@ -1,23 +1,27 @@
 {
   "title": "DMSP-ELFIN Conjunction Study",
   "upload_type": "software",
-  "description": "Processing and analysis software for the manuscript \"Peculiarities of precipitating electron spectra revealed through a combined DMSP-ELFIN dataset\".",
+  "description": "Processing and analysis software for Zhang et al. (2026), \"Peculiarities of Precipitating Electron Spectra Revealed Through a Combined DMSP-ELFIN Data Set\", Journal of Geophysical Research: Space Physics, 131(6), e2026JA035299, doi:10.1029/2026JA035299.",
   "creators": [
     {
       "name": "Zhang, Zijin",
-      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA"
+      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA",
+      "orcid": "0000-0002-9968-067X"
     },
     {
       "name": "Artemyev, Anton V.",
-      "affiliation": "Department of Physics, University of Texas at Arlington, USA"
+      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA",
+      "orcid": "0000-0001-8823-4474"
     },
     {
       "name": "Angelopoulos, Vassilis",
-      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA"
+      "affiliation": "Department of Earth, Planetary, and Space Sciences, University of California, Los Angeles, USA",
+      "orcid": "0000-0001-7024-1561"
     },
     {
       "name": "Zhang, Xiao-Jia",
-      "affiliation": "Department of Physics, University of Texas at Dallas, USA"
+      "affiliation": "Department of Physics, University of Texas at Dallas, USA",
+      "orcid": "0000-0002-4185-5465"
     }
   ],
   "access_right": "open",
@@ -30,6 +34,11 @@
     "Julia"
   ],
   "related_identifiers": [
+    {
+      "identifier": "https://doi.org/10.1029/2026JA035299",
+      "relation": "isSupplementTo",
+      "resource_type": "publication-article"
+    },
     {
       "identifier": "https://doi.org/10.5281/zenodo.20132654",
       "relation": "references",
