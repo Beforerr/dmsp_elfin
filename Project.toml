@@ -42,6 +42,7 @@ PrecipitatingFluxModels = {path = "lib/PrecipitatingFluxModels"}
 SpectralModels = {path = "lib/SpectralModels"}
 
 [compat]
+Accessors = "0.1"
 CDFDatasets = "0.1"
 DataFramesMeta = "0.15.4"
 GeoCotrans = "0.2"
