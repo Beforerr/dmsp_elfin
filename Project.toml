@@ -43,6 +43,7 @@ SpectralModels = {path = "lib/SpectralModels"}
 
 [compat]
 CDFDatasets = "0.1"
+DMSPData = "0.1"
 DataFramesMeta = "0.15.4"
 GeoCotrans = "0.2"
 LoggingExtras = "1"
